@@ -3,6 +3,8 @@
 当前实现 **Quest 3 → 双 OpenArm / R680 三轮全向底盘 → 三路 RGB → 本地录制 → 局域网回传**。底盘为可选模块，默认 `base_enabled:=false`。
 业务节点、IK、硬件适配、录制、HTTP 服务和接收工具使用 C++17；启动用 XML，构建/依赖工具用 Shell。没有 Python 业务节点、训练器或模型推理服务。
 
+上电、Quest 操作、双臂/底盘使能与一键启动见 [上电启动与 Quest 操作指南](docs/上电启动与Quest操作指南.md)。
+
 ## 目录
 
 - `Project/`：自研 ROS 2 包、配置及 C++ 测试。
