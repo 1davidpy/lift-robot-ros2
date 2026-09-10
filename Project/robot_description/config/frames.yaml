@@ -1,0 +1,7 @@
+# First milestone: fixed chest frame. No invented base/lift geometry.
+model: openarm_mujoco 2.2.0
+origin: arm_origin
+right_tip: right_ee_control_point
+left_tip: left_ee_control_point
+joint_order: right[8],left[8]
+# Camera extrinsics require actual installation calibration; do not publish identity TF.

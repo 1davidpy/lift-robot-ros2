@@ -1,0 +1,14 @@
+/build/
+/log/
+/device/external/
+/device/sdk/
+/3part/external/
+/demo/*
+!/demo/README.md
+!/demo/repositories.lock
+/data/
+*.local.yaml
+
+/SKILLS/coding_skills/
+
+/device/KH-UCANFD-B2B-X4/SDK/

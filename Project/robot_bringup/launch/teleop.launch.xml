@@ -1,0 +1,27 @@
+<launch>
+ <arg name="mock" default="true"/>
+ <arg name="allow_hardware" default="false"/>
+ <arg name="no_cameras" default="false"/>
+ <arg name="require_cameras" default="true"/>
+ <arg name="directory" default="data"/>
+ <arg name="minimum_free_gib" default="20.0"/>
+ <arg name="sdk_library" default=""/>
+ <arg name="http_host" default="127.0.0.1"/>
+ <arg name="http_port" default="8000"/>
+ <arg name="control_token" default=""/>
+ <arg name="quest_port" default="5006"/>
+ <arg name="sender_ip" default=""/>
+ <arg name="config" default="$(find-pkg-share luxi_bringup)/config/arms.json"/>
+ <node pkg="luxi_quest_receiver" exec="quest_receiver" output="screen"><param name="port" value="$(var quest_port)"/><param name="sender_ip" value="$(var sender_ip)"/></node>
+ <node pkg="luxi_teleop_mapper" exec="teleop_mapper" output="screen"><param name="config" value="$(var config)"/></node>
+ <node pkg="luxi_arm_motion" exec="arm_motion" output="screen"><param name="config" value="$(var config)"/><param name="model" value="$(find-pkg-share luxi_description)/model/cell/cell.xml"/></node>
+ <node pkg="luxi_control_manager" exec="control_manager" output="screen"><param name="config" value="$(var config)"/></node>
+ <node pkg="luxi_device_adapters" exec="openarm_adapter" output="screen"><param name="config" value="$(var config)"/><param name="mock" value="$(var mock)"/><param name="allow_hardware" value="$(var allow_hardware)"/></node>
+ <group unless="$(var no_cameras)">
+  <node pkg="luxi_device_adapters" exec="hikrobot_camera" name="camera_head_rgb" output="screen"><param name="mock" value="$(var mock)"/><param name="camera_id" value="head_rgb"/><param name="serial" value="00DA8573794"/><param name="sdk_library" value="$(var sdk_library)"/></node>
+  <node pkg="luxi_device_adapters" exec="hikrobot_camera" name="camera_left_wrist_rgb" output="screen"><param name="mock" value="$(var mock)"/><param name="camera_id" value="left_wrist_rgb"/><param name="serial" value="00DB1265540"/><param name="sdk_library" value="$(var sdk_library)"/></node>
+  <node pkg="luxi_device_adapters" exec="hikrobot_camera" name="camera_right_wrist_rgb" output="screen"><param name="mock" value="$(var mock)"/><param name="camera_id" value="right_wrist_rgb"/><param name="serial" value="00DA8573792"/><param name="sdk_library" value="$(var sdk_library)"/></node>
+ </group>
+ <node pkg="luxi_data_recorder" exec="data_recorder" output="screen"><param name="config" value="$(var config)"/><param name="directory" value="$(var directory)"/><param name="minimum_free_gib" value="$(var minimum_free_gib)"/><param name="require_cameras" value="$(var require_cameras)"/></node>
+ <node pkg="luxi_data_recorder" exec="data_server" output="screen"><param name="directory" value="$(var directory)"/><param name="host" value="$(var http_host)"/><param name="port" value="$(var http_port)"/><param name="control_token" value="$(var control_token)"/></node>
+</launch>

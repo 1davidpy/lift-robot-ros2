@@ -1,0 +1,8 @@
+upstream=https://gitee.com/ChengDu-KunHong/KH-UCANFD_Linux_SDK
+reference_docs_commit=34a14021f0c43e5c2a0809f0855a2d6a936e73bf
+source=user-supplied SDK/KH-UCANFD_Linux_SDK.zip (driver version 1.4.2; archive dated 2026-07-22)
+source_sha256=0859afc67dc63f232d64a8815a4c2a7bcf7129298c48748a70174647a4a6508c
+docs_archive=SDK/KH-UCANFD_Linux_SDK-1.4.2.zip
+docs_sha256=62f8ecdbeb234b7830fcd0c3a29d8eea3b9fdd5c777151b9ebf9a4dae33d015e
+license=driver GPL-2.0; preserve vendor headers
+note=Documentation git archive is NOT the driver source. Upstream URL does not guarantee this exact user-supplied binary archive. Preserve the source ZIP separately; do not silently fetch latest.

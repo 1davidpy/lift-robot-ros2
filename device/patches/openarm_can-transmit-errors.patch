@@ -1,0 +1,14 @@
+--- a/src/openarm/damiao_motor/dm_motor_device_collection.cpp
++++ b/src/openarm/damiao_motor/dm_motor_device_collection.cpp
+@@ -106,9 +106,9 @@
+                                                 const CANPacket& packet) {
+     if (can_socket_.is_canfd_enabled()) {
+         canfd_frame frame = dm_device->create_canfd_frame(packet.send_can_id, packet.data);
+-        can_socket_.write_canfd_frame(frame);
++        if (!can_socket_.write_canfd_frame(frame)) throw std::runtime_error("CAN FD transmit failed");
+     } else {
+         can_frame frame = dm_device->create_can_frame(packet.send_can_id, packet.data);
+-        can_socket_.write_can_frame(frame);
++        if (!can_socket_.write_can_frame(frame)) throw std::runtime_error("CAN transmit failed");
+     }
+ }

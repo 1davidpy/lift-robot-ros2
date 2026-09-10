@@ -1,0 +1,11 @@
+std_msgs/Header header
+int64 receive_mono_ns
+float64[16] position
+float64[16] velocity
+float64[16] effort
+int32[16] mos_temperature
+int32[16] rotor_temperature
+int64[16] age_ns
+bool[16] valid
+bool enabled
+string phase
