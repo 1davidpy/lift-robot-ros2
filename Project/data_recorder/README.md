@@ -1,6 +1,6 @@
 # luxi_data_recorder — 录制和局域网回传
 
-data_recorder 写 rosbag2、samples.jsonl 和 manifest；data_server 提供 HTTP；episode_pull 执行断点续传与 SHA256 校验。test_storage 检查清单和文件哈希；完整链路由 bringup 测试。
+data_recorder 写 rosbag2、samples.jsonl 和 manifest；HTTP 控制台迁至 `../luxi_web_ctrl`；episode_pull 执行断点续传与 SHA256 校验。test_storage 检查清单和文件哈希；完整链路由 bringup 测试。
 
 构建：在仓库根目录运行 `bash tool/build.sh`。验证：`bash tool/test.sh`。产物统一在 `build/`，日志在 `log/`。
 

@@ -5,6 +5,8 @@
 
 上电、Quest 操作、双臂/底盘使能与一键启动见 [上电启动与 Quest 操作指南](docs/上电启动与Quest操作指南.md)。
 
+局域网网页、设备状态与开机自启见 [Web 控制台](Project/luxi_web_ctrl/README.md)。
+
 ## 目录
 
 - `Project/`：自研 ROS 2 包、配置及 C++ 测试。

@@ -11,6 +11,8 @@
 // clang-format on
 #include <luxi/storage.hpp>
 #include <mutex>
+#include <deque>
+#include <ament_index_cpp/get_package_share_directory.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <thread>
 class Server : public rclcpp::Node {
@@ -19,21 +21,43 @@ class Server : public rclcpp::Node {
   std::mutex mutex_;
   luxi::fs::path root_;
   std::string token_;
+  bool mock_, base_enabled_, no_cameras_;
+  luxi::Quest quest_;
+  std::deque<int64_t> quest_arrivals_;
+  int64_t control_time_ = 0, recorder_time_ = 0, base_status_time_ = 0;
   luxi::Json state_, control_, recorder_, base_, base_status_;
   std::map<std::string, luxi::Frame> frames_;
   std::vector<rclcpp::SubscriptionBase::SharedPtr> subs_;
   rclcpp::Client<luxi::Service>::SharedPtr arm_client_, record_client_, base_client_;
 
  public:
-  Server() : Node("data_server") {
+  Server() : Node("web_ctrl") {
     root_ = declare_parameter<std::string>("directory", "data");
     luxi::fs::create_directories(root_);
     root_ = luxi::fs::canonical(root_);
     auto host = declare_parameter("host", "127.0.0.1");
     int port = declare_parameter("port", 8000);
     token_ = declare_parameter<std::string>("control_token", "");
+    const auto token_file = declare_parameter<std::string>("token_file", "");
+    if (!token_file.empty()) {
+      std::ifstream in(token_file);
+      if (!std::getline(in, token_) || token_.size() < 16)
+        throw std::runtime_error("control token file missing or too short");
+    }
+    mock_ = declare_parameter("mock", true);
+    base_enabled_ = declare_parameter("base_enabled", false);
+    no_cameras_ = declare_parameter("no_cameras", false);
     if (host != "127.0.0.1" && token_.empty())
       RCLCPP_WARN(get_logger(), "Remote server is read-only until control_token is configured");
+    subs_.push_back(create_subscription<luxi::Quest>("/luxi/quest", 10,
+      [this](luxi::Quest::ConstSharedPtr q) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        quest_ = *q;
+        const auto now = luxi::mono();
+        quest_arrivals_.push_back(now);
+        while (!quest_arrivals_.empty() && now - quest_arrivals_.front() > 1000000000)
+          quest_arrivals_.pop_front();
+      }));
     arm_client_ = create_client<luxi::Service>("/luxi/control");
     record_client_ = create_client<luxi::Service>("/luxi/episode");
     base_client_ = create_client<luxi::Service>("/luxi/base/control");
@@ -47,7 +71,7 @@ class Server : public rclcpp::Node {
       [this](std_msgs::msg::String::ConstSharedPtr m) {
         auto j = luxi::Json::parse(m->data, nullptr, false);
         if (j.is_discarded()) return;
-        std::lock_guard<std::mutex> lock(mutex_); base_status_ = j;
+        std::lock_guard<std::mutex> lock(mutex_); base_status_ = j; base_status_time_ = luxi::mono();
       }));
     subs_.push_back(create_subscription<luxi::State>(
         "/luxi/arms/state", 1, [this](luxi::State::ConstSharedPtr s) {
@@ -68,10 +92,11 @@ class Server : public rclcpp::Node {
             std::lock_guard<std::mutex> lock(mutex_);
             auto j = luxi::Json::parse(m->data, nullptr, false);
             if (j.is_discarded()) return;
-            if (std::string(topic) == "/luxi/control_status")
-              control_ = j;
-            else
-              recorder_ = j;
+            if (std::string(topic) == "/luxi/control_status") {
+              control_ = j; control_time_ = luxi::mono();
+            } else {
+              recorder_ = j; recorder_time_ = luxi::mono();
+            }
           }));
     for (auto camera : {"head_rgb", "left_wrist_rgb", "right_wrist_rgb"})
       subs_.push_back(create_subscription<luxi::Frame>(std::string("/luxi/cameras/") + camera, 1,
@@ -79,17 +104,50 @@ class Server : public rclcpp::Node {
                                                          std::lock_guard<std::mutex> lock(mutex_);
                                                          frames_[f->camera_id] = *f;
                                                        }));
-    http_.Get("/api/state", [this](const auto&, auto& res) {
+    http_.Get("/api/state", [this](const auto& req, auto& res) {
       std::lock_guard<std::mutex> lock(mutex_);
-      auto base = base_;
-      if (base.is_object() && base.contains("receive_mono_ns"))
-        base["valid"] = luxi::fresh(std::stoll(base.at("receive_mono_ns").get<std::string>()), luxi::mono(), 250000000);
-      res.set_content(luxi::Json{{"arms", state_}, {"base", base}, {"base_status", base_status_},
-                                 {"control", control_},
-                                 {"recorder", recorder_},
-                                 {"server_mono_ns", std::to_string(luxi::mono())}}
-                          .dump(),
-                      "application/json");
+      const auto now = luxi::mono();
+      auto base = base_, arms = state_, control = control_, recorder = recorder_, base_status = base_status_;
+      const auto recent = [now](const luxi::Json& j, int64_t ttl) {
+        return j.is_object() && j.contains("receive_mono_ns") &&
+          luxi::fresh(std::stoll(j.at("receive_mono_ns").template get<std::string>()), now, ttl);
+      };
+      if (base.is_object()) base["valid"] = base.value("valid", false) && recent(base, 250000000);
+      if (arms.is_object()) arms["fresh"] = recent(arms, 150000000);
+      if (control.is_object()) {
+        control["fresh"] = luxi::fresh(control_time_, now, 500000000);
+        control["vr_fresh"] = control.value("vr_fresh", false) && luxi::fresh(quest_.receive_mono_ns, now, 150000000);
+      }
+      if (recorder.is_object()) recorder["fresh"] = luxi::fresh(recorder_time_, now, 1000000000);
+      if (base_status.is_object()) {
+        base_status["fresh"] = luxi::fresh(base_status_time_, now, 500000000);
+        base_status["feedback_fresh"] = base_status.value("feedback_fresh", false) && recent(base, 100000000);
+      }
+      size_t rate = 0;
+      for (auto t : quest_arrivals_) if (now - t <= 1000000000) ++rate;
+      luxi::Json cameras = luxi::Json::object();
+      for (auto id : {"head_rgb", "left_wrist_rgb", "right_wrist_rgb"}) {
+        const auto it = frames_.find(id);
+        cameras[id] = {{"fresh", false}, {"enabled", !no_cameras_}};
+        if (it != frames_.end()) {
+          const auto& f = it->second;
+          cameras[id].update({{"fresh", luxi::fresh(f.receive_mono_ns, now, 1000000000)},
+            {"width", f.width}, {"height", f.height}, {"sequence", f.sequence},
+            {"age_ms", (now - f.receive_mono_ns) / 1000000}, {"timestamp_quality", f.timestamp_quality}});
+        }
+      }
+      std::error_code ec;
+      auto disk = luxi::fs::space(root_, ec);
+      res.set_content(luxi::Json{
+        {"arms", arms}, {"base", base}, {"base_status", base_status}, {"control", control}, {"recorder", recorder},
+        {"quest", {{"fresh", luxi::fresh(quest_.receive_mono_ns, now, 200000000)}, {"rate_hz", rate},
+          {"left_tracking", quest_.left_tracking}, {"right_tracking", quest_.right_tracking},
+          {"sticks", quest_.sticks}, {"grips", quest_.grips}}}, {"cameras", cameras},
+        {"system", {{"mock", mock_}, {"base_enabled", base_enabled_}, {"no_cameras", no_cameras_},
+          {"data_directory", root_.string()}, {"free_gib", ec ? -1.0 : disk.available / 1073741824.0},
+          {"control_authorized", token_.empty() ? req.remote_addr == "127.0.0.1" : req.get_header_value("Authorization") == "Bearer " + token_},
+          {"services", {{"control", arm_client_->service_is_ready()}, {"base", base_client_->service_is_ready()}, {"episode", record_client_->service_is_ready()}}}}},
+        {"server_mono_ns", std::to_string(now)}}.dump(), "application/json");
       res.set_header("Cache-Control", "no-store");
     });
     http_.Get("/api/cameras/(head_rgb|left_wrist_rgb|right_wrist_rgb)", [this](const auto& req,
@@ -176,7 +234,7 @@ class Server : public rclcpp::Node {
       }
       auto j = luxi::Json::parse(req.body, nullptr, false);
       if (j.is_discarded() || !j.is_object() || !j.contains("command") ||
-          !j["command"].is_string()) {
+          !j["command"].is_string() || (j.contains("detail") && !j["detail"].is_string())) {
         res.status = 400;
         return;
       }
@@ -199,11 +257,10 @@ class Server : public rclcpp::Node {
       res.set_content(luxi::Json{{"success", result->success}, {"message", result->message}}.dump(),
                       "application/json");
     });
-    http_.Get("/", [](const auto&, auto& res) {
-      res.set_content(
-          R"html(<!doctype html><meta charset="utf-8"><title>LUXI 数据采集</title><style>body{font:16px sans-serif;margin:30px;background:#eef3f8;color:#123}button{padding:12px;margin:5px}img{width:31%;margin:1%}pre{white-space:pre-wrap}</style><h1>LUXI 双臂遥操作与数据采集</h1><p>先使能并等待对齐，再开始录制。暂停会按配置返回起始姿态。</p><input id="task" value="teleoperation" placeholder="任务说明"><input id="token" type="password" placeholder="远程控制令牌"><div><button onclick="cmd('control','start')">使能双臂</button><button onclick="cmd('control','stop')">暂停 / 返回</button><button onclick="cmd('episode','start')">开始录制</button><button onclick="cmd('episode','success')">成功并保存</button><button onclick="cmd('episode','fail')">失败并保存</button><button onclick="cmd('episode','cancel')">取消并保留</button></div><div><button onclick="cmd('base','start')">启用底盘（摇杆回中，松开左握持键）</button><button onclick="cmd('base','stop')">底盘停车</button><span>启用后按住左握持键行驶；左摇杆平移、右摇杆左右转向。</span></div><p id="result"></p><img id="head_rgb"><img id="left_wrist_rgb"><img id="right_wrist_rgb"><pre id="status"></pre><a href="/api/episodes">已提交 episode 列表</a><script>async function cmd(kind,command){try{let r=await fetch('/api/'+kind,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+document.getElementById('token').value},body:JSON.stringify({command,detail:document.getElementById('task').value})});document.getElementById('result').textContent=await r.text()}catch(e){document.getElementById('result').textContent=e}}setInterval(async()=>{try{document.getElementById('status').textContent=JSON.stringify(await(await fetch('/api/state')).json(),null,2);for(let c of ['head_rgb','left_wrist_rgb','right_wrist_rgb'])document.getElementById(c).src='/api/cameras/'+c+'?t='+Date.now()}catch(e){}},500)</script>)html",
-          "text/html");
-    });
+    const auto web = ament_index_cpp::get_package_share_directory("luxi_web_ctrl") + "/web";
+    if (!http_.set_mount_point("/", web)) throw std::runtime_error("Web assets missing");
+    http_.set_default_headers({{"X-Content-Type-Options", "nosniff"}, {"Cache-Control", "no-store"},
+      {"Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'"}});
     http_.set_payload_max_length(16384);
     http_.set_exception_handler([](const auto&, auto& res, std::exception&) {
       res.status = 500;

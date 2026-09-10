@@ -1,4 +1,5 @@
 <launch>
+ <arg name="web_enabled" default="true"/>
  <arg name="base_enabled" default="false"/>
  <arg name="base_max_linear" default="0.2"/>
  <arg name="base_max_angular" default="0.3141592653589793"/>
@@ -36,5 +37,5 @@
   <node pkg="luxi_device_adapters" exec="hikrobot_camera" name="camera_right_wrist_rgb" output="screen"><param name="mock" value="$(var mock)"/><param name="camera_id" value="right_wrist_rgb"/><param name="serial" value="00DA8573792"/><param name="sdk_library" value="$(var sdk_library)"/></node>
  </group>
  <node pkg="luxi_data_recorder" exec="data_recorder" output="screen"><param name="config" value="$(var config)"/><param name="directory" value="$(var directory)"/><param name="minimum_free_gib" value="$(var minimum_free_gib)"/><param name="require_cameras" value="$(var require_cameras)"/></node>
- <node pkg="luxi_data_recorder" exec="data_server" output="screen"><param name="directory" value="$(var directory)"/><param name="host" value="$(var http_host)"/><param name="port" value="$(var http_port)"/><param name="control_token" value="$(var control_token)"/></node>
+ <node if="$(var web_enabled)" pkg="luxi_web_ctrl" exec="web_ctrl" output="screen"><param name="directory" value="$(var directory)"/><param name="host" value="$(var http_host)"/><param name="port" value="$(var http_port)"/><param name="control_token" value="$(var control_token)"/><param name="mock" value="$(var mock)"/><param name="base_enabled" value="$(var base_enabled)"/><param name="no_cameras" value="$(var no_cameras)"/></node>
 </launch>
