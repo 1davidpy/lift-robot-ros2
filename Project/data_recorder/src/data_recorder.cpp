@@ -227,6 +227,8 @@ class Recorder : public rclcpp::Node {
     watch<luxi::Command>("/luxi/command");
     watch<luxi::Targets>("/luxi/targets");
     watch<std_msgs::msg::String>("/luxi/control_status");
+    for (const auto& topic : {"/luxi/base/state", "/luxi/base/applied", "/luxi/base/can_rx", "/luxi/base/status"})
+      watch<std_msgs::msg::String>(topic);
     watch<std_msgs::msg::String>("/luxi/faults", [this](const auto& s) {
       if (writer_) qc_.push_back(s.data);
     });

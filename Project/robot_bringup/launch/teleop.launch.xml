@@ -1,5 +1,11 @@
 <launch>
+ <arg name="base_enabled" default="false"/>
+ <arg name="base_max_linear" default="0.2"/>
+ <arg name="base_max_angular" default="0.3141592653589793"/>
+ <arg name="base_ps2_reverse_steering" default="true"/>
+ <arg name="base_interface" default="luxi_base"/>
  <arg name="mock" default="true"/>
+ <arg name="base_mock" default="$(var mock)"/>
  <arg name="allow_hardware" default="false"/>
  <arg name="no_cameras" default="false"/>
  <arg name="require_cameras" default="true"/>
@@ -17,6 +23,13 @@
  <node pkg="luxi_arm_motion" exec="arm_motion" output="screen"><param name="config" value="$(var config)"/><param name="model" value="$(find-pkg-share luxi_description)/model/cell/cell.xml"/></node>
  <node pkg="luxi_control_manager" exec="control_manager" output="screen"><param name="config" value="$(var config)"/></node>
  <node pkg="luxi_device_adapters" exec="openarm_adapter" output="screen"><param name="config" value="$(var config)"/><param name="mock" value="$(var mock)"/><param name="allow_hardware" value="$(var allow_hardware)"/></node>
+ <node if="$(var base_enabled)" pkg="luxi_device_adapters" exec="r680_adapter" output="screen">
+  <param name="mock" value="$(var base_mock)"/><param name="allow_hardware" value="$(var allow_hardware)"/>
+  <param name="interface" value="$(var base_interface)"/>
+  <param name="max_linear" value="$(var base_max_linear)"/>
+  <param name="max_angular" value="$(var base_max_angular)"/>
+  <param name="ps2_reverse_steering" value="$(var base_ps2_reverse_steering)"/>
+ </node>
  <group unless="$(var no_cameras)">
   <node pkg="luxi_device_adapters" exec="hikrobot_camera" name="camera_head_rgb" output="screen"><param name="mock" value="$(var mock)"/><param name="camera_id" value="head_rgb"/><param name="serial" value="00DA8573794"/><param name="sdk_library" value="$(var sdk_library)"/></node>
   <node pkg="luxi_device_adapters" exec="hikrobot_camera" name="camera_left_wrist_rgb" output="screen"><param name="mock" value="$(var mock)"/><param name="camera_id" value="left_wrist_rgb"/><param name="serial" value="00DB1265540"/><param name="sdk_library" value="$(var sdk_library)"/></node>

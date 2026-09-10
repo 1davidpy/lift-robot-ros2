@@ -1,0 +1,9 @@
+source=user-provided WHEELTEC_C50X_2026.05.29.zip
+source_sha256=d5ab5e0179736732b0e871090b8f158543c7583ef3a608b6fa01e2f88a80536d
+protocol=R680底盘CAN通信控制协议_V1.0.docx
+protocol_sha256=941e9c7d32eaa1168191e01e02f5212c128f1a222714c4a715f5ef1bda09dfc9
+manual=STM32运动底盘开发手册_大型ROS科研机器人_2026.06.30.pdf
+manual_sha256=a14d6aef6489770823a57c09689532e19dbd541cc968709d71f158ffd21ef4d5
+upstream_repository=not supplied; do not invent URL or substitute another vehicle firmware
+extraction=build/r680/WHEELTEC_C50X_2026.05.29
+note=STM32 firmware is inspected only, not modified/built/flashed. Host implementation follows supplied V1.0 protocol and PS2_control mapping.

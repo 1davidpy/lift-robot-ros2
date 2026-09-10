@@ -1,6 +1,6 @@
 # LUXI Lift Robot / ROS 2 C++
 
-本阶段只做 **Quest 3 → 双 OpenArm → 三路 RGB → 本地录制 → 局域网回传**。
+当前实现 **Quest 3 → 双 OpenArm / R680 三轮全向底盘 → 三路 RGB → 本地录制 → 局域网回传**。底盘为可选模块，默认 `base_enabled:=false`。
 业务节点、IK、硬件适配、录制、HTTP 服务和接收工具使用 C++17；启动用 XML，构建/依赖工具用 Shell。没有 Python 业务节点、训练器或模型推理服务。
 
 ## 目录
@@ -84,3 +84,5 @@ ros2 run luxi_data_recorder episode_pull http://ROBOT_IP:8000 episode-编号 /pa
 本阶段数据是已有双臂真实 **16 维**（右 8 + 左 8），不填充尚未接入的底盘/Lift 假数据。以后增加反馈后再版本化扩展 21 维接口，不包含训练。
 
 详见 [迁移与接口说明](docs/CPP迁移与接口说明.md)、[验证记录](docs/编译与测试记录.md)。
+
+R680 接入与左右摇杆分配见 [R680 驱动说明](device/R680/README.md)。启用模拟底盘：`./tool/run.sh mock:=true base_enabled:=true`。底盘数据写独立 ROS 话题，不改变原双臂 16 维样本含义。

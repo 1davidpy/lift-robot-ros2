@@ -21,7 +21,7 @@ flowchart TD
   HTTP --> PULL[episode_pull / SHA-256 校验]
 ```
 
-各设备只有一个控制出口。本阶段 R680、Lift 协议和训练均不实现；KH-UCANFD-B2B-X4 已通过厂商 kcan + SocketCAN 接入（见 device 中的适配说明），不创建看似可运行的空驱动。新增设备以后扩展 robot_interfaces 和对应适配器。
+各设备只有一个控制出口。R680 三轮全向底盘已作为可选 C++ 节点接入，见 [R680 说明](../device/R680/README.md)。本阶段 Lift 协议和训练均不实现；KH-UCANFD-B2B-X4 已通过厂商 kcan + SocketCAN 接入（见 device 中的适配说明），不创建看似可运行的空驱动。新增设备以后扩展 robot_interfaces 和对应适配器。
 
 | 路径 | 包 | 内容 |
 | --- | --- | --- |
@@ -31,7 +31,7 @@ flowchart TD
 | Project/teleop_mapper | luxi_teleop_mapper | Unity 左手系→参考姿态→arm_origin；平滑；夹爪映射 |
 | Project/arm_motion | luxi_arm_motion | 实测关节同步、33 ms 定时、二子步受限 QP IK |
 | Project/control_manager | luxi_control_manager | 默认 disabled、homing、aligning、teleop、hold、returning、fault |
-| Project/device_adapters | luxi_device_adapters | 真/假 OpenArm、真/假海康；独立反馈与最终命令 |
+| Project/device_adapters | luxi_device_adapters | 真/假 OpenArm、真/假海康、可选 R680 全向底盘；独立反馈与最终命令 |
 | Project/data_recorder | luxi_data_recorder | 原始 rosbag、可读采样索引、episode 管理、网页、下载与接收 |
 | Project/robot_description | luxi_description | 固定版本 OpenArm MJCF 与帧约定，不编造尚未标定相机外参 |
 | Project/robot_bringup | luxi_bringup | XML launch、旧机配置迁移、C++ 集成测试 |

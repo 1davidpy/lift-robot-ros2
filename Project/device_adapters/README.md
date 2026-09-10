@@ -5,3 +5,5 @@ openarm_adapter 负责 SocketCAN 电机协议和实际反馈；hikrobot_camera �
 构建：在仓库根目录运行 `bash tool/build.sh`。验证：`bash tool/test.sh`。产物统一在 `build/`，日志在 `log/`。
 
 完整接口和限制见 [迁移与接口说明](../../docs/CPP迁移与接口说明.md)，运行步骤见 [仓库 README](../../README.md)。
+
+新增 `r680_adapter`：三轮全向底盘经典 CAN 驱动，接收 Quest 左右摇杆、执行底盘独立许可和看门狗。协议、PS2 倒车转向约定及部署见 [R680 说明](../../device/R680/README.md)。默认 mock，不修改 STM32 固件。

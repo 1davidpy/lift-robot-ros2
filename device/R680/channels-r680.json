@@ -1,0 +1,41 @@
+{
+  "serial": "KCANX4WCID001",
+  "channels": [
+    {
+      "channel": 0,
+      "name": "luxi_left",
+      "role": "openarm_left",
+      "enabled": true,
+      "fd": true,
+      "bitrate": 1000000,
+      "dbitrate": 5000000
+    },
+    {
+      "channel": 1,
+      "name": "luxi_right",
+      "role": "openarm_right",
+      "enabled": true,
+      "fd": true,
+      "bitrate": 1000000,
+      "dbitrate": 5000000
+    },
+    {
+      "channel": 2,
+      "name": "luxi_base",
+      "role": "r680_omni",
+      "enabled": true,
+      "fd": false,
+      "bitrate": 1000000,
+      "dbitrate": 1000000
+    },
+    {
+      "channel": 3,
+      "name": "luxi_lift",
+      "role": "reserved_lift",
+      "enabled": false,
+      "fd": true,
+      "bitrate": 1000000,
+      "dbitrate": 5000000
+    }
+  ]
+}
