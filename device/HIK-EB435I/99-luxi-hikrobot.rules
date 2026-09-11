@@ -1,0 +1,2 @@
+# Give the camera service access, and keep RGB-D devices awake while connected.
+SUBSYSTEM=="usb", ATTR{idVendor}=="2bdf", ATTR{idProduct}=="0001", MODE="0660", GROUP="video", TEST=="power/control", ATTR{power/control}="on"

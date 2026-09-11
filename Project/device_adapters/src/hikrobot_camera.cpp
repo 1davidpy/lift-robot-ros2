@@ -2,12 +2,21 @@
 // Quest/OpenArm/Hikrobot behavior ported from Enactic openarm_teleop; see
 // docs/CPP迁移与接口说明.md.
 #include <luxi/core.hpp>
+#include <filesystem>
 #include <luxi/hikrobot.hpp>
 #include <sensor_msgs/msg/compressed_image.hpp>
 class CameraNode : public rclcpp::Node {
   std::unique_ptr<luxi::hik::Camera> camera_;
   std::string id_, library_, serial_;
-  bool mock_ = true;
+  bool mock_ = true, require_usb_ = false;
+  bool usb_present() const {
+    for (const auto& entry : std::filesystem::directory_iterator("/sys/bus/usb/devices")) {
+      std::ifstream serial(entry.path() / "serial");
+      std::string value;
+      if (std::getline(serial, value) && value == serial_) return true;
+    }
+    return false;
+  }
   int working_ = 2, mode_ = 8;
   int64_t retry_after_ = 0, last_frame_ = 0;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_;
@@ -35,6 +44,7 @@ class CameraNode : public rclcpp::Node {
         quality_ > 100)
       throw std::invalid_argument("camera output parameters");
     mock_ = mock;
+    require_usb_ = declare_parameter("require_usb", false);
     library_ = declare_parameter<std::string>("sdk_library", "");
     serial_ = declare_parameter<std::string>("serial", "");
     working_ = declare_parameter("working_mode", 2);
@@ -52,7 +62,10 @@ class CameraNode : public rclcpp::Node {
       if (!mock_ && !camera_) {
         if (luxi::mono() < retry_after_) return;
         retry_after_ = luxi::mono() + 3000000000;
-        if (library_.empty()) throw std::runtime_error("缺少 MV3D RGB-D SDK 路径，请配置 sdk_library");
+        if (library_.empty() || !std::ifstream(library_).good())
+          throw std::runtime_error("缺少 ARM64 MV3D RGB-D SDK，请安装相机库并配置 sdk_library");
+        if (require_usb_ && !usb_present())
+          throw std::runtime_error("USB 相机未连接：" + serial_);
         camera_ = std::make_unique<luxi::hik::Camera>(library_, serial_, working_, mode_);
         seen_ = false;
         last_frame_ = luxi::mono();

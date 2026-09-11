@@ -1,0 +1,11 @@
+{
+  "version": "1.4.0.3_250213",
+  "architecture": "aarch64",
+  "supplier_documentation": "https://wiki.youyeetoo.com/en/camera/D435i",
+  "public_download_folder": "https://drive.google.com/drive/folders/1DoHwroFYBmfcchxy7c6g8HYSppPP_3S2",
+  "bundle_file_id": "1CULy0L3frJedtBTYsNHOD8DzctW-zUKp",
+  "bundle_sha256": "51473133b1f28e6507f87c56a017d5e64c3d3fa6273756b719002535780edff2",
+  "sdk_archive": "SDK_Mv3dRgbd_Linux_V1.4.0.3_250213.zip",
+  "sdk_sha256": "e9f641c31d90224350222dd3a2cf6b5a8b0d53d292334ce696b6bd5caded0bff",
+  "note": "Checksums recorded from this download, not vendor-signed checksums. Vendor documentation and license files are retained in sdk-1.4."
+}

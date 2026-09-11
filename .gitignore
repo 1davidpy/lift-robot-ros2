@@ -16,3 +16,8 @@
 /device/R680/*.zip
 /device/R680/*.pdf
 /device/R680/*.docx
+
+/device/HIK-EB435I/*.zip
+/device/HIK-EB435I/*.7z
+/device/HIK-EB435I/sdk/
+/device/HIK-EB435I/sdk-1.4/

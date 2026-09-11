@@ -58,7 +58,7 @@ function render(s) {
   text('quest-detail',q.fresh ? '追踪：左 ' + tracking(q.left_tracking) + ' / 右 ' + tracking(q.right_tracking) : '请打开 Quest 应用并向板端发送 UDP');
   const armValid = a?.fresh && a.valid?.every(Boolean);
   badge('arms-badge',armValid ? (s.system.mock ? '模拟反馈' : '反馈在线') : '未就绪',armValid ? 'good' : 'bad');
-  text('arm-phase',a?.fresh && a.phase === 'monitor_only' ? '状态采集 · 未使能' : s.control?.fresh ? (phases[s.control.phase] || s.control.phase) : a?.fresh ? (a.enabled ? '已使能' : '未使能') : '采集节点离线');
+  text('arm-phase',a?.fresh && a.phase === 'fault' ? '驱动通信异常' : a?.fresh && a.phase === 'monitor_only' ? '状态采集 · 未使能' : s.control?.fresh ? (phases[s.control.phase] || s.control.phase) : a?.fresh ? (a.enabled ? '已使能' : '未使能') : '采集节点离线');
   text('arms-detail',a?.fresh ? '左臂 ' + a.valid.slice(8,16).filter(Boolean).length + '/8 · 右臂 ' + a.valid.slice(0,8).filter(Boolean).length + '/8 有效反馈' : '没有新鲜关节反馈');
   const jointRows = [];
   for (const [side, offset] of [['左臂',8],['右臂',0]]) {
@@ -75,15 +75,16 @@ function render(s) {
   text('base-detail',b?.valid ? b.voltage.toFixed(1)+' V · '+(bs?.fresh ? (bs.enabled ? '已启用' : '未使能') : '许可未知')+' · FlagStop '+b.flag_stop+' · '+(bs?.input_source || 'quest') : '检查供电、CH3、共地和底盘固件');
   if (bs?.fresh) $('base-detail').textContent += ' · ' + (bs.interface || 'CH3') + ' · ' + (bs.receive_only ? '只读诊断，禁止运动' : bs.reason) + ' · 有效包 ' + bs.accepted_groups;
   const count = Object.values(s.cameras).filter(c => c.fresh).length;
-  badge('camera-badge',s.system.no_cameras ? '已关闭' : count === 3 ? '全部在线' : '等待图像',count === 3 ? 'good' : 'warn');
+  badge('camera-badge',s.system.no_cameras ? '已关闭' : count === 3 ? '全部在线' : count ? '部分在线' : '等待图像',count ? 'good' : 'warn');
   text('camera-count',count + ' / 3 在线');
   text('disk','磁盘可用 ' + (s.system.free_gib < 0 ? '未知' : s.system.free_gib.toFixed(1) + ' GiB'));
-  text('camera-note',s.system.mock ? '当前显示模拟图像，不能作为实机采集数据。' : s.system.no_cameras ? '本次启动关闭了相机；接入正式 SDK 后按说明开启。' : '三路图像携带时间戳；主机取帧时间不等于硬件曝光同步。');
+  text('camera-note',s.system.mock ? '当前显示模拟图像，不能作为实机采集数据。' : s.system.no_cameras ? 'RGB 采集已暂停，请先检查 USB 连接和供电，恢复相机服务后再开启。' : '已接入的相机自动显示 RGB 预览；未接入的相机显示等待图像。');
   for (const id of cameraIds) {
     const c = s.cameras[id];
-    text(id+'-state',c.fresh ? '● 在线' : c.enabled ? '无新鲜图像' : '已关闭');
-    text(id+'-meta',c.fresh ? `${c.width} × ${c.height} · #${c.sequence} · ${c.age_ms} ms · ${c.timestamp_quality}` : '等待有效图像');
-    if (!c.fresh || !$('preview').checked) hideFrame(id,$('preview').checked ? '暂无实时图像' : '预览已暂停');
+    const problem = c.driver?.fresh && c.driver.phase === 'error' ? c.driver.reason : null;
+    text(id+'-state',c.fresh ? '● 在线' : problem ? '采集异常' : c.enabled ? '等待连接' : '已关闭');
+    text(id+'-meta',c.fresh ? `${c.width} × ${c.height} · #${c.sequence} · ${c.age_ms} ms · ${c.timestamp_quality}` : problem || '等待有效图像');
+    if (!c.fresh || !$('preview').checked) hideFrame(id,$('preview').checked ? (problem || '暂无实时图像') : '预览已暂停');
   }
   const recording = r?.fresh && r.state === 'recording';
   document.body.classList.toggle('recording',recording);

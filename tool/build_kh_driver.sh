@@ -11,6 +11,11 @@ mkdir -p "$ROOT/build/kh-sdk" "$ROOT/log"
 if [[ ! -d "$ROOT/build/kh-sdk/KH-UCANFD_Linux_SDK-1.4.2" ]]; then
   unzip -q "$ARCHIVE" -d "$ROOT/build/kh-sdk"
 fi
+# USB TX also runs under spinlock/URB completion: allocations must not sleep.
+DRIVER_SOURCE="$ROOT/build/kh-sdk/KH-UCANFD_Linux_SDK-1.4.2/driver"
+if grep -q 'usb_submit_urb(urb, GFP_KERNEL)' "$DRIVER_SOURCE/src/kcan_usb_core.c"; then
+  patch -d "$DRIVER_SOURCE" -p1 < "$ROOT/device/patches/kcan-usb-atomic-submit.patch"
+fi
 KERNEL_COPY="$ROOT/build/kernel-$RELEASE"
 [[ -d "$KERNEL_COPY" ]] || cp -a "$KERNEL_HEADERS" "$KERNEL_COPY"
 # Build only the missing host tools. The board header package omits the

@@ -1,0 +1,12 @@
+--- a/src/kcan_usb_core.c
++++ b/src/kcan_usb_core.c
+@@ -526,7 +526,8 @@
+ 		/* remember the USB device is BUSY */
+ 		kcan_set_tx_engine(dev, TX_ENGINE_STARTED);
+ 
+-		err = usb_submit_urb(urb, GFP_KERNEL);
++		/* Called with IRQs disabled by netdev TX and URB completion. */
++		err = usb_submit_urb(urb, GFP_ATOMIC);
+ 		if (!err) {
+ 			kcan_clear_status_bit(dev, CAN_ERR_QXMTFULL);
+ 

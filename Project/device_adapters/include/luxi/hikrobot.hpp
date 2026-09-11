@@ -9,6 +9,8 @@
 #include <cstdint>
 #include <opencv2/opencv.hpp>
 #include <stdexcept>
+#include <sstream>
+#include <iomanip>
 #include <string>
 namespace luxi::hik {
 struct Image {
@@ -34,13 +36,16 @@ union Value {
   Enum enumeration;
   Int integer;
   float floating[3];
-  char string[256];
+  struct { char current[256]; uint32_t max_length; } string;
   int32_t boolean;
 };
 struct Param {
   int32_t type;
   Value value;
+  uint8_t reserved[16];
 };
+static_assert(sizeof(Image) == 56 && sizeof(Frame) == 584, "MV3D image ABI");
+static_assert(sizeof(Param) == 288, "MV3D parameter ABI");
 class Camera {
   void *lib_ = nullptr, *handle_ = nullptr;
   bool initialized_ = false, started_ = false;
@@ -58,8 +63,14 @@ class Camera {
     if (!s) throw std::runtime_error(std::string("Missing MV3D symbol ") + name);
     return reinterpret_cast<T>(s);
   }
-  static void check(int32_t code) {
-    if (code != 0) throw std::runtime_error("MV3D status=" + std::to_string(code));
+  static void check(int32_t code, const char* operation) {
+    if (code == 0) return;
+    std::ostringstream message;
+    message << "MV3D " << operation << " failed: 0x" << std::hex << std::setw(8)
+            << std::setfill('0') << static_cast<uint32_t>(code);
+    if (static_cast<uint32_t>(code) == 0x80060030)
+      message << " (USB 写入失败，请检查连接和供电)";
+    throw std::runtime_error(message.str());
   }
   void cleanup() {
     if (started_) stop_(handle_);
@@ -83,16 +94,16 @@ class Camera {
       stop_ = symbol<decltype(stop_)>("MV3D_RGBD_Stop");
       fetch_ = symbol<decltype(fetch_)>("MV3D_RGBD_FetchFrame");
       set_ = symbol<decltype(set_)>("MV3D_RGBD_SetParam");
-      check(initialize_());
+      check(initialize_(), "Initialize");
       initialized_ = true;
-      check(open_(&handle_, serial.c_str()));
+      check(open_(&handle_, serial.c_str()), "OpenDeviceBySerialNumber");
       Param p{};
       p.type = 4;
       p.value.enumeration.current = working;
-      check(set_(handle_, "CameraWorkingMode", &p));
+      check(set_(handle_, "CameraWorkingMode", &p), "Set CameraWorkingMode");
       p.value.enumeration.current = mode;
-      check(set_(handle_, "ImageMode", &p));
-      check(start_(handle_));
+      check(set_(handle_, "ImageMode", &p), "Set ImageMode");
+      check(start_(handle_), "Start");
       started_ = true;
     } catch (...) {
       cleanup();
