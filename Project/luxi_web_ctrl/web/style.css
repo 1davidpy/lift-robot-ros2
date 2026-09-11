@@ -7,3 +7,6 @@
 #keyboard-state { font-weight:600; min-height:1.5em; }
 
 .arm-table-scroll{overflow-x:auto}.arm-table{width:100%;min-width:620px;text-align:left;border-collapse:collapse;font-variant-numeric:tabular-nums}.arm-table th,.arm-table td{padding:9px 12px;border-bottom:1px solid #253540;white-space:nowrap}.arm-table th{color:#91a5b3;font-size:12px}.arm-table tbody tr:nth-child(9){border-top:2px solid #526774}
+
+.device-actions{padding:12px 0;position:relative;z-index:2}.service-state{display:block;color:#8796a9;margin-bottom:8px}.camera .device-actions{background:#121c2a;padding:12px}.device-actions button{font-size:12px;padding:8px}
+.camera,.camera.head{aspect-ratio:auto;display:flex;flex-direction:column}.camera-label,.camera figcaption{position:static}.camera img,.camera .empty{width:100%;height:auto;aspect-ratio:16/9}.camera .device-actions{margin-top:auto}.camera .button-row{flex-wrap:wrap}

@@ -15,6 +15,8 @@
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <thread>
+#include <set>
+#include <cstdio>
 class Server : public rclcpp::Node {
   httplib::Server http_;
   std::thread thread_;
@@ -119,6 +121,42 @@ class Server : public rclcpp::Node {
           j["receive_mono_ns"] = std::to_string(luxi::mono());
           camera_status_[camera] = j;
         }));
+    // Fixed helper and allowlisted arguments only; never execute request text as shell code.
+    auto management = [](const std::string& arguments) {
+      std::string output;
+      FILE* pipe = popen(("/usr/bin/timeout 8 /usr/bin/sudo -n /usr/local/libexec/luxi-service-control " + arguments + " 2>/dev/null").c_str(), "r");
+      if (pipe) { char buffer[4096]; while (fgets(buffer, sizeof(buffer), pipe)) output += buffer; pclose(pipe); }
+      auto result = luxi::Json::parse(output, nullptr, false);
+      if (!result.is_object()) return luxi::Json{{"success", false}, {"message", "设备管理服务未安装或响应超时"}};
+      return result;
+    };
+    http_.Get("/api/devices", [management](const auto&, auto& res) {
+      auto result = management("status");
+      res.status = result.value("success", false) ? 200 : 503;
+      res.set_header("Cache-Control", "no-store");
+      res.set_content(result.dump(), "application/json");
+    });
+    http_.Post("/api/devices/([a-z_]+)", [this, management](const auto& req, auto& res) {
+      auto fail = [&](int code, const char* message) { res.status = code; res.set_content(luxi::Json{{"success", false}, {"message", message}}.dump(), "application/json"); };
+      if (token_.empty() ? req.remote_addr != "127.0.0.1" : req.get_header_value("Authorization") != "Bearer " + token_) { fail(403, "请先验证控制令牌"); return; }
+      const std::string id = req.matches[1];
+      const std::set<std::string> ids{"arms", "base", "quest", "program", "head_rgb", "left_wrist_rgb", "right_wrist_rgb"};
+      auto body = luxi::Json::parse(req.body, nullptr, false);
+      if (!ids.count(id) || req.get_header_value("Content-Type").find("application/json") != 0 || !body.is_object() || !body.value("action", luxi::Json()).is_string()) { fail(400, "无效设备或操作"); return; }
+      auto action = body.at("action").template get<std::string>();
+      if (action != "start" && action != "stop" && action != "restart") { fail(400, "无效操作"); return; }
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if ((state_.is_object() && state_.value("enabled", false) && luxi::fresh(std::stoll(state_.at("receive_mono_ns").template get<std::string>()), luxi::mono(), 500000000)) ||
+            (base_status_.is_object() && base_status_.value("enabled", false) && luxi::fresh(base_status_time_, luxi::mono(), 500000000)) ||
+            (recorder_.is_object() && recorder_.value("state", std::string()) == "recording" && luxi::fresh(recorder_time_, luxi::mono(), 2000000000))) {
+          fail(409, "请先撤销电机使能并结束录制，再管理采集服务"); return;
+        }
+      }
+      auto result = management(action + " " + id);
+      res.status = result.value("success", false) ? 202 : 503;
+      res.set_content(result.dump(), "application/json");
+    });
     http_.Get("/api/state", [this](const auto& req, auto& res) {
       std::lock_guard<std::mutex> lock(mutex_);
       const auto now = luxi::mono();

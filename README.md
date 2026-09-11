@@ -90,3 +90,5 @@ ros2 run luxi_data_recorder episode_pull http://ROBOT_IP:8000 episode-编号 /pa
 详见 [迁移与接口说明](docs/CPP迁移与接口说明.md)、[验证记录](docs/编译与测试记录.md)。
 
 R680 接入与左右摇杆分配见 [R680 驱动说明](device/R680/README.md)。启用模拟底盘：`./tool/run.sh mock:=true base_enabled:=true`。底盘数据写独立 ROS 话题，不改变原双臂 16 维样本含义。
+
+网页现支持各设备采集开关、重启重连，以及控制/录制程序独立启动。登录方式、开机自启和安装说明见 [网页设备管理](docs/网页设备管理.md)。开启采集或程序不会自动使能电机。

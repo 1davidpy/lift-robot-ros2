@@ -4053,3 +4053,465 @@
 [2026-09-11 17:39:02:0055] |                 Info-L10672: [CalibUtilsProcess] MV3D_CALIBUTIL_GetCalibInfoEx success! RgbWidth[1280] RgbHeight[720] DepthWidth[1280] DepthHeight[720]
 [2026-09-11 17:39:02:0129] |                 Info-L4017: [Start] StartGrabbing success.
 [2026-09-11 17:39:02:0129] |                 Info-L4023: [Start] end success.
+[2026-09-11 17:56:57:0042] |                 Info-L4359: ---------------------Start call Mv3dRgbd.dll start--------------------
+[2026-09-11 17:56:57:0042] |                 Info-L4363: Build Time[250213_16:25:12], SDK version[0x1040003].
+[2026-09-11 17:56:57:0042] |                 Info-L4371: Config (/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/device/HIK-EB435I/sdk-1.4/Libs/aarch64/Mv3dRgbdCfg.ini) exist .
+[2026-09-11 17:56:57:0042] |                 Info-L4381: LogConfig: LogSize[100].
+[2026-09-11 17:56:57:0042] |                 Info-L4382: CameraConfig: BufferNode[5], DeviceFilterEnable[1].
+[2026-09-11 17:56:57:0042] |                 Info-L4383: Debug: DebugMode[0].
+[2026-09-11 17:56:57:0042] |                 Info-L4384: Thread: RectThread[1], RectTimeOut[1000].
+[2026-09-11 17:56:57:0042] |                 Info-L4385: CameraLog: CameraLogEnable[1], CameraLogPort[8192], CameraLogLevel[3], CameraLogSize[100]
+[2026-09-11 17:56:57:0042] |                 Info-L2317: [Init] Begin.
+[2026-09-11 17:56:57:0052] |                 Info-L2352: [Init] end success.
+[2026-09-11 17:56:57:0052] |                 Info-L1022: [BindDevBySomeWay] start. chParm[00DA8573794].
+[2026-09-11 17:56:57:0052] |                 Info-L0085: [Enum] begin.
+[2026-09-11 17:56:57:0321] |                 Info-L0103: [Enum] enum by gige sdk, get camera num:[2].
+[2026-09-11 17:56:57:0321] |                 Info-L0106: [Enum] end success.
+[2026-09-11 17:56:57:0321] |                 Info-L1155: [CompareBindParm] the input chSerialNumber (00DA8573794) not match enum chSerialNumber (/00DA8573792) .
+[2026-09-11 17:56:57:0321] |                 Info-L1162: [CompareBindParm] param bFind[1]  nFindIndex[1] .
+[2026-09-11 17:56:57:0321] |                 Info-L2275: [CreateHandle] begin.
+[2026-09-11 17:56:57:0321] |                 Info-L0158: [CreateHandle] Get Gige Sdk version:(0x4040004).
+[2026-09-11 17:56:57:0327] |                 Info-L2310: [CreateHandle] end success.
+[2026-09-11 17:56:57:0327] |                 Info-L1065: [BindDevBySomeWay] USB Type = USB2
+[2026-09-11 17:56:57:0327] |                 Info-L1085: [BindDevBySomeWay] end. chParm[00DA8573794].
+[2026-09-11 17:56:57:0327] |                 Info-L2029: [ConnectDevice] begin.
+[2026-09-11 17:56:58:0059] |                 Info-L4359: ---------------------Start call Mv3dRgbd.dll start--------------------
+[2026-09-11 17:56:58:0059] |                 Info-L4363: Build Time[250213_16:25:12], SDK version[0x1040003].
+[2026-09-11 17:56:58:0059] |                 Info-L4371: Config (/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/device/HIK-EB435I/sdk-1.4/Libs/aarch64/Mv3dRgbdCfg.ini) exist .
+[2026-09-11 17:56:58:0059] |                 Info-L4381: LogConfig: LogSize[100].
+[2026-09-11 17:56:58:0059] |                 Info-L4382: CameraConfig: BufferNode[5], DeviceFilterEnable[1].
+[2026-09-11 17:56:58:0059] |                 Info-L4383: Debug: DebugMode[0].
+[2026-09-11 17:56:58:0059] |                 Info-L4384: Thread: RectThread[1], RectTimeOut[1000].
+[2026-09-11 17:56:58:0059] |                 Info-L4385: CameraLog: CameraLogEnable[1], CameraLogPort[8192], CameraLogLevel[3], CameraLogSize[100]
+[2026-09-11 17:56:58:0059] |                 Info-L2317: [Init] Begin.
+[2026-09-11 17:56:58:0069] |                 Info-L2352: [Init] end success.
+[2026-09-11 17:56:58:0069] |                 Info-L1022: [BindDevBySomeWay] start. chParm[00DA8573792].
+[2026-09-11 17:56:58:0069] |                 Info-L0085: [Enum] begin.
+[2026-09-11 17:56:58:0252] |                 Info-L0103: [Enum] enum by gige sdk, get camera num:[2].
+[2026-09-11 17:56:58:0252] |                 Info-L0106: [Enum] end success.
+[2026-09-11 17:56:58:0252] |                 Info-L1162: [CompareBindParm] param bFind[1]  nFindIndex[0] .
+[2026-09-11 17:56:58:0252] |                 Info-L2275: [CreateHandle] begin.
+[2026-09-11 17:56:58:0252] |                 Info-L0158: [CreateHandle] Get Gige Sdk version:(0x4040004).
+[2026-09-11 17:56:58:0252] |                 Info-L2310: [CreateHandle] end success.
+[2026-09-11 17:56:58:0252] |                 Info-L1065: [BindDevBySomeWay] USB Type = USB3
+[2026-09-11 17:56:58:0252] |                 Info-L1085: [BindDevBySomeWay] end. chParm[00DA8573792].
+[2026-09-11 17:56:58:0252] |                 Info-L2029: [ConnectDevice] begin.
+[2026-09-11 17:56:58:0858] |                 Info-L2065: [ConnectDevice] SetImageNodeNum value[5].
+[2026-09-11 17:56:58:0869] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(CameraWorkingMode) nValue(4).
+[2026-09-11 17:56:58:0873] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ImageMode) nValue(2).
+[2026-09-11 17:56:58:0881] |                 Info-L1067: [SetValue] camera module MV_CC_SetBoolValue: strKey(ChunkModeActive) bValue(1).
+[2026-09-11 17:56:58:0882] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ChunkSelector) nValue(24).
+[2026-09-11 17:56:58:0885] |                 Info-L1067: [SetValue] camera module MV_CC_SetBoolValue: strKey(ChunkEnable) bValue(1).
+[2026-09-11 17:56:58:0885] |                 Info-L2017: [SetWorkModeAfterOpen] m_nDeviceType:00000004.
+[2026-09-11 17:56:58:0886] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(DeviceRGBCorrectionEnable), nRet:[0x80000100].
+[2026-09-11 17:56:58:0886] |                Error-L4661: [CamGetValue] GetCamParamsType[DeviceRGBCorrectionEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:56:58:0886] |              Warning-L2096: [ConnectDevice] Get DeviceRGBCorrectionEnable failed nRet:[0x80060004].
+[2026-09-11 17:56:58:0886] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(NoiseFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:56:58:0886] |                Error-L4661: [CamGetValue] GetCamParamsType[NoiseFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:56:58:0886] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(NormalFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:56:58:0886] |                Error-L4661: [CamGetValue] GetCamParamsType[NormalFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:56:58:0886] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(ExtenEnable), nRet:[0x80000100].
+[2026-09-11 17:56:58:0886] |                Error-L4661: [CamGetValue] GetCamParamsType[ExtenEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:56:58:0886] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(RangeTransformEnable), nRet:[0x80000100].
+[2026-09-11 17:56:58:0886] |                Error-L4661: [CamGetValue] GetCamParamsType[RangeTransformEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:56:58:0886] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(GapFillEnable), nRet:[0x80000100].
+[2026-09-11 17:56:58:0886] |                Error-L4661: [CamGetValue] GetCamParamsType[GapFillEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:56:58:0887] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(RangeFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:56:58:0887] |                Error-L4661: [CamGetValue] GetCamParamsType[RangeFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:56:58:0887] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(HeightExtractEnable), nRet:[0x80000100].
+[2026-09-11 17:56:58:0887] |                Error-L4661: [CamGetValue] GetCamParamsType[HeightExtractEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:56:58:0887] |              Warning-L2140: [ConnectDevice] SetUsbTimeout 10000 failed nRet:[0x80060001].
+[2026-09-11 17:56:58:0887] |                 Info-L2149: [ConnectDevice] end success.
+[2026-09-11 17:56:58:0892] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(CameraWorkingMode) nValue(2).
+[2026-09-11 17:56:58:0894] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ImageMode) nValue(8).
+[2026-09-11 17:56:58:0894] |                 Info-L3945: [Start] begin.
+[2026-09-11 17:56:58:0894] |                Error-L1011: camera module MV_CC_GetStringValue fail, strKey(SDKInfoURL), nRet:(0x80000100).
+[2026-09-11 17:56:58:0894] |              Warning-L3518: [GetCamExtraInfo] GetStringValue  SDKInfoURL failed. nRet[0x80060004].
+[2026-09-11 17:56:58:0894] |                Error-L3968: [Start] Get SDKInfo failed...
+[2026-09-11 17:56:58:0896] |                 Info-L8530: [GetDimension] Get LSLProfileCoordZUnit  Value[1.000000] nRet:[0].
+[2026-09-11 17:56:58:0896] |                Error-L1011: camera module MV_CC_GetStringValue fail, strKey(SDKInfoURL), nRet:(0x80000100).
+[2026-09-11 17:56:58:0896] |              Warning-L3518: [GetCamExtraInfo] GetStringValue  SDKInfoURL failed. nRet[0x80060004].
+[2026-09-11 17:56:58:0899] |                 Info-L10707: [GetResolusion] CamGetIntValue Width [1280].
+[2026-09-11 17:56:58:0979] |                 Info-L4849: [CamGetDeviceInfo] device SN[00DA8573794] ModelName[MV-EB435i] 
+[2026-09-11 17:56:58:0979] |                 Info-L10582: [CalibUtilsProcess] RGBDSensorCali camSerialNum(00DA8573794).
+[2026-09-11 17:56:59:0066] |                 Info-L10672: [CalibUtilsProcess] MV3D_CALIBUTIL_GetCalibInfoEx success! RgbWidth[1280] RgbHeight[720] DepthWidth[1280] DepthHeight[720]
+[2026-09-11 17:56:59:0144] |                 Info-L4017: [Start] StartGrabbing success.
+[2026-09-11 17:56:59:0144] |                 Info-L4023: [Start] end success.
+[2026-09-11 17:56:59:0145] |              Warning-L3233: [FetchFrame] error lost frameID from[0] to [92].
+[2026-09-11 17:56:59:0471] |                 Info-L2065: [ConnectDevice] SetImageNodeNum value[5].
+[2026-09-11 17:56:59:0484] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(CameraWorkingMode) nValue(4).
+[2026-09-11 17:56:59:0486] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ImageMode) nValue(2).
+[2026-09-11 17:56:59:0489] |                 Info-L1067: [SetValue] camera module MV_CC_SetBoolValue: strKey(ChunkModeActive) bValue(1).
+[2026-09-11 17:56:59:0491] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ChunkSelector) nValue(24).
+[2026-09-11 17:56:59:0494] |                 Info-L1067: [SetValue] camera module MV_CC_SetBoolValue: strKey(ChunkEnable) bValue(1).
+[2026-09-11 17:56:59:0494] |                 Info-L2017: [SetWorkModeAfterOpen] m_nDeviceType:00000004.
+[2026-09-11 17:56:59:0495] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(DeviceRGBCorrectionEnable), nRet:[0x80000100].
+[2026-09-11 17:56:59:0495] |                Error-L4661: [CamGetValue] GetCamParamsType[DeviceRGBCorrectionEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:56:59:0495] |              Warning-L2096: [ConnectDevice] Get DeviceRGBCorrectionEnable failed nRet:[0x80060004].
+[2026-09-11 17:56:59:0495] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(NoiseFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:56:59:0495] |                Error-L4661: [CamGetValue] GetCamParamsType[NoiseFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:56:59:0495] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(NormalFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:56:59:0495] |                Error-L4661: [CamGetValue] GetCamParamsType[NormalFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:56:59:0495] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(ExtenEnable), nRet:[0x80000100].
+[2026-09-11 17:56:59:0495] |                Error-L4661: [CamGetValue] GetCamParamsType[ExtenEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:56:59:0495] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(RangeTransformEnable), nRet:[0x80000100].
+[2026-09-11 17:56:59:0495] |                Error-L4661: [CamGetValue] GetCamParamsType[RangeTransformEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:56:59:0495] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(GapFillEnable), nRet:[0x80000100].
+[2026-09-11 17:56:59:0495] |                Error-L4661: [CamGetValue] GetCamParamsType[GapFillEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:56:59:0496] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(RangeFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:56:59:0496] |                Error-L4661: [CamGetValue] GetCamParamsType[RangeFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:56:59:0496] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(HeightExtractEnable), nRet:[0x80000100].
+[2026-09-11 17:56:59:0496] |                Error-L4661: [CamGetValue] GetCamParamsType[HeightExtractEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:56:59:0496] |              Warning-L2140: [ConnectDevice] SetUsbTimeout 10000 failed nRet:[0x80060001].
+[2026-09-11 17:56:59:0496] |                 Info-L2149: [ConnectDevice] end success.
+[2026-09-11 17:56:59:0500] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(CameraWorkingMode) nValue(2).
+[2026-09-11 17:56:59:0501] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ImageMode) nValue(8).
+[2026-09-11 17:56:59:0501] |                 Info-L3945: [Start] begin.
+[2026-09-11 17:56:59:0502] |                Error-L1011: camera module MV_CC_GetStringValue fail, strKey(SDKInfoURL), nRet:(0x80000100).
+[2026-09-11 17:56:59:0502] |              Warning-L3518: [GetCamExtraInfo] GetStringValue  SDKInfoURL failed. nRet[0x80060004].
+[2026-09-11 17:56:59:0502] |                Error-L3968: [Start] Get SDKInfo failed...
+[2026-09-11 17:56:59:0503] |                 Info-L8530: [GetDimension] Get LSLProfileCoordZUnit  Value[1.000000] nRet:[0].
+[2026-09-11 17:56:59:0503] |                Error-L1011: camera module MV_CC_GetStringValue fail, strKey(SDKInfoURL), nRet:(0x80000100).
+[2026-09-11 17:56:59:0503] |              Warning-L3518: [GetCamExtraInfo] GetStringValue  SDKInfoURL failed. nRet[0x80060004].
+[2026-09-11 17:56:59:0506] |                 Info-L10707: [GetResolusion] CamGetIntValue Width [1280].
+[2026-09-11 17:56:59:0587] |              Warning-L3233: [FetchFrame] error lost frameID from[92] to [97].
+[2026-09-11 17:56:59:0594] |                 Info-L4849: [CamGetDeviceInfo] device SN[00DA8573792] ModelName[MV-EB435i] 
+[2026-09-11 17:56:59:0594] |                 Info-L10582: [CalibUtilsProcess] RGBDSensorCali camSerialNum(00DA8573792).
+[2026-09-11 17:56:59:0667] |                 Info-L10672: [CalibUtilsProcess] MV3D_CALIBUTIL_GetCalibInfoEx success! RgbWidth[1280] RgbHeight[720] DepthWidth[1280] DepthHeight[720]
+[2026-09-11 17:56:59:0744] |                 Info-L4017: [Start] StartGrabbing success.
+[2026-09-11 17:56:59:0744] |                 Info-L4023: [Start] end success.
+[2026-09-11 17:56:59:0745] |              Warning-L3233: [FetchFrame] error lost frameID from[0] to [97].
+[2026-09-11 17:56:59:0955] |              Warning-L3233: [FetchFrame] error lost frameID from[97] to [103].
+[2026-09-11 17:57:41:0143] |                 Info-L4359: ---------------------Start call Mv3dRgbd.dll start--------------------
+[2026-09-11 17:57:41:0143] |                 Info-L4363: Build Time[250213_16:25:12], SDK version[0x1040003].
+[2026-09-11 17:57:41:0143] |                 Info-L4371: Config (/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/device/HIK-EB435I/sdk-1.4/Libs/aarch64/Mv3dRgbdCfg.ini) exist .
+[2026-09-11 17:57:41:0143] |                 Info-L4381: LogConfig: LogSize[100].
+[2026-09-11 17:57:41:0143] |                 Info-L4382: CameraConfig: BufferNode[5], DeviceFilterEnable[1].
+[2026-09-11 17:57:41:0143] |                 Info-L4383: Debug: DebugMode[0].
+[2026-09-11 17:57:41:0143] |                 Info-L4384: Thread: RectThread[1], RectTimeOut[1000].
+[2026-09-11 17:57:41:0143] |                 Info-L4385: CameraLog: CameraLogEnable[1], CameraLogPort[8192], CameraLogLevel[3], CameraLogSize[100]
+[2026-09-11 17:57:41:0143] |                 Info-L2317: [Init] Begin.
+[2026-09-11 17:57:41:0153] |                 Info-L2352: [Init] end success.
+[2026-09-11 17:57:41:0153] |                 Info-L1022: [BindDevBySomeWay] start. chParm[00DA8573792].
+[2026-09-11 17:57:41:0153] |                 Info-L0085: [Enum] begin.
+[2026-09-11 17:57:41:0324] |                 Info-L0103: [Enum] enum by gige sdk, get camera num:[2].
+[2026-09-11 17:57:41:0324] |                 Info-L0106: [Enum] end success.
+[2026-09-11 17:57:41:0324] |                 Info-L1162: [CompareBindParm] param bFind[1]  nFindIndex[0] .
+[2026-09-11 17:57:41:0324] |                 Info-L2275: [CreateHandle] begin.
+[2026-09-11 17:57:41:0324] |                 Info-L0158: [CreateHandle] Get Gige Sdk version:(0x4040004).
+[2026-09-11 17:57:41:0324] |                 Info-L2310: [CreateHandle] end success.
+[2026-09-11 17:57:41:0324] |                 Info-L1065: [BindDevBySomeWay] USB Type = USB3
+[2026-09-11 17:57:41:0324] |                 Info-L1085: [BindDevBySomeWay] end. chParm[00DA8573792].
+[2026-09-11 17:57:41:0324] |                 Info-L2029: [ConnectDevice] begin.
+[2026-09-11 17:57:42:0471] |                 Info-L2065: [ConnectDevice] SetImageNodeNum value[5].
+[2026-09-11 17:57:42:0481] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(CameraWorkingMode) nValue(4).
+[2026-09-11 17:57:42:0485] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ImageMode) nValue(2).
+[2026-09-11 17:57:42:0488] |                 Info-L1067: [SetValue] camera module MV_CC_SetBoolValue: strKey(ChunkModeActive) bValue(1).
+[2026-09-11 17:57:42:0488] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ChunkSelector) nValue(24).
+[2026-09-11 17:57:42:0490] |                 Info-L1067: [SetValue] camera module MV_CC_SetBoolValue: strKey(ChunkEnable) bValue(1).
+[2026-09-11 17:57:42:0491] |                 Info-L2017: [SetWorkModeAfterOpen] m_nDeviceType:00000004.
+[2026-09-11 17:57:42:0491] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(DeviceRGBCorrectionEnable), nRet:[0x80000100].
+[2026-09-11 17:57:42:0491] |                Error-L4661: [CamGetValue] GetCamParamsType[DeviceRGBCorrectionEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:42:0491] |              Warning-L2096: [ConnectDevice] Get DeviceRGBCorrectionEnable failed nRet:[0x80060004].
+[2026-09-11 17:57:42:0491] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(NoiseFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:57:42:0491] |                Error-L4661: [CamGetValue] GetCamParamsType[NoiseFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:42:0491] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(NormalFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:57:42:0491] |                Error-L4661: [CamGetValue] GetCamParamsType[NormalFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:42:0491] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(ExtenEnable), nRet:[0x80000100].
+[2026-09-11 17:57:42:0491] |                Error-L4661: [CamGetValue] GetCamParamsType[ExtenEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:42:0491] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(RangeTransformEnable), nRet:[0x80000100].
+[2026-09-11 17:57:42:0491] |                Error-L4661: [CamGetValue] GetCamParamsType[RangeTransformEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:42:0491] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(GapFillEnable), nRet:[0x80000100].
+[2026-09-11 17:57:42:0491] |                Error-L4661: [CamGetValue] GetCamParamsType[GapFillEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:42:0491] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(RangeFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:57:42:0491] |                Error-L4661: [CamGetValue] GetCamParamsType[RangeFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:42:0491] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(HeightExtractEnable), nRet:[0x80000100].
+[2026-09-11 17:57:42:0491] |                Error-L4661: [CamGetValue] GetCamParamsType[HeightExtractEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:42:0491] |              Warning-L2140: [ConnectDevice] SetUsbTimeout 10000 failed nRet:[0x80060001].
+[2026-09-11 17:57:42:0491] |                 Info-L2149: [ConnectDevice] end success.
+[2026-09-11 17:57:42:0494] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(CameraWorkingMode) nValue(2).
+[2026-09-11 17:57:42:0495] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ImageMode) nValue(8).
+[2026-09-11 17:57:42:0495] |                 Info-L3945: [Start] begin.
+[2026-09-11 17:57:42:0495] |                Error-L1011: camera module MV_CC_GetStringValue fail, strKey(SDKInfoURL), nRet:(0x80000100).
+[2026-09-11 17:57:42:0495] |              Warning-L3518: [GetCamExtraInfo] GetStringValue  SDKInfoURL failed. nRet[0x80060004].
+[2026-09-11 17:57:42:0495] |                Error-L3968: [Start] Get SDKInfo failed...
+[2026-09-11 17:57:42:0496] |                 Info-L8530: [GetDimension] Get LSLProfileCoordZUnit  Value[1.000000] nRet:[0].
+[2026-09-11 17:57:42:0496] |                Error-L1011: camera module MV_CC_GetStringValue fail, strKey(SDKInfoURL), nRet:(0x80000100).
+[2026-09-11 17:57:42:0496] |              Warning-L3518: [GetCamExtraInfo] GetStringValue  SDKInfoURL failed. nRet[0x80060004].
+[2026-09-11 17:57:42:0498] |                 Info-L10707: [GetResolusion] CamGetIntValue Width [1280].
+[2026-09-11 17:57:42:0565] |                 Info-L4849: [CamGetDeviceInfo] device SN[00DA8573792] ModelName[MV-EB435i] 
+[2026-09-11 17:57:42:0565] |                 Info-L10582: [CalibUtilsProcess] RGBDSensorCali camSerialNum(00DA8573792).
+[2026-09-11 17:57:42:0623] |                 Info-L10672: [CalibUtilsProcess] MV3D_CALIBUTIL_GetCalibInfoEx success! RgbWidth[1280] RgbHeight[720] DepthWidth[1280] DepthHeight[720]
+[2026-09-11 17:57:42:0696] |                 Info-L4017: [Start] StartGrabbing success.
+[2026-09-11 17:57:42:0696] |                 Info-L4023: [Start] end success.
+[2026-09-11 17:57:45:0713] |                 Info-L4031: [Stop] begin.
+[2026-09-11 17:57:45:0722] |                 Info-L4074: [Stop] Camera StopGrabbing success. 
+[2026-09-11 17:57:45:0722] |                 Info-L4237: [Stop] end success.
+[2026-09-11 17:57:45:0722] |                 Info-L0604: [DeInit] begin.
+[2026-09-11 17:57:45:0761] |                 Info-L0246: [DeInit] MV_CC_CloseDevice success.
+[2026-09-11 17:57:45:0762] |                 Info-L0257: [DeInit] MV_CC_DestroyHandle success.
+[2026-09-11 17:57:48:0807] |                 Info-L4359: ---------------------Start call Mv3dRgbd.dll start--------------------
+[2026-09-11 17:57:48:0808] |                 Info-L4363: Build Time[250213_16:25:12], SDK version[0x1040003].
+[2026-09-11 17:57:48:0808] |                 Info-L4371: Config (/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/device/HIK-EB435I/sdk-1.4/Libs/aarch64/Mv3dRgbdCfg.ini) exist .
+[2026-09-11 17:57:48:0808] |                 Info-L4381: LogConfig: LogSize[100].
+[2026-09-11 17:57:48:0808] |                 Info-L4382: CameraConfig: BufferNode[5], DeviceFilterEnable[1].
+[2026-09-11 17:57:48:0808] |                 Info-L4383: Debug: DebugMode[0].
+[2026-09-11 17:57:48:0808] |                 Info-L4384: Thread: RectThread[1], RectTimeOut[1000].
+[2026-09-11 17:57:48:0808] |                 Info-L4385: CameraLog: CameraLogEnable[1], CameraLogPort[8192], CameraLogLevel[3], CameraLogSize[100]
+[2026-09-11 17:57:48:0808] |                 Info-L2317: [Init] Begin.
+[2026-09-11 17:57:48:0817] |                 Info-L2352: [Init] end success.
+[2026-09-11 17:57:48:0817] |                 Info-L1022: [BindDevBySomeWay] start. chParm[00DA8573792].
+[2026-09-11 17:57:48:0817] |                 Info-L0085: [Enum] begin.
+[2026-09-11 17:57:48:0918] |                 Info-L0103: [Enum] enum by gige sdk, get camera num:[2].
+[2026-09-11 17:57:48:0918] |                 Info-L0106: [Enum] end success.
+[2026-09-11 17:57:48:0918] |                 Info-L1162: [CompareBindParm] param bFind[1]  nFindIndex[0] .
+[2026-09-11 17:57:48:0918] |                 Info-L2275: [CreateHandle] begin.
+[2026-09-11 17:57:48:0918] |                 Info-L0158: [CreateHandle] Get Gige Sdk version:(0x4040004).
+[2026-09-11 17:57:48:0919] |                 Info-L2310: [CreateHandle] end success.
+[2026-09-11 17:57:48:0919] |                 Info-L1065: [BindDevBySomeWay] USB Type = USB3
+[2026-09-11 17:57:48:0919] |                 Info-L1085: [BindDevBySomeWay] end. chParm[00DA8573792].
+[2026-09-11 17:57:48:0919] |                 Info-L2029: [ConnectDevice] begin.
+[2026-09-11 17:57:50:0008] |                 Info-L2065: [ConnectDevice] SetImageNodeNum value[5].
+[2026-09-11 17:57:50:0019] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(CameraWorkingMode) nValue(4).
+[2026-09-11 17:57:50:0025] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ImageMode) nValue(2).
+[2026-09-11 17:57:50:0027] |                 Info-L1067: [SetValue] camera module MV_CC_SetBoolValue: strKey(ChunkModeActive) bValue(1).
+[2026-09-11 17:57:50:0027] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ChunkSelector) nValue(24).
+[2026-09-11 17:57:50:0030] |                 Info-L1067: [SetValue] camera module MV_CC_SetBoolValue: strKey(ChunkEnable) bValue(1).
+[2026-09-11 17:57:50:0030] |                 Info-L2017: [SetWorkModeAfterOpen] m_nDeviceType:00000004.
+[2026-09-11 17:57:50:0030] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(DeviceRGBCorrectionEnable), nRet:[0x80000100].
+[2026-09-11 17:57:50:0030] |                Error-L4661: [CamGetValue] GetCamParamsType[DeviceRGBCorrectionEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:50:0030] |              Warning-L2096: [ConnectDevice] Get DeviceRGBCorrectionEnable failed nRet:[0x80060004].
+[2026-09-11 17:57:50:0030] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(NoiseFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:57:50:0030] |                Error-L4661: [CamGetValue] GetCamParamsType[NoiseFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:50:0031] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(NormalFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:57:50:0031] |                Error-L4661: [CamGetValue] GetCamParamsType[NormalFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:50:0031] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(ExtenEnable), nRet:[0x80000100].
+[2026-09-11 17:57:50:0031] |                Error-L4661: [CamGetValue] GetCamParamsType[ExtenEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:50:0031] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(RangeTransformEnable), nRet:[0x80000100].
+[2026-09-11 17:57:50:0031] |                Error-L4661: [CamGetValue] GetCamParamsType[RangeTransformEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:50:0031] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(GapFillEnable), nRet:[0x80000100].
+[2026-09-11 17:57:50:0031] |                Error-L4661: [CamGetValue] GetCamParamsType[GapFillEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:50:0031] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(RangeFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:57:50:0031] |                Error-L4661: [CamGetValue] GetCamParamsType[RangeFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:50:0031] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(HeightExtractEnable), nRet:[0x80000100].
+[2026-09-11 17:57:50:0031] |                Error-L4661: [CamGetValue] GetCamParamsType[HeightExtractEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:50:0031] |              Warning-L2140: [ConnectDevice] SetUsbTimeout 10000 failed nRet:[0x80060001].
+[2026-09-11 17:57:50:0031] |                 Info-L2149: [ConnectDevice] end success.
+[2026-09-11 17:57:50:0035] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(CameraWorkingMode) nValue(2).
+[2026-09-11 17:57:50:0036] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ImageMode) nValue(8).
+[2026-09-11 17:57:50:0036] |                 Info-L3945: [Start] begin.
+[2026-09-11 17:57:50:0036] |                Error-L1011: camera module MV_CC_GetStringValue fail, strKey(SDKInfoURL), nRet:(0x80000100).
+[2026-09-11 17:57:50:0036] |              Warning-L3518: [GetCamExtraInfo] GetStringValue  SDKInfoURL failed. nRet[0x80060004].
+[2026-09-11 17:57:50:0036] |                Error-L3968: [Start] Get SDKInfo failed...
+[2026-09-11 17:57:50:0037] |                 Info-L8530: [GetDimension] Get LSLProfileCoordZUnit  Value[1.000000] nRet:[0].
+[2026-09-11 17:57:50:0037] |                Error-L1011: camera module MV_CC_GetStringValue fail, strKey(SDKInfoURL), nRet:(0x80000100).
+[2026-09-11 17:57:50:0037] |              Warning-L3518: [GetCamExtraInfo] GetStringValue  SDKInfoURL failed. nRet[0x80060004].
+[2026-09-11 17:57:50:0039] |                 Info-L10707: [GetResolusion] CamGetIntValue Width [1280].
+[2026-09-11 17:57:50:0103] |                 Info-L4849: [CamGetDeviceInfo] device SN[00DA8573792] ModelName[MV-EB435i] 
+[2026-09-11 17:57:50:0103] |                 Info-L10582: [CalibUtilsProcess] RGBDSensorCali camSerialNum(00DA8573792).
+[2026-09-11 17:57:50:0170] |                 Info-L10672: [CalibUtilsProcess] MV3D_CALIBUTIL_GetCalibInfoEx success! RgbWidth[1280] RgbHeight[720] DepthWidth[1280] DepthHeight[720]
+[2026-09-11 17:57:50:0239] |                 Info-L4017: [Start] StartGrabbing success.
+[2026-09-11 17:57:50:0239] |                 Info-L4023: [Start] end success.
+[2026-09-11 17:57:53:0253] |                 Info-L4031: [Stop] begin.
+[2026-09-11 17:57:53:0260] |                 Info-L4074: [Stop] Camera StopGrabbing success. 
+[2026-09-11 17:57:53:0260] |                 Info-L4237: [Stop] end success.
+[2026-09-11 17:57:53:0260] |                 Info-L0604: [DeInit] begin.
+[2026-09-11 17:57:56:0327] |                 Info-L4359: ---------------------Start call Mv3dRgbd.dll start--------------------
+[2026-09-11 17:57:56:0327] |                 Info-L4363: Build Time[250213_16:25:12], SDK version[0x1040003].
+[2026-09-11 17:57:56:0327] |                 Info-L4371: Config (/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/device/HIK-EB435I/sdk-1.4/Libs/aarch64/Mv3dRgbdCfg.ini) exist .
+[2026-09-11 17:57:56:0327] |                 Info-L4381: LogConfig: LogSize[100].
+[2026-09-11 17:57:56:0327] |                 Info-L4382: CameraConfig: BufferNode[5], DeviceFilterEnable[1].
+[2026-09-11 17:57:56:0327] |                 Info-L4383: Debug: DebugMode[0].
+[2026-09-11 17:57:56:0327] |                 Info-L4384: Thread: RectThread[1], RectTimeOut[1000].
+[2026-09-11 17:57:56:0327] |                 Info-L4385: CameraLog: CameraLogEnable[1], CameraLogPort[8192], CameraLogLevel[3], CameraLogSize[100]
+[2026-09-11 17:57:56:0327] |                 Info-L2317: [Init] Begin.
+[2026-09-11 17:57:56:0328] |                 Info-L2352: [Init] end success.
+[2026-09-11 17:57:56:0328] |                 Info-L1022: [BindDevBySomeWay] start. chParm[00DA8573792].
+[2026-09-11 17:57:56:0328] |                 Info-L0085: [Enum] begin.
+[2026-09-11 17:57:56:0430] |                 Info-L0103: [Enum] enum by gige sdk, get camera num:[2].
+[2026-09-11 17:57:56:0430] |                 Info-L0106: [Enum] end success.
+[2026-09-11 17:57:56:0430] |                 Info-L1162: [CompareBindParm] param bFind[1]  nFindIndex[0] .
+[2026-09-11 17:57:56:0430] |                 Info-L2275: [CreateHandle] begin.
+[2026-09-11 17:57:56:0430] |                 Info-L0158: [CreateHandle] Get Gige Sdk version:(0x4040004).
+[2026-09-11 17:57:56:0430] |                 Info-L2310: [CreateHandle] end success.
+[2026-09-11 17:57:56:0431] |                 Info-L1065: [BindDevBySomeWay] USB Type = USB3
+[2026-09-11 17:57:56:0431] |                 Info-L1085: [BindDevBySomeWay] end. chParm[00DA8573792].
+[2026-09-11 17:57:56:0431] |                 Info-L2029: [ConnectDevice] begin.
+[2026-09-11 17:57:57:0599] |                 Info-L2065: [ConnectDevice] SetImageNodeNum value[5].
+[2026-09-11 17:57:57:0608] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(CameraWorkingMode) nValue(4).
+[2026-09-11 17:57:57:0610] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ImageMode) nValue(2).
+[2026-09-11 17:57:57:0611] |                 Info-L1067: [SetValue] camera module MV_CC_SetBoolValue: strKey(ChunkModeActive) bValue(1).
+[2026-09-11 17:57:57:0612] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ChunkSelector) nValue(24).
+[2026-09-11 17:57:57:0614] |                 Info-L1067: [SetValue] camera module MV_CC_SetBoolValue: strKey(ChunkEnable) bValue(1).
+[2026-09-11 17:57:57:0614] |                 Info-L2017: [SetWorkModeAfterOpen] m_nDeviceType:00000004.
+[2026-09-11 17:57:57:0614] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(DeviceRGBCorrectionEnable), nRet:[0x80000100].
+[2026-09-11 17:57:57:0614] |                Error-L4661: [CamGetValue] GetCamParamsType[DeviceRGBCorrectionEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:57:0614] |              Warning-L2096: [ConnectDevice] Get DeviceRGBCorrectionEnable failed nRet:[0x80060004].
+[2026-09-11 17:57:57:0614] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(NoiseFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:57:57:0614] |                Error-L4661: [CamGetValue] GetCamParamsType[NoiseFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:57:0614] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(NormalFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:57:57:0614] |                Error-L4661: [CamGetValue] GetCamParamsType[NormalFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:57:0614] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(ExtenEnable), nRet:[0x80000100].
+[2026-09-11 17:57:57:0614] |                Error-L4661: [CamGetValue] GetCamParamsType[ExtenEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:57:0614] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(RangeTransformEnable), nRet:[0x80000100].
+[2026-09-11 17:57:57:0614] |                Error-L4661: [CamGetValue] GetCamParamsType[RangeTransformEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:57:0614] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(GapFillEnable), nRet:[0x80000100].
+[2026-09-11 17:57:57:0614] |                Error-L4661: [CamGetValue] GetCamParamsType[GapFillEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:57:0615] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(RangeFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:57:57:0615] |                Error-L4661: [CamGetValue] GetCamParamsType[RangeFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:57:0615] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(HeightExtractEnable), nRet:[0x80000100].
+[2026-09-11 17:57:57:0615] |                Error-L4661: [CamGetValue] GetCamParamsType[HeightExtractEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:57:57:0615] |              Warning-L2140: [ConnectDevice] SetUsbTimeout 10000 failed nRet:[0x80060001].
+[2026-09-11 17:57:57:0616] |                 Info-L2149: [ConnectDevice] end success.
+[2026-09-11 17:57:57:0620] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(CameraWorkingMode) nValue(2).
+[2026-09-11 17:57:57:0622] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ImageMode) nValue(8).
+[2026-09-11 17:57:57:0622] |                 Info-L3945: [Start] begin.
+[2026-09-11 17:57:57:0622] |                Error-L1011: camera module MV_CC_GetStringValue fail, strKey(SDKInfoURL), nRet:(0x80000100).
+[2026-09-11 17:57:57:0622] |              Warning-L3518: [GetCamExtraInfo] GetStringValue  SDKInfoURL failed. nRet[0x80060004].
+[2026-09-11 17:57:57:0622] |                Error-L3968: [Start] Get SDKInfo failed...
+[2026-09-11 17:57:57:0623] |                 Info-L8530: [GetDimension] Get LSLProfileCoordZUnit  Value[1.000000] nRet:[0].
+[2026-09-11 17:57:57:0624] |                Error-L1011: camera module MV_CC_GetStringValue fail, strKey(SDKInfoURL), nRet:(0x80000100).
+[2026-09-11 17:57:57:0624] |              Warning-L3518: [GetCamExtraInfo] GetStringValue  SDKInfoURL failed. nRet[0x80060004].
+[2026-09-11 17:57:57:0627] |                 Info-L10707: [GetResolusion] CamGetIntValue Width [1280].
+[2026-09-11 17:57:57:0702] |                 Info-L4849: [CamGetDeviceInfo] device SN[00DA8573792] ModelName[MV-EB435i] 
+[2026-09-11 17:57:57:0702] |                 Info-L10582: [CalibUtilsProcess] RGBDSensorCali camSerialNum(00DA8573792).
+[2026-09-11 17:57:57:0762] |                 Info-L10672: [CalibUtilsProcess] MV3D_CALIBUTIL_GetCalibInfoEx success! RgbWidth[1280] RgbHeight[720] DepthWidth[1280] DepthHeight[720]
+[2026-09-11 17:57:57:0834] |                 Info-L4017: [Start] StartGrabbing success.
+[2026-09-11 17:57:57:0834] |                 Info-L4023: [Start] end success.
+[2026-09-11 17:58:00:0850] |                 Info-L4031: [Stop] begin.
+[2026-09-11 17:58:00:0857] |                 Info-L4074: [Stop] Camera StopGrabbing success. 
+[2026-09-11 17:58:00:0857] |                 Info-L4237: [Stop] end success.
+[2026-09-11 17:58:00:0857] |                 Info-L0604: [DeInit] begin.
+[2026-09-11 17:58:03:0917] |                 Info-L4359: ---------------------Start call Mv3dRgbd.dll start--------------------
+[2026-09-11 17:58:03:0917] |                 Info-L4363: Build Time[250213_16:25:12], SDK version[0x1040003].
+[2026-09-11 17:58:03:0917] |                 Info-L4371: Config (/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/device/HIK-EB435I/sdk-1.4/Libs/aarch64/Mv3dRgbdCfg.ini) exist .
+[2026-09-11 17:58:03:0917] |                 Info-L4381: LogConfig: LogSize[100].
+[2026-09-11 17:58:03:0917] |                 Info-L4382: CameraConfig: BufferNode[5], DeviceFilterEnable[1].
+[2026-09-11 17:58:03:0917] |                 Info-L4383: Debug: DebugMode[0].
+[2026-09-11 17:58:03:0917] |                 Info-L4384: Thread: RectThread[1], RectTimeOut[1000].
+[2026-09-11 17:58:03:0917] |                 Info-L4385: CameraLog: CameraLogEnable[1], CameraLogPort[8192], CameraLogLevel[3], CameraLogSize[100]
+[2026-09-11 17:58:03:0917] |                 Info-L2317: [Init] Begin.
+[2026-09-11 17:58:03:0918] |                 Info-L2352: [Init] end success.
+[2026-09-11 17:58:03:0918] |                 Info-L1022: [BindDevBySomeWay] start. chParm[00DA8573792].
+[2026-09-11 17:58:03:0918] |                 Info-L0085: [Enum] begin.
+[2026-09-11 17:58:04:0020] |                 Info-L0103: [Enum] enum by gige sdk, get camera num:[2].
+[2026-09-11 17:58:04:0020] |                 Info-L0106: [Enum] end success.
+[2026-09-11 17:58:04:0020] |                 Info-L1162: [CompareBindParm] param bFind[1]  nFindIndex[0] .
+[2026-09-11 17:58:04:0020] |                 Info-L2275: [CreateHandle] begin.
+[2026-09-11 17:58:04:0020] |                 Info-L0158: [CreateHandle] Get Gige Sdk version:(0x4040004).
+[2026-09-11 17:58:04:0020] |                 Info-L2310: [CreateHandle] end success.
+[2026-09-11 17:58:04:0020] |                 Info-L1065: [BindDevBySomeWay] USB Type = USB3
+[2026-09-11 17:58:04:0020] |                 Info-L1085: [BindDevBySomeWay] end. chParm[00DA8573792].
+[2026-09-11 17:58:04:0020] |                 Info-L2029: [ConnectDevice] begin.
+[2026-09-11 17:58:05:0080] |                 Info-L2065: [ConnectDevice] SetImageNodeNum value[5].
+[2026-09-11 17:58:05:0089] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(CameraWorkingMode) nValue(4).
+[2026-09-11 17:58:05:0092] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ImageMode) nValue(2).
+[2026-09-11 17:58:05:0094] |                 Info-L1067: [SetValue] camera module MV_CC_SetBoolValue: strKey(ChunkModeActive) bValue(1).
+[2026-09-11 17:58:05:0094] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ChunkSelector) nValue(24).
+[2026-09-11 17:58:05:0096] |                 Info-L1067: [SetValue] camera module MV_CC_SetBoolValue: strKey(ChunkEnable) bValue(1).
+[2026-09-11 17:58:05:0096] |                 Info-L2017: [SetWorkModeAfterOpen] m_nDeviceType:00000004.
+[2026-09-11 17:58:05:0096] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(DeviceRGBCorrectionEnable), nRet:[0x80000100].
+[2026-09-11 17:58:05:0096] |                Error-L4661: [CamGetValue] GetCamParamsType[DeviceRGBCorrectionEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:58:05:0096] |              Warning-L2096: [ConnectDevice] Get DeviceRGBCorrectionEnable failed nRet:[0x80060004].
+[2026-09-11 17:58:05:0096] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(NoiseFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:58:05:0096] |                Error-L4661: [CamGetValue] GetCamParamsType[NoiseFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:58:05:0096] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(NormalFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:58:05:0096] |                Error-L4661: [CamGetValue] GetCamParamsType[NormalFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:58:05:0096] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(ExtenEnable), nRet:[0x80000100].
+[2026-09-11 17:58:05:0096] |                Error-L4661: [CamGetValue] GetCamParamsType[ExtenEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:58:05:0096] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(RangeTransformEnable), nRet:[0x80000100].
+[2026-09-11 17:58:05:0096] |                Error-L4661: [CamGetValue] GetCamParamsType[RangeTransformEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:58:05:0096] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(GapFillEnable), nRet:[0x80000100].
+[2026-09-11 17:58:05:0096] |                Error-L4661: [CamGetValue] GetCamParamsType[GapFillEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:58:05:0096] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(RangeFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:58:05:0096] |                Error-L4661: [CamGetValue] GetCamParamsType[RangeFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:58:05:0097] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(HeightExtractEnable), nRet:[0x80000100].
+[2026-09-11 17:58:05:0097] |                Error-L4661: [CamGetValue] GetCamParamsType[HeightExtractEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:58:05:0097] |              Warning-L2140: [ConnectDevice] SetUsbTimeout 10000 failed nRet:[0x80060001].
+[2026-09-11 17:58:05:0097] |                 Info-L2149: [ConnectDevice] end success.
+[2026-09-11 17:58:05:0100] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(CameraWorkingMode) nValue(2).
+[2026-09-11 17:58:05:0101] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ImageMode) nValue(8).
+[2026-09-11 17:58:05:0101] |                 Info-L3945: [Start] begin.
+[2026-09-11 17:58:05:0101] |                Error-L1011: camera module MV_CC_GetStringValue fail, strKey(SDKInfoURL), nRet:(0x80000100).
+[2026-09-11 17:58:05:0101] |              Warning-L3518: [GetCamExtraInfo] GetStringValue  SDKInfoURL failed. nRet[0x80060004].
+[2026-09-11 17:58:05:0101] |                Error-L3968: [Start] Get SDKInfo failed...
+[2026-09-11 17:58:05:0102] |                 Info-L8530: [GetDimension] Get LSLProfileCoordZUnit  Value[1.000000] nRet:[0].
+[2026-09-11 17:58:05:0102] |                Error-L1011: camera module MV_CC_GetStringValue fail, strKey(SDKInfoURL), nRet:(0x80000100).
+[2026-09-11 17:58:05:0102] |              Warning-L3518: [GetCamExtraInfo] GetStringValue  SDKInfoURL failed. nRet[0x80060004].
+[2026-09-11 17:58:05:0105] |                 Info-L10707: [GetResolusion] CamGetIntValue Width [1280].
+[2026-09-11 17:58:05:0168] |                 Info-L4849: [CamGetDeviceInfo] device SN[00DA8573792] ModelName[MV-EB435i] 
+[2026-09-11 17:58:05:0168] |                 Info-L10582: [CalibUtilsProcess] RGBDSensorCali camSerialNum(00DA8573792).
+[2026-09-11 17:58:05:0227] |                 Info-L10672: [CalibUtilsProcess] MV3D_CALIBUTIL_GetCalibInfoEx success! RgbWidth[1280] RgbHeight[720] DepthWidth[1280] DepthHeight[720]
+[2026-09-11 17:58:05:0296] |                 Info-L4017: [Start] StartGrabbing success.
+[2026-09-11 17:58:05:0296] |                 Info-L4023: [Start] end success.
+[2026-09-11 17:58:08:0308] |                 Info-L4031: [Stop] begin.
+[2026-09-11 17:58:08:0315] |                 Info-L4074: [Stop] Camera StopGrabbing success. 
+[2026-09-11 17:58:08:0315] |                 Info-L4237: [Stop] end success.
+[2026-09-11 17:58:08:0315] |                 Info-L0604: [DeInit] begin.
+[2026-09-11 17:58:08:0346] |                 Info-L0246: [DeInit] MV_CC_CloseDevice success.
+[2026-09-11 17:58:11:0375] |                 Info-L4359: ---------------------Start call Mv3dRgbd.dll start--------------------
+[2026-09-11 17:58:11:0375] |                 Info-L4363: Build Time[250213_16:25:12], SDK version[0x1040003].
+[2026-09-11 17:58:11:0375] |                 Info-L4371: Config (/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/device/HIK-EB435I/sdk-1.4/Libs/aarch64/Mv3dRgbdCfg.ini) exist .
+[2026-09-11 17:58:11:0375] |                 Info-L4381: LogConfig: LogSize[100].
+[2026-09-11 17:58:11:0375] |                 Info-L4382: CameraConfig: BufferNode[5], DeviceFilterEnable[1].
+[2026-09-11 17:58:11:0375] |                 Info-L4383: Debug: DebugMode[0].
+[2026-09-11 17:58:11:0375] |                 Info-L4384: Thread: RectThread[1], RectTimeOut[1000].
+[2026-09-11 17:58:11:0375] |                 Info-L4385: CameraLog: CameraLogEnable[1], CameraLogPort[8192], CameraLogLevel[3], CameraLogSize[100]
+[2026-09-11 17:58:11:0375] |                 Info-L2317: [Init] Begin.
+[2026-09-11 17:58:11:0376] |                 Info-L2352: [Init] end success.
+[2026-09-11 17:58:11:0376] |                 Info-L1022: [BindDevBySomeWay] start. chParm[00DA8573792].
+[2026-09-11 17:58:11:0376] |                 Info-L0085: [Enum] begin.
+[2026-09-11 17:58:11:0477] |                 Info-L0103: [Enum] enum by gige sdk, get camera num:[2].
+[2026-09-11 17:58:11:0477] |                 Info-L0106: [Enum] end success.
+[2026-09-11 17:58:11:0477] |                 Info-L1162: [CompareBindParm] param bFind[1]  nFindIndex[0] .
+[2026-09-11 17:58:11:0477] |                 Info-L2275: [CreateHandle] begin.
+[2026-09-11 17:58:11:0477] |                 Info-L0158: [CreateHandle] Get Gige Sdk version:(0x4040004).
+[2026-09-11 17:58:11:0478] |                 Info-L2310: [CreateHandle] end success.
+[2026-09-11 17:58:11:0478] |                 Info-L1065: [BindDevBySomeWay] USB Type = USB3
+[2026-09-11 17:58:11:0478] |                 Info-L1085: [BindDevBySomeWay] end. chParm[00DA8573792].
+[2026-09-11 17:58:11:0478] |                 Info-L2029: [ConnectDevice] begin.
+[2026-09-11 17:58:12:0576] |                 Info-L2065: [ConnectDevice] SetImageNodeNum value[5].
+[2026-09-11 17:58:12:0590] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(CameraWorkingMode) nValue(4).
+[2026-09-11 17:58:12:0593] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ImageMode) nValue(2).
+[2026-09-11 17:58:12:0595] |                 Info-L1067: [SetValue] camera module MV_CC_SetBoolValue: strKey(ChunkModeActive) bValue(1).
+[2026-09-11 17:58:12:0596] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ChunkSelector) nValue(24).
+[2026-09-11 17:58:12:0598] |                 Info-L1067: [SetValue] camera module MV_CC_SetBoolValue: strKey(ChunkEnable) bValue(1).
+[2026-09-11 17:58:12:0598] |                 Info-L2017: [SetWorkModeAfterOpen] m_nDeviceType:00000004.
+[2026-09-11 17:58:12:0598] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(DeviceRGBCorrectionEnable), nRet:[0x80000100].
+[2026-09-11 17:58:12:0598] |                Error-L4661: [CamGetValue] GetCamParamsType[DeviceRGBCorrectionEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:58:12:0598] |              Warning-L2096: [ConnectDevice] Get DeviceRGBCorrectionEnable failed nRet:[0x80060004].
+[2026-09-11 17:58:12:0598] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(NoiseFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:58:12:0598] |                Error-L4661: [CamGetValue] GetCamParamsType[NoiseFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:58:12:0599] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(NormalFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:58:12:0599] |                Error-L4661: [CamGetValue] GetCamParamsType[NormalFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:58:12:0599] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(ExtenEnable), nRet:[0x80000100].
+[2026-09-11 17:58:12:0599] |                Error-L4661: [CamGetValue] GetCamParamsType[ExtenEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:58:12:0599] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(RangeTransformEnable), nRet:[0x80000100].
+[2026-09-11 17:58:12:0599] |                Error-L4661: [CamGetValue] GetCamParamsType[RangeTransformEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:58:12:0599] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(GapFillEnable), nRet:[0x80000100].
+[2026-09-11 17:58:12:0599] |                Error-L4661: [CamGetValue] GetCamParamsType[GapFillEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:58:12:0599] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(RangeFilterEnable), nRet:[0x80000100].
+[2026-09-11 17:58:12:0599] |                Error-L4661: [CamGetValue] GetCamParamsType[RangeFilterEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:58:12:0599] |              Warning-L1555: [GetCamParamsType] camera module MV_XML_GetNodeInterfaceType fail, pstrName(HeightExtractEnable), nRet:[0x80000100].
+[2026-09-11 17:58:12:0599] |                Error-L4661: [CamGetValue] GetCamParamsType[HeightExtractEnable] failed, errcode is (0x80060004)
+[2026-09-11 17:58:12:0599] |              Warning-L2140: [ConnectDevice] SetUsbTimeout 10000 failed nRet:[0x80060001].
+[2026-09-11 17:58:12:0599] |                 Info-L2149: [ConnectDevice] end success.
+[2026-09-11 17:58:12:0605] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(CameraWorkingMode) nValue(2).
+[2026-09-11 17:58:12:0606] |                 Info-L1082: [SetValue] camera module MV_CC_SetEnumValue:strKey(ImageMode) nValue(8).
+[2026-09-11 17:58:12:0606] |                 Info-L3945: [Start] begin.
+[2026-09-11 17:58:12:0607] |                Error-L1011: camera module MV_CC_GetStringValue fail, strKey(SDKInfoURL), nRet:(0x80000100).
+[2026-09-11 17:58:12:0607] |              Warning-L3518: [GetCamExtraInfo] GetStringValue  SDKInfoURL failed. nRet[0x80060004].
+[2026-09-11 17:58:12:0607] |                Error-L3968: [Start] Get SDKInfo failed...
+[2026-09-11 17:58:12:0608] |                 Info-L8530: [GetDimension] Get LSLProfileCoordZUnit  Value[1.000000] nRet:[0].
+[2026-09-11 17:58:12:0608] |                Error-L1011: camera module MV_CC_GetStringValue fail, strKey(SDKInfoURL), nRet:(0x80000100).
+[2026-09-11 17:58:12:0608] |              Warning-L3518: [GetCamExtraInfo] GetStringValue  SDKInfoURL failed. nRet[0x80060004].
+[2026-09-11 17:58:12:0611] |                 Info-L10707: [GetResolusion] CamGetIntValue Width [1280].
+[2026-09-11 17:58:12:0696] |                 Info-L4849: [CamGetDeviceInfo] device SN[00DA8573792] ModelName[MV-EB435i] 
+[2026-09-11 17:58:12:0696] |                 Info-L10582: [CalibUtilsProcess] RGBDSensorCali camSerialNum(00DA8573792).
+[2026-09-11 17:58:12:0778] |                 Info-L10672: [CalibUtilsProcess] MV3D_CALIBUTIL_GetCalibInfoEx success! RgbWidth[1280] RgbHeight[720] DepthWidth[1280] DepthHeight[720]
+[2026-09-11 17:58:12:0851] |                 Info-L4017: [Start] StartGrabbing success.
+[2026-09-11 17:58:12:0851] |                 Info-L4023: [Start] end success.
+[2026-09-11 17:58:24:0058] |                 Info-L4031: [Stop] begin.
+[2026-09-11 17:58:24:0066] |                 Info-L4074: [Stop] Camera StopGrabbing success. 
+[2026-09-11 17:58:24:0116] |                 Info-L4237: [Stop] end success.
+[2026-09-11 17:58:24:0116] |                 Info-L0604: [DeInit] begin.

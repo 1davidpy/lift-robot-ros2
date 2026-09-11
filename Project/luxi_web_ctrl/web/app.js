@@ -58,7 +58,7 @@ function render(s) {
   text('quest-detail',q.fresh ? '追踪：左 ' + tracking(q.left_tracking) + ' / 右 ' + tracking(q.right_tracking) : '请打开 Quest 应用并向板端发送 UDP');
   const armValid = a?.fresh && a.valid?.every(Boolean);
   badge('arms-badge',armValid ? (s.system.mock ? '模拟反馈' : '反馈在线') : '未就绪',armValid ? 'good' : 'bad');
-  text('arm-phase',a?.fresh && a.phase === 'fault' ? '驱动通信异常' : a?.fresh && a.phase === 'monitor_only' ? '状态采集 · 未使能' : s.control?.fresh ? (phases[s.control.phase] || s.control.phase) : a?.fresh ? (a.enabled ? '已使能' : '未使能') : '采集节点离线');
+  text('arm-phase',!a?.fresh ? '采集节点离线' : a.phase === 'fault' ? '驱动通信异常' : a?.fresh && a.phase === 'monitor_only' ? '状态采集 · 未使能' : s.control?.fresh ? (phases[s.control.phase] || s.control.phase) : a?.fresh ? (a.enabled ? '已使能' : '未使能') : '采集节点离线');
   text('arms-detail',a?.fresh ? '左臂 ' + a.valid.slice(8,16).filter(Boolean).length + '/8 · 右臂 ' + a.valid.slice(0,8).filter(Boolean).length + '/8 有效反馈' : '没有新鲜关节反馈');
   const jointRows = [];
   for (const [side, offset] of [['左臂',8],['右臂',0]]) {
@@ -215,3 +215,36 @@ $('keyboard-stop').addEventListener('click', async () => {
   try { await baseKeyboard('stop'); log('底盘已撤销控制许可'); render(await request('/api/state')); }
   catch(e) { keyboardError = '停车请求未确认：' + e.message; buttons(); log(keyboardError); }
 });
+
+// Service state and sensor freshness are deliberately displayed independently.
+let deviceStates = {}, deviceBusy = false;
+function deviceButtons() {
+  document.querySelectorAll('[data-device]').forEach(box => {
+    const id = box.dataset.device, d = deviceStates[id];
+    const running = d && ['active', 'activating', 'reloading'].includes(d.ActiveState);
+    const labels = {active:'服务运行中', activating:'正在启动 / 自动重试', deactivating:'正在停止', inactive:'已关闭', failed:'启动失败，可重试'};
+    box.querySelector('.service-state').textContent = d ? (d.LoadState === 'not-found' ? '服务未安装' : labels[d.ActiveState] || d.ActiveState) : '服务状态不可用';
+    box.querySelectorAll('button').forEach(b => {
+      b.disabled = deviceBusy || !connected || !state?.system?.control_authorized || !d || d.LoadState !== 'loaded' || d.ActiveState === 'deactivating';
+      if (b.dataset.serviceAction === 'toggle') {
+        b.textContent = (running ? '关闭' : '开启') + (id === 'program' ? '控制与录制程序' : '采集');
+        b.setAttribute('role', 'switch'); b.setAttribute('aria-checked', String(!!running));
+      }
+    });
+  });
+}
+async function pollDevices() {
+  try { deviceStates = (await request('/api/devices')).devices || {}; }
+  catch { deviceStates = {}; }
+  deviceButtons();
+}
+document.querySelectorAll('[data-device] button').forEach(b => b.addEventListener('click', async () => {
+  const id = b.closest('[data-device]').dataset.device;
+  const running = ['active', 'activating', 'reloading'].includes(deviceStates[id]?.ActiveState);
+  const action = b.dataset.serviceAction === 'toggle' ? (running ? 'stop' : 'start') : 'restart';
+  deviceBusy = true; deviceButtons();
+  try { const result = await request('/api/devices/' + id, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action})}); log(result.message); }
+  catch(e) { log(e.message); }
+  finally { deviceBusy = false; await pollDevices(); }
+}));
+pollDevices(); setInterval(pollDevices, 3000); setInterval(deviceButtons, 500);

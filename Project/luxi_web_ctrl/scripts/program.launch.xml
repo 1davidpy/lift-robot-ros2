@@ -1,0 +1,39 @@
+<launch>
+  <arg name="quest_enabled" default="true" />
+  <arg name="web_enabled" default="true" />
+  <arg name="base_enabled" default="false" />
+  <arg name="base_max_linear" default="0.2" />
+  <arg name="base_max_angular" default="0.3141592653589793" />
+  <arg name="base_ps2_reverse_steering" default="true" />
+  <arg name="base_interface" default="luxi_base" />
+  <arg name="mock" default="true" />
+  <arg name="base_mock" default="$(var mock)" />
+  <arg name="allow_hardware" default="false" />
+  <arg name="no_cameras" default="false" />
+  <arg name="require_cameras" default="true" />
+  <arg name="directory" default="data/real" />
+  <arg name="minimum_free_gib" default="20.0" />
+  <arg name="sdk_library" default="" />
+  <arg name="http_host" default="127.0.0.1" />
+  <arg name="http_port" default="8000" />
+  <arg name="control_token" default="" />
+  <arg name="quest_port" default="5006" />
+  <arg name="sender_ip" default="" />
+  <arg name="config" default="$(find-pkg-share luxi_bringup)/config/arms-kh.json" />
+  <node pkg="luxi_teleop_mapper" exec="teleop_mapper" output="screen" respawn="true" respawn_delay="3.0">
+    <param name="config" value="$(var config)" />
+  </node>
+  <node pkg="luxi_arm_motion" exec="arm_motion" output="screen" respawn="true" respawn_delay="3.0">
+    <param name="config" value="$(var config)" />
+    <param name="model" value="$(find-pkg-share luxi_description)/model/cell/cell.xml" />
+  </node>
+  <node pkg="luxi_control_manager" exec="control_manager" output="screen" respawn="true" respawn_delay="3.0">
+    <param name="config" value="$(var config)" />
+  </node>
+  <node pkg="luxi_data_recorder" exec="data_recorder" output="screen" respawn="true" respawn_delay="3.0">
+    <param name="config" value="$(var config)" />
+    <param name="directory" value="$(var directory)" />
+    <param name="minimum_free_gib" value="$(var minimum_free_gib)" />
+    <param name="require_cameras" value="$(var require_cameras)" />
+  </node>
+</launch>

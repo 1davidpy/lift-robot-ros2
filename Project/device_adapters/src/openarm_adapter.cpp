@@ -1,3 +1,4 @@
+#include <net/if.h>
 // SPDX-License-Identifier: Apache-2.0
 // Quest/OpenArm/Hikrobot behavior ported from Enactic openarm_teleop; see
 // docs/CPP迁移与接口说明.md.
@@ -15,6 +16,8 @@ class Adapter : public rclcpp::Node {
   luxi::Json json_;
   luxi::ArmConfig cfg_;
   bool monitor_only_ = false;
+  std::array<std::string, 2> bus_names_;
+  std::array<unsigned int, 2> bus_indices_{};
   bool mock_, enabled_ = false;
   std::array<std::unique_ptr<oa::OpenArm>, 2> arms_;
   std::array<int, 2> locks_{{-1, -1}};
@@ -93,6 +96,8 @@ class Adapter : public rclcpp::Node {
             open(("/tmp/luxi-" + iface + ".lock").c_str(), O_RDWR | O_CREAT | O_CLOEXEC, 0600);
         if (locks_[s] < 0 || flock(locks_[s], LOCK_EX | LOCK_NB) < 0)
           throw std::runtime_error("CAN owner already active");
+        bus_names_[s] = iface;
+        bus_indices_[s] = if_nametoindex(iface.c_str());
         arms_[s] = std::make_unique<oa::OpenArm>(iface, json_.at("fd"));
         arms_[s]->init_arm_motors(
             {dm::MotorType::DM8009, dm::MotorType::DM8009, dm::MotorType::DM4340,
@@ -160,6 +165,8 @@ class Adapter : public rclcpp::Node {
         }
       } else
         for (int s = 0; s < 2; s++) {
+          if (if_nametoindex(bus_names_[s].c_str()) != bus_indices_[s])
+            throw std::runtime_error("CAN interface disconnected or replaced; reconnect required");
           arms_[s]->refresh_all();
           receive(s);
         }
@@ -195,6 +202,7 @@ class Adapter : public rclcpp::Node {
       state_.valid.fill(false);
       state_.phase = "fault";
       error(e.what());
+      if (!mock_) throw; // Unwind, release CAN sockets; systemd retries without enabling motors.
     }
     state_.enabled = enabled_;
     state_.header.stamp = now();

@@ -170,6 +170,7 @@ class R680 : public rclcpp::Node {
       gate_.halt("can_or_input_fault");
       sent_ = {};
       RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), 2000, "%s", e.what());
+      if (!mock_) throw; // Unwind, release CAN sockets; systemd retries without enabling motors.
     }
     if (ticks_ % 10 == 0)
       json(status_, {{"enabled", gate_.enabled},
