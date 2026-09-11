@@ -88,7 +88,7 @@ int main(int argc, char** argv) {
       require(response->success, "service rejected " + command + ": " + response->message);
     };
     luxi::ArmConfig cfg(luxi::config(root + "/Project/robot_bringup/config/arms.json"));
-    luxi::Ik ik(root + "/device/external/openarm_mujoco/v2/cell/cell.xml", cfg);
+    luxi::Ik ik(root + "/device/openarm/openarm_mujoco/v2/cell/cell.xml", cfg);
     auto left = raw_pose(ik.fk(1)), right = raw_pose(ik.fk(0));
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     require(fd >= 0, "UDP socket");

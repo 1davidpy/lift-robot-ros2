@@ -2,6 +2,9 @@
 const $ = id => document.getElementById(id);
 const cameraIds = ['head_rgb', 'left_wrist_rgb', 'right_wrist_rgb'];
 const phases = {disabled:'未使能',homing:'回起始姿态',aligning:'等待手柄对齐',teleop:'遥操作中',hold:'保持',returning:'返回中',idle:'空闲',recording:'录制中'};
+let keyboardActive = false, keyboardPending = false, keyboardStarting = false;
+let keyboardError = "";
+const heldKeys = new Set();
 let state = null, connected = false, busy = false, lastUpdate = 0;
 const frames = {};
 function text(id, value) { $(id).textContent = value; }
@@ -17,12 +20,13 @@ async function request(path, options = {}) {
 }
 function buttons() {
   const s = state, services = s?.system?.services || {};
+  keyboardUI();
   document.querySelectorAll('[data-command]').forEach(b => {
     const kind = b.dataset.kind, cmd = b.dataset.command;
     let allow = connected && s?.system?.control_authorized && services[kind] && !busy;
     if (cmd === 'start') {
       if (kind === 'control') allow &&= s.arms?.fresh && s.arms.valid.every(Boolean) && s.quest?.fresh && s.quest.rate_hz >= 50 && s.control?.fresh && s.control.phase === 'disabled';
-      if (kind === 'base') allow &&= s.base?.valid && s.base_status?.fresh && !s.base_status.enabled && s.quest?.fresh;
+      if (kind === 'base') allow &&= s.base?.valid && s.base_status?.fresh && !s.base_status.enabled && s.quest?.fresh && !s.base_status.receive_only;
       if (kind === 'episode') allow &&= s.recorder?.fresh && s.recorder.state === 'idle' && s.arms?.fresh && s.arms.enabled && $('task').value.trim().length > 0;
     } else if (kind === 'episode') allow &&= s.recorder?.fresh && s.recorder.state === 'recording';
     b.disabled = !allow;
@@ -33,8 +37,10 @@ function hideFrame(id, message) {
   $(id+'-empty').querySelector('span').textContent = message;
 }
 function offline() {
+  stopKeyboard();
   connected = false; $('offline').hidden = false;
   badge('connection','服务断开','bad');
+  $('arm-joints').textContent = '连接中断，关节反馈已失效';
   for (const id of ['quest-badge','arms-badge','base-badge','camera-badge','record-badge']) badge(id,'状态失效','bad');
   cameraIds.forEach(id => hideFrame(id,'连接中断，画面已隐藏'));
   buttons();
@@ -52,11 +58,22 @@ function render(s) {
   text('quest-detail',q.fresh ? '追踪：左 ' + tracking(q.left_tracking) + ' / 右 ' + tracking(q.right_tracking) : '请打开 Quest 应用并向板端发送 UDP');
   const armValid = a?.fresh && a.valid?.every(Boolean);
   badge('arms-badge',armValid ? (s.system.mock ? '模拟反馈' : '反馈在线') : '未就绪',armValid ? 'good' : 'bad');
-  text('arm-phase',s.control?.fresh ? (phases[s.control.phase] || s.control.phase) : '状态未知');
-  text('arms-detail',a?.fresh ? '左臂 ' + a.valid.slice(0,8).filter(Boolean).length + '/8 · 右臂 ' + a.valid.slice(8).filter(Boolean).length + '/8 有效反馈' : '没有新鲜关节反馈');
+  text('arm-phase',a?.fresh && a.phase === 'monitor_only' ? '状态采集 · 未使能' : s.control?.fresh ? (phases[s.control.phase] || s.control.phase) : a?.fresh ? (a.enabled ? '已使能' : '未使能') : '采集节点离线');
+  text('arms-detail',a?.fresh ? '左臂 ' + a.valid.slice(8,16).filter(Boolean).length + '/8 · 右臂 ' + a.valid.slice(0,8).filter(Boolean).length + '/8 有效反馈' : '没有新鲜关节反馈');
+  const jointRows = [];
+  for (const [side, offset] of [['左臂',8],['右臂',0]]) {
+    for (let j = 0; j < 8; j++) {
+      const k = offset + j, valid = a?.fresh && a.valid?.[k];
+      const value = field => valid && Number.isFinite(a[field]?.[k]) ? a[field][k].toFixed(3) : '—';
+      const temperature = field => valid && Number.isFinite(a[field]?.[k]) ? a[field][k] : '—';
+      jointRows.push(`<tr><td>${side}</td><td>${j === 7 ? '夹爪' : 'J' + (j + 1)}</td><td>${valid ? '在线' : '无反馈'}</td><td>${value('position')}</td><td>${value('velocity')}</td><td>${value('effort')}</td><td>${temperature('mos_temperature')} / ${temperature('rotor_temperature')}</td></tr>`);
+    }
+  }
+  $('arm-joints').innerHTML = jointRows.join('');
   badge('base-badge',!s.system.base_enabled ? '未配置' : b?.valid ? (b.mock ? '模拟反馈' : '反馈在线') : '未连接',b?.valid ? 'good' : 'warn');
   text('base-speed',b?.valid ? Math.hypot(b.velocity[0],b.velocity[1]).toFixed(3) + ' m/s' : '— m/s');
-  text('base-detail',b?.valid ? b.voltage.toFixed(1)+' V · '+(bs?.fresh ? (bs.enabled ? '已启用' : '未使能') : '许可未知')+' · FlagStop '+b.flag_stop : '检查供电、CH3 和底盘固件');
+  text('base-detail',b?.valid ? b.voltage.toFixed(1)+' V · '+(bs?.fresh ? (bs.enabled ? '已启用' : '未使能') : '许可未知')+' · FlagStop '+b.flag_stop+' · '+(bs?.input_source || 'quest') : '检查供电、CH3、共地和底盘固件');
+  if (bs?.fresh) $('base-detail').textContent += ' · ' + (bs.interface || 'CH3') + ' · ' + (bs.receive_only ? '只读诊断，禁止运动' : bs.reason) + ' · 有效包 ' + bs.accepted_groups;
   const count = Object.values(s.cameras).filter(c => c.fresh).length;
   badge('camera-badge',s.system.no_cameras ? '已关闭' : count === 3 ? '全部在线' : '等待图像',count === 3 ? 'good' : 'warn');
   text('camera-count',count + ' / 3 在线');
@@ -129,3 +146,71 @@ $('preview').addEventListener('change',() => { if (!$('preview').checked) camera
 $('refresh-episodes').addEventListener('click',episodes);
 setInterval(() => { if (connected && Date.now() - lastUpdate > 2500) offline(); },300);
 poll(); episodes(); cameraIds.forEach(preview);
+
+function keyboardUI() {
+  const s = state, bs = s?.base_status;
+  let reason = '';
+  if (!connected) reason = '网页服务未连接，请检查网络。';
+  else if (!s.system.services.base) reason = '底盘控制服务未启动。';
+  else if (!bs?.fresh) reason = '底盘控制状态已过期。';
+  else if (bs.receive_only) reason = '底盘处于只读诊断模式，需要启动控制模式。';
+  else if (!s.base?.valid || !bs.feedback_fresh) reason = '没有有效底盘反馈，请检查供电和 CAN3。';
+  else if (s.base.flag_stop) reason = '底盘反馈失能（FlagStop 非零），请检查下位机状态。';
+  else if (s.recorder?.failure_menu) reason = '请先关闭录制失败菜单。';
+  else if (bs.enabled && !keyboardActive) reason = '已有控制许可，请先停车退出，再使能本页键盘控制。';
+  $('keyboard-start').disabled = (!keyboardActive && !!reason) || keyboardStarting;
+  $('keyboard-start').setAttribute('aria-checked', String(keyboardActive));
+  text('keyboard-start', keyboardStarting ? '键盘控制：正在开启…' : keyboardActive ? '键盘控制：开启' : '键盘控制：关闭');
+  $('keyboard-stop').disabled = !connected || !s?.system?.services?.base;
+  badge('keyboard-badge', keyboardStarting ? '正在使能' : keyboardActive ? '键盘已使能' : reason ? '暂不可使能' : '待使能', keyboardActive ? 'good' : 'warn');
+  text('keyboard-state', keyboardError || (keyboardStarting ? '正在等待底盘确认…' : keyboardActive ? '键盘控制已启用，按住 WASD 行驶；松键停车。' : reason || '准备就绪，打开键盘控制开关即可，无需令牌。'));
+  text('keyboard-input', '当前按键：' + ([...heldKeys].map(k => k.slice(3)).join(' + ') || '无（零速）'));
+  for (const key of ['w','a','s','d']) $('key-'+key).classList.toggle('pressed', heldKeys.has('Key'+key.toUpperCase()));
+}
+async function baseKeyboard(command, detail = '') {
+  return request('/api/keyboard', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({command,detail})});
+}
+function stopKeyboard() {
+  const active = keyboardActive;
+  keyboardActive = false; heldKeys.clear(); buttons();
+  if (active) baseKeyboard('stop').catch(e => log('停车请求失败：' + e.message));
+}
+async function keyboardTick() {
+  if (!keyboardActive || keyboardPending) return;
+  keyboardPending = true;
+  try {
+    await baseKeyboard('keyboard', JSON.stringify([Number(heldKeys.has('KeyW'))-Number(heldKeys.has('KeyS')), Number(heldKeys.has('KeyA'))-Number(heldKeys.has('KeyD'))]));
+  } catch (e) { keyboardError = '键盘控制已撤销：' + e.message; stopKeyboard(); log(keyboardError); }
+  finally { keyboardPending = false; }
+}
+$('keyboard-start').addEventListener('click', async () => {
+  if (keyboardStarting) return;
+  if (keyboardActive) { stopKeyboard(); return; }
+  keyboardStarting = true; keyboardError = ''; buttons();
+  try {
+    await baseKeyboard('keyboard_start');
+    keyboardActive = true; heldKeys.clear();
+    if (document.hidden || !document.hasFocus()) { stopKeyboard(); return; }
+    $('keyboard-panel').focus();
+    await keyboardTick(); if (keyboardActive) log('WASD 已启用，限速 0.05 m/s');
+  } catch(e) { keyboardError = '键盘启用失败：' + e.message; log(keyboardError); }
+  finally { keyboardStarting = false; buttons(); }
+});
+window.addEventListener('keydown', e => {
+  if (!keyboardActive) return;
+  if (e.code === 'Space' || e.code === 'Escape') { e.preventDefault(); stopKeyboard(); return; }
+  if (e.target.closest('input,textarea,select,[contenteditable]')) return;
+  if (['KeyW','KeyA','KeyS','KeyD'].includes(e.code)) { e.preventDefault(); heldKeys.add(e.code); keyboardUI(); keyboardTick(); }
+});
+window.addEventListener('keyup', e => { if (heldKeys.delete(e.code)) { e.preventDefault(); keyboardUI(); keyboardTick(); } });
+window.addEventListener('blur', stopKeyboard);
+window.addEventListener('pagehide', stopKeyboard);
+document.addEventListener('visibilitychange', () => { if (document.hidden) stopKeyboard(); });
+document.querySelector('[data-kind="base"][data-command="stop"]').addEventListener('click', stopKeyboard);
+setInterval(keyboardTick, 50);
+
+$('keyboard-stop').addEventListener('click', async () => {
+  keyboardActive = false; heldKeys.clear(); keyboardError = ''; buttons();
+  try { await baseKeyboard('stop'); log('底盘已撤销控制许可'); render(await request('/api/state')); }
+  catch(e) { keyboardError = '停车请求未确认：' + e.message; buttons(); log(keyboardError); }
+});

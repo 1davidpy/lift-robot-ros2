@@ -6,12 +6,22 @@
 <main>
 <header><div><div class="eyebrow">LUXI / TELEOPERATION</div><h1>机器人控制台 <span id="mode" class="pill">连接中</span></h1><p>设备检查 · Quest 遥操作 · 多视角数据采集</p></div><div class="connection"><span id="connection" class="pill">正在连接服务</span><small id="updated">等待第一帧状态</small></div></header>
 <div id="offline" class="alert" hidden>网页服务连接中断。显示状态已失效，请检查板端网络；网页按钮无法保证停车。</div>
-<section class="access"><div><strong>局域网控制权限</strong><small>输入板端生成的令牌后解锁操作；令牌仅保留在本页内存中。</small></div><label class="sr-only" for="token">控制令牌</label><input id="token" type="password" autocomplete="off" placeholder="输入控制令牌"><button id="unlock">验证权限</button><span id="auth" class="pill">只读</span></section>
+<section class="access"><div><strong>机械臂 / Quest / 录制权限</strong><small>这些操作需令牌；下方键盘控制直接打开开关即可。</small></div><label class="sr-only" for="token">控制令牌</label><input id="token" type="password" autocomplete="off" placeholder="输入控制令牌"><button id="unlock">验证权限</button><span id="auth" class="pill">只读</span></section>
 <section id="overview" class="devices">
 <article class="card"><div class="card-heading"><span>◉ QUEST 3</span><span id="quest-badge" class="pill">未知</span></div><h2 id="quest-rate">— <small>Hz</small></h2><p id="quest-detail">等待遥操作报文</p><div class="foot">Wi-Fi / UDP <span>双手柄追踪</span></div></article>
-<article class="card"><div class="card-heading"><span>⌘ OPENARM × 2</span><span id="arms-badge" class="pill">未知</span></div><h2 id="arm-phase">等待反馈</h2><p id="arms-detail">左臂 — / 右臂 —</p><div class="foot">CH1 / CH2 <span>CAN FD</span></div></article>
+<article class="card"><div class="card-heading"><span>⌘ OPENARM × 2</span><span id="arms-badge" class="pill">未知</span></div><h2 id="arm-phase">等待反馈</h2><p id="arms-detail">左臂 — / 右臂 —</p><div class="foot">CH1 左臂 / CH2 右臂 <span>CAN FD</span></div></article>
 <article class="card"><div class="card-heading"><span>⊞ R680 OMNI</span><span id="base-badge" class="pill">未知</span></div><h2 id="base-speed">— <small>m/s</small></h2><p id="base-detail">等待底盘反馈</p><div class="foot">CH3 <span>经典 CAN</span></div></article>
 <article class="card"><div class="card-heading"><span>▣ RGB CAMERAS</span><span id="camera-badge" class="pill">未知</span></div><h2 id="camera-count">— <small>/ 3 在线</small></h2><p id="disk">磁盘剩余 —</p><div class="foot">头部 / 左腕 / 右腕 <span>RGB</span></div></article>
+</section>
+<section class="panel"><div class="section-heading"><h2>OpenArm 关节反馈</h2><span class="pill">角度 rad · 温度 °C</span></div><div class="arm-table-scroll"><table class="arm-table"><thead><tr><th>机械臂</th><th>关节</th><th>状态</th><th>位置</th><th>速度 rad/s</th><th>力矩 Nm</th><th>MOS / 转子温度</th></tr></thead><tbody id="arm-joints"></tbody></table></div></section>
+<section id="keyboard-panel" tabindex="-1" class="panel keyboard-panel" aria-labelledby="keyboard-title">
+<div class="section-heading"><div><div class="eyebrow">WASD / CH3</div><h2 id="keyboard-title">键盘测试控制</h2></div><span id="keyboard-badge" class="pill">等待状态</span></div>
+<p>打开键盘控制开关即可使用，无需控制令牌或 Quest。测试速度上限 0.05 m/s。</p>
+<p id="keyboard-state" role="status" aria-live="polite">正在检查使能条件…</p>
+<div class="button-row"><button id="keyboard-start" class="primary" role="switch" aria-checked="false" disabled>键盘控制：关闭</button><button id="keyboard-stop" class="stop" disabled>停车并退出键盘控制</button></div>
+<div class="keyboard-keys" aria-label="键盘方向"><kbd id="key-w">W ↑ 前进</kbd><kbd id="key-a">A ← 左移</kbd><kbd id="key-s">S ↓ 后退</kbd><kbd id="key-d">D → 右移</kbd></div>
+<p id="keyboard-input">当前按键：无</p>
+<p class="hint">使能后直接按住 WASD 行驶，松键停车；空格 / Esc、切换窗口或连接超时会撤销使能。重新进入页面后需再次使能。</p>
 </section>
 <section class="workspace">
 <div>
@@ -23,7 +33,7 @@
 <section class="panel episodes"><div class="section-heading"><div><div class="eyebrow">EPISODES</div><h2>已保存的数据</h2></div><button id="refresh-episodes" class="quiet">刷新列表 ↻</button></div><div id="episodes">正在读取…</div><p class="hint">仅显示已提交的数据。完整回传使用 episode_pull，支持续传与 SHA-256 校验。</p></section>
 </div>
 <div class="sidepanels">
-<section class="panel"><div class="eyebrow">ROBOT CONTROL</div><h2>遥操作控制</h2><div class="steps"><span>01 检查连接</span><span>02 使能对齐</span><span>03 开始采集</span></div><h3>双机械臂</h3><div class="button-row"><button data-kind="control" data-command="start" class="primary" disabled>使能双臂</button><button data-kind="control" data-command="stop" disabled>暂停 / 返回</button></div><p class="hint">使能后等待归位，按住两侧食指扳机进行对齐。暂停会返回起始姿态，包含运动。</p><h3>全向底盘</h3><div class="button-row"><button data-kind="base" data-command="start" disabled>启用底盘</button><button data-kind="base" data-command="stop" class="stop" disabled>底盘停车</button></div><p class="hint">启用前摇杆回中、松开左握持键；行驶时按住左握持键。左摇杆平移，右摇杆左右转向。</p><p class="hint">Quest 应用目标填写板端 IP，默认 UDP 5006；需持续发送手柄数据。</p><div class="safety">这些操作不替代硬件急停。升降平台尚未接入。</div></section>
+<section class="panel"><div class="eyebrow">ROBOT CONTROL</div><h2>遥操作控制</h2><div class="steps"><span>01 检查连接</span><span>02 使能对齐</span><span>03 开始采集</span></div><h3>双机械臂</h3><div class="button-row"><button data-kind="control" data-command="start" class="primary" disabled>使能双臂</button><button data-kind="control" data-command="stop" disabled>暂停 / 返回</button></div><p class="hint">使能后等待归位，按住两侧食指扳机进行对齐。暂停会返回起始姿态，包含运动。</p><h3>全向底盘</h3><div class="button-row"><button data-kind="base" data-command="start" disabled>启用 Quest 底盘控制</button><button data-kind="base" data-command="stop" class="stop" disabled>底盘停车</button></div><p class="hint">W/S 前进/后退，A/D 左移/右移；限速 0.05 m/s。松键停车，空格、切换窗口或失联撤销许可。</p><p class="hint">启用前摇杆回中、松开左握持键；行驶时按住左握持键。左摇杆平移，右摇杆左右转向。</p><p class="hint">Quest 应用目标填写板端 IP，默认 UDP 5006；需持续发送手柄数据。</p><div class="safety">这些操作不替代硬件急停。升降平台尚未接入。</div></section>
 <section id="capture" class="panel"><div class="section-heading"><div><div class="eyebrow">DATA CAPTURE</div><h2>录制工作台</h2></div><span id="record-badge" class="pill">未知</span></div><label for="task">任务说明</label><input id="task" value="teleoperation" maxlength="500" placeholder="例如：抓取桌面物体放入箱中"><div class="record-metrics"><div><strong id="samples">—</strong><small>已采集样本</small></div><div><strong id="record-phase">—</strong><small>录制状态</small></div></div><button class="primary full" data-kind="episode" data-command="start" disabled>● 开始录制</button><div class="button-row"><button data-kind="episode" data-command="success" disabled>成功并保存</button><button data-kind="episode" data-command="fail" disabled>失败并保存</button></div><label for="reason">结束备注 / 失败原因</label><input id="reason" maxlength="500" placeholder="可选：记录本次操作情况"><button class="quiet full" data-kind="episode" data-command="cancel" disabled>取消本次并保留数据</button><p class="hint" id="episode-id">尚未开始录制</p><p class="hint" id="qc"></p></section>
 </div>
 </section>

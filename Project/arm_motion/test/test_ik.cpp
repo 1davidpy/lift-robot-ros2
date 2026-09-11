@@ -7,7 +7,7 @@
 static std::string root = LUXI_ROOT;
 TEST(Ik, NamedModelAndConvergence) {
   luxi::ArmConfig c(luxi::config(root + "/Project/robot_bringup/config/arms.json"));
-  luxi::Ik ik(root + "/device/external/openarm_mujoco/v2/cell/cell.xml", c);
+  luxi::Ik ik(root + "/device/openarm/openarm_mujoco/v2/cell/cell.xml", c);
   luxi::Targets t;
   t.right = ik.fk(0);
   t.left = ik.fk(1);

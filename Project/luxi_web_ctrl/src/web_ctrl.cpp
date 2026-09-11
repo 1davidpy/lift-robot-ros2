@@ -27,6 +27,7 @@ class Server : public rclcpp::Node {
   int64_t control_time_ = 0, recorder_time_ = 0, base_status_time_ = 0;
   luxi::Json state_, control_, recorder_, base_, base_status_;
   std::map<std::string, luxi::Frame> frames_;
+  std::map<std::string, luxi::Json> camera_status_;
   std::vector<rclcpp::SubscriptionBase::SharedPtr> subs_;
   rclcpp::Client<luxi::Service>::SharedPtr arm_client_, record_client_, base_client_;
 
@@ -79,6 +80,10 @@ class Server : public rclcpp::Node {
           state_ = {{"schema", "luxi_arms_v1"},
                     {"position", s->position},
                     {"velocity", s->velocity},
+                    {"phase", s->phase},
+                    {"joint_order", "right_then_left"},
+                    {"mos_temperature", s->mos_temperature},
+                    {"rotor_temperature", s->rotor_temperature},
                     {"effort", s->effort},
                     {"valid", s->valid},
                     {"age_ns", s->age_ns},
@@ -104,6 +109,16 @@ class Server : public rclcpp::Node {
                                                          std::lock_guard<std::mutex> lock(mutex_);
                                                          frames_[f->camera_id] = *f;
                                                        }));
+    for (auto camera : {"head_rgb", "left_wrist_rgb", "right_wrist_rgb"})
+      subs_.push_back(create_subscription<std_msgs::msg::String>(std::string("/luxi/cameras/") + camera + "/status",
+        rclcpp::QoS(1).transient_local(), [this, camera](std_msgs::msg::String::ConstSharedPtr m) {
+          auto j = luxi::Json::parse(m->data, nullptr, false);
+          if (!j.is_object() || !j.value("reason", luxi::Json()).is_string() ||
+              !j.value("phase", luxi::Json()).is_string()) return;
+          std::lock_guard<std::mutex> lock(mutex_);
+          j["receive_mono_ns"] = std::to_string(luxi::mono());
+          camera_status_[camera] = j;
+        }));
     http_.Get("/api/state", [this](const auto& req, auto& res) {
       std::lock_guard<std::mutex> lock(mutex_);
       const auto now = luxi::mono();
@@ -129,6 +144,11 @@ class Server : public rclcpp::Node {
       for (auto id : {"head_rgb", "left_wrist_rgb", "right_wrist_rgb"}) {
         const auto it = frames_.find(id);
         cameras[id] = {{"fresh", false}, {"enabled", !no_cameras_}};
+        auto status = camera_status_.find(id);
+        if (status != camera_status_.end()) {
+          cameras[id]["driver"] = status->second;
+          cameras[id]["driver"]["fresh"] = recent(status->second, 6000000000);
+        }
         if (it != frames_.end()) {
           const auto& f = it->second;
           cameras[id].update({{"fresh", luxi::fresh(f.receive_mono_ns, now, 1000000000)},
@@ -226,9 +246,10 @@ class Server : public rclcpp::Node {
                                  return true;
                                });
     });
-    http_.Post("/api/(control|episode|base)", [this](const auto& req, auto& res) {
-      if ((token_.empty() && req.remote_addr != "127.0.0.1") ||
-          (!token_.empty() && req.get_header_value("Authorization") != "Bearer " + token_)) {
+    http_.Post("/api/(control|episode|base|keyboard)", [this](const auto& req, auto& res) {
+      const bool keyboard = req.matches[1] == "keyboard";
+      if (!keyboard && ((token_.empty() && req.remote_addr != "127.0.0.1") ||
+          (!token_.empty() && req.get_header_value("Authorization") != "Bearer " + token_))) {
         res.status = 403;
         return;
       }
@@ -238,7 +259,12 @@ class Server : public rclcpp::Node {
         res.status = 400;
         return;
       }
-      auto client = req.matches[1] == "control" ? arm_client_ : req.matches[1] == "base" ? base_client_ : record_client_;
+      if (keyboard && (req.get_header_value("Content-Type").find("application/json") != 0 ||
+          (j["command"] != "keyboard_start" && j["command"] != "keyboard" && j["command"] != "stop"))) {
+        res.status = 400;
+        return;
+      }
+      auto client = req.matches[1] == "control" ? arm_client_ : (req.matches[1] == "base" || keyboard) ? base_client_ : record_client_;
       if (!client->service_is_ready()) {
         res.status = 503;
         return;

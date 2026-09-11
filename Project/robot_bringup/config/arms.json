@@ -31,7 +31,7 @@
   ],
   "fd": true,
   "right": {
-    "interface": "can1",
+    "interface": "can2",
     "home": [
       0.110818646848202,
       -0.040627146139741,
@@ -90,7 +90,7 @@
     "gripper_closed": 0
   },
   "left": {
-    "interface": "can2",
+    "interface": "can1",
     "home": [
       -0.129510946571827,
       0.008773937821388,

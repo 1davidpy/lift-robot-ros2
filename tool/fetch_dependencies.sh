@@ -13,7 +13,7 @@ while IFS=$'	' read -r destination url digest; do
     printf '%s  %s\n' "$digest" "$archive" | sha256sum --check -
     mkdir -p "$target"
     tar -xzf "$archive" --strip-components=1 -C "$target"
-    if [[ $destination == device/external/openarm_can ]]; then
+    if [[ $destination == device/openarm/openarm_can ]]; then
         patch --directory="$target" -p1 < "$ROOT/device/patches/openarm_can-transmit-errors.patch"
     fi
     printf '%s\n' "$digest" > "$target/.luxi-source"

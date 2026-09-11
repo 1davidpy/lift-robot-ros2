@@ -14,6 +14,7 @@ namespace dm = openarm::damiao_motor;
 class Adapter : public rclcpp::Node {
   luxi::Json json_;
   luxi::ArmConfig cfg_;
+  bool monitor_only_ = false;
   bool mock_, enabled_ = false;
   std::array<std::unique_ptr<oa::OpenArm>, 2> arms_;
   std::array<int, 2> locks_{{-1, -1}};
@@ -76,6 +77,7 @@ class Adapter : public rclcpp::Node {
     if (!mock_ && !declare_parameter("allow_hardware", false))
       throw std::runtime_error(
           "Hardware requires allow_hardware:=true; default mock never opens CAN");
+    monitor_only_ = declare_parameter("monitor_only", false);
     state_.position = cfg_.home;
     for (int i = 0; i < 16; i++)
       state_.position[i] = std::clamp(state_.position[i], cfg_.lo[i], cfg_.hi[i]);
@@ -108,6 +110,7 @@ class Adapter : public rclcpp::Node {
         "/luxi/command", 1, [this](luxi::Command::ConstSharedPtr c) { command_ = *c; });
     life_ = create_subscription<std_msgs::msg::String>(
         "/luxi/driver_lifecycle", 10, [this](std_msgs::msg::String::ConstSharedPtr s) {
+          if (monitor_only_) return;
           try {
             if (s->data == "enable" && luxi::valid_state(state_) &&
                 luxi::fresh(state_.receive_mono_ns, luxi::mono())) {
@@ -165,7 +168,7 @@ class Adapter : public rclcpp::Node {
         state_.age_ns[i] = seen_[i] ? feedback_now - seen_[i] : INT64_MAX;
         state_.valid[i] = luxi::fresh(seen_[i], feedback_now) && std::isfinite(state_.position[i]);
       }
-      state_.phase = command_.phase;
+      state_.phase = monitor_only_ ? "monitor_only" : (enabled_ ? command_.phase : "disabled");
       if (enabled_ && luxi::valid_state(state_) && luxi::fresh(command_.source_mono_ns, t)) {
         auto target = cfg_.limit(command_.position, sent_, dt);
         if (!mock_)

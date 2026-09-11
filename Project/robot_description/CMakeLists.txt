@@ -10,6 +10,6 @@ find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(luxi_core REQUIRED)
 
-install(DIRECTORY "${LUXI_ROOT}/device/external/openarm_mujoco/v2/" DESTINATION share/${PROJECT_NAME}/model)
+install(DIRECTORY "${LUXI_ROOT}/device/openarm/openarm_mujoco/v2/" DESTINATION share/${PROJECT_NAME}/model)
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 ament_package()

@@ -9,6 +9,11 @@
 namespace rb = luxi::r680;
 class R680 : public rclcpp::Node {
   bool mock_;
+  bool receive_only_ = false;
+  bool keyboard_ = false;
+  int64_t keyboard_time_ = 0;
+  rb::Velocity keyboard_velocity_{};
+  std::string interface_;
   std::unique_ptr<rb::Socket> socket_;
   rb::Decoder decoder_;
   rb::Gate gate_;
@@ -128,7 +133,16 @@ class R680 : public rclcpp::Node {
       }
       // 10 ms receive loop, 20 ms command period, 50 ms feedback mock period.
       if (ticks_ % 2 == 0) {
-        auto wanted = gate_.command(luxi::mono());
+        rb::Velocity wanted{};
+        if (keyboard_) {
+          if (!rb::fresh(keyboard_time_, luxi::mono(), 200000000)) gate_.halt("keyboard_timeout");
+          if (!rb::fresh(gate_.feedback_time, luxi::mono(), 250000000)) gate_.halt("feedback_timeout");
+          if (gate_.menu || gate_.stop) gate_.halt("chassis_disabled_or_menu");
+          if (gate_.enabled && rb::fresh(gate_.feedback_time, luxi::mono(), 100000000)) {
+            wanted = keyboard_velocity_;
+            gate_.reason = wanted == rb::Velocity{} ? "keyboard_ready" : "teleop";
+          } else if (gate_.enabled) gate_.reason = "feedback_delayed";
+        } else wanted = gate_.command(luxi::mono());
         double norm = std::hypot(wanted[0], wanted[1]);
         if (norm > gate_.mapping.linear) {
           wanted[0] *= gate_.mapping.linear / norm;
@@ -140,9 +154,9 @@ class R680 : public rclcpp::Node {
                                               -(i == 2 ? angular_accel_ : linear_accel_) * dt * 2,
                                               (i == 2 ? angular_accel_ : linear_accel_) * dt * 2);
         auto frame = rb::encode(wanted);
-        if (socket_) socket_->send(frame);
+        if (socket_ && !receive_only_) socket_->send(frame);
         for (int i = 0; i < 3; ++i) sent_[i] = rb::be16(frame.data + 2 * i) / 1000.0;
-        json(command_, {{"schema", "r680_command_v1"},
+        if (!receive_only_) json(command_, {{"schema", "r680_command_v1"},
                         {"sequence", ++command_seq_},
                         {"velocity", sent_},
                         {"source_quest_mono_ns", std::to_string(gate_.quest_time)},
@@ -159,6 +173,9 @@ class R680 : public rclcpp::Node {
     }
     if (ticks_ % 10 == 0)
       json(status_, {{"enabled", gate_.enabled},
+                     {"interface", interface_},
+                     {"receive_only", receive_only_},
+                     {"input_source", keyboard_ ? "keyboard" : "quest"},
                      {"reason", gate_.reason},
                      {"feedback_fresh", rb::fresh(gate_.feedback_time, luxi::mono(), 250000000)},
                      {"flag_stop", gate_.stop},
@@ -171,6 +188,9 @@ class R680 : public rclcpp::Node {
  public:
   R680() : Node("r680_adapter"), mock_(declare_parameter("mock", true)) {
     const auto iface = declare_parameter<std::string>("interface", "luxi_base");
+    interface_ = iface;
+    receive_only_ = declare_parameter("receive_only", false);
+    if (receive_only_) gate_.reason = "receive_only_no_motion";
     bool hardware = declare_parameter("allow_hardware", false);
     gate_.mapping.linear = declare_parameter("max_linear", .2);
     gate_.mapping.angular = declare_parameter("max_angular", .3141592653589793);
@@ -213,8 +233,38 @@ class R680 : public rclcpp::Node {
     control_ = create_service<luxi::Service>(
         "/luxi/base/control", [this](const std::shared_ptr<luxi::Service::Request> req,
                                      std::shared_ptr<luxi::Service::Response> res) {
-          if (req->command == "start")
-            res->success = gate_.start(luxi::mono());
+          if (receive_only_ && req->command != "stop" && req->command != "disable") {
+            res->success = false; res->message = "CAN receive-only diagnostics; motion disabled"; return;
+          }
+          if (req->command == "keyboard_start") {
+            if (!gate_.enabled && !gate_.menu && !gate_.stop &&
+                rb::fresh(gate_.feedback_time, luxi::mono(), 100000000)) {
+              keyboard_ = true;
+              keyboard_velocity_ = {};
+              keyboard_time_ = luxi::mono();
+              gate_.enabled = true;
+              gate_.reason = "keyboard_ready";
+              res->success = true;
+            }
+          } else if (req->command == "keyboard") {
+            auto j = luxi::Json::parse(req->detail, nullptr, false);
+            if (keyboard_ && gate_.enabled && rb::fresh(keyboard_time_, luxi::mono(), 200000000) &&
+                j.is_array() && j.size() == 2 && j[0].is_number() && j[1].is_number()) {
+              double x = j[0].get<double>(), y = j[1].get<double>();
+              if (std::isfinite(x) && std::isfinite(y) && std::abs(x) <= 1 && std::abs(y) <= 1) {
+                double scale = .05 / std::max(1.0, std::hypot(x, y));
+                keyboard_velocity_ = {x * scale, y * scale, 0};
+                keyboard_time_ = luxi::mono();
+                res->success = true;
+              }
+            }
+            if (!res->success) gate_.halt("invalid_or_expired_keyboard");
+          } else if (req->command == "start") {
+            if (!gate_.enabled) {
+              res->success = gate_.start(luxi::mono());
+              if (res->success) keyboard_ = false;
+            }
+          }
           else if (req->command == "stop" || req->command == "disable") {
             gate_.halt("operator_stop");
             res->success = true;
@@ -228,7 +278,7 @@ class R680 : public rclcpp::Node {
   }
   ~R680() {
     gate_.halt("shutdown");
-    if (socket_)
+    if (socket_ && !receive_only_)
       for (int i = 0; i < 10; ++i) {
         try {
           socket_->send(rb::encode({}));
