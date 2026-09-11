@@ -48,7 +48,7 @@ function render(s) {
   const q = s.quest || {}, a = s.arms, b = s.base, bs = s.base_status, r = s.recorder;
   badge('quest-badge',q.fresh ? '已接收' : '未连接',q.fresh ? 'good' : 'bad');
   text('quest-rate',q.fresh ? q.rate_hz + ' Hz' : '— Hz');
-  const tracking = v => ({0:'未指定',1:'正常',2:'无效'}[v] || '未知');
+  const tracking = v => ({0:'正常',1:'过期',2:'无效'}[v] || '未知');
   text('quest-detail',q.fresh ? '追踪：左 ' + tracking(q.left_tracking) + ' / 右 ' + tracking(q.right_tracking) : '请打开 Quest 应用并向板端发送 UDP');
   const armValid = a?.fresh && a.valid?.every(Boolean);
   badge('arms-badge',armValid ? (s.system.mock ? '模拟反馈' : '反馈在线') : '未就绪',armValid ? 'good' : 'bad');

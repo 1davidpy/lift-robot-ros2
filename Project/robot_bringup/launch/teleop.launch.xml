@@ -1,4 +1,5 @@
 <launch>
+ <arg name="quest_enabled" default="true"/>
  <arg name="web_enabled" default="true"/>
  <arg name="base_enabled" default="false"/>
  <arg name="base_max_linear" default="0.2"/>
@@ -19,7 +20,7 @@
  <arg name="quest_port" default="5006"/>
  <arg name="sender_ip" default=""/>
  <arg name="config" default="$(find-pkg-share luxi_bringup)/config/arms.json"/>
- <node pkg="luxi_quest_receiver" exec="quest_receiver" output="screen"><param name="port" value="$(var quest_port)"/><param name="sender_ip" value="$(var sender_ip)"/></node>
+ <node if="$(var quest_enabled)" pkg="luxi_quest_receiver" exec="quest_receiver" output="screen"><param name="port" value="$(var quest_port)"/><param name="sender_ip" value="$(var sender_ip)"/></node>
  <node pkg="luxi_teleop_mapper" exec="teleop_mapper" output="screen"><param name="config" value="$(var config)"/></node>
  <node pkg="luxi_arm_motion" exec="arm_motion" output="screen"><param name="config" value="$(var config)"/><param name="model" value="$(find-pkg-share luxi_description)/model/cell/cell.xml"/></node>
  <node pkg="luxi_control_manager" exec="control_manager" output="screen"><param name="config" value="$(var config)"/></node>

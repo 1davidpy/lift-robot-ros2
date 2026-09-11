@@ -47,16 +47,17 @@ ROS_DOMAIN_ID=76 ROS_LOCALHOST_ONLY=1 ./tool/run.sh mock:=true base_enabled:=tru
 ./Project/luxi_web_ctrl/scripts/install_service.sh --hardware
 ```
 
-安装并启用两项 systemd 系统服务，无需桌面登录：
+安装 systemd 系统服务，无需桌面登录：
 
 | 服务 | 行为 |
 |---|---|
 | `luxi-web.service` | 立即启动，之后每次开机启动；监听 `0.0.0.0:8000`。网页即使没有 CAN/Quest 也可打开 |
-| `luxi-robot.service` | 设置为下次开机启动，本次安装不启动硬件；先检查/配置 KH CAN，再启动真实双臂、R680、Quest 接收和录制器，初始未使能、未录制 |
+| `luxi-quest.service` | 随网页启动，独立监听 `0.0.0.0:5006/UDP`；不依赖 CAN，异常退出自动重启；网页停止/重启时同步停止/重启 |
+| `luxi-robot.service` | 设置为下次开机启动，本次安装不启动硬件；先检查/配置 KH CAN，再启动真实双臂、R680 和录制器，复用常驻 Quest 接收节点，初始未使能、未录制 |
 
 当前实机开机配置关闭三相机，因为正式海康 SDK 尚待验证。网页会显示“已关闭”，不会用假图代替；升降平台尚未接入。KH 缺失时机器人服务失败，网页继续运行并显示无反馈。接好后可手动 `sudo systemctl start luxi-robot.service`，不要同时运行手动的机器人实例。
 
-只需要网页自启，可用 `--web-only`；此选项不修改已有硬件服务启用状态。明确关闭硬件自启用 `sudo systemctl disable luxi-robot.service`。
+只需要网页与 Quest 接收自启，可用 `--web-only`；此选项不修改已有硬件服务启用状态。明确关闭硬件自启用 `sudo systemctl disable luxi-robot.service`。
 
 局域网浏览器访问：
 
@@ -73,11 +74,11 @@ cat log/web-control.token
 令牌文件随机生成、权限 0600，不进入 Git，不在启动日志中输出。局域网默认只读；输入令牌即可使能/停车/录制。浏览器刷新后需重新输入。网页无互联网资源依赖；仅用于受信任局域网，HTTP 未加密。若网络防火墙启用，需放通受信任网段 TCP 8000 和 Quest 的 UDP 5006。
 
 ```bash
-systemctl status luxi-web.service luxi-robot.service
-journalctl -u luxi-web.service -u luxi-robot.service -n 80 --no-pager
+systemctl status luxi-web.service luxi-quest.service luxi-robot.service
+journalctl -u luxi-web.service -u luxi-quest.service -u luxi-robot.service -n 80 --no-pager
 ```
 
-服务统一 `ROS_DOMAIN_ID=0`、`ROS_LOCALHOST_ONLY=1`：ROS 在板端进程间通信，浏览器和 Quest 仍走局域网 HTTP/UDP。手动 `tool/start_robot.sh --hardware` 会复用已运行的网页，不重复占用端口。`tool/start_robot.sh --mock` 在开机网页已运行时自动改用 ROS 域 76 / HTTP 18000 / UDP 15006。原 `tool/run.sh` 默认附带网页，如服务已启动须传 `web_enabled:=false` 并使用同一 ROS 域。
+服务统一 `ROS_DOMAIN_ID=0`、`ROS_LOCALHOST_ONLY=1`：ROS 在板端进程间通信，浏览器和 Quest 仍走局域网 HTTP/UDP。手动 `tool/start_robot.sh --hardware` 会复用已运行的网页，不重复占用端口。`tool/start_robot.sh --mock` 在开机网页已运行时自动改用 ROS 域 76 / HTTP 18000 / UDP 15006。原 `tool/run.sh` 默认附带网页，如服务已启动须传 `web_enabled:=false quest_enabled:=false` 并使用同一 ROS 域。
 
 停止之前先结束录制、底盘停车、双臂返回并确认 disabled，再执行：
 
@@ -104,3 +105,17 @@ sudo systemctl stop luxi-web.service
 保留 `/api/state`、`/api/cameras/{camera_id}`、`/api/episodes`、`/api/episodes/{id}/manifest`、`/api/files/{id}/{path}` 和 `POST /api/{control,base,episode}`。控制请求使用 `Authorization: Bearer ...`，JSON 字段 `command` 与 `detail`。新增 state 字段 `quest`、`cameras`、`system` 和各节点 `fresh`。
 
 网页以单次请求完成后再轮询的方式刷新，状态约 2 Hz、图像最多约 3 Hz，避免慢网络请求堆积；录制器按其原采集频率独立运行。图像预览是 JPEG 快照，不宣称硬件曝光同步。最终仍只录制并回传，不训练。
+
+## Quest 填写 IP 后如何接入
+
+配套 Quest 遥操作 APK 与板端处于可互通局域网，目标 IP 填板端地址（当前 `192.168.3.179`），UDP 端口为 `5006`。应用保持发送时，网页显示接收频率和左右追踪状态；不需要连接 CAN 或使能机器人。这个协议是单向 UDP JSON，不提供 TCP/WebSocket/自动发现握手；普通网页和 Air Link 不能替代配套 APK。
+
+网页服务启动即拉起接收服务，开机无需另开终端。检查命令：
+
+```bash
+systemctl is-active luxi-web.service luxi-quest.service
+ss -lun 'sport = :5006'
+sudo journalctl -u luxi-quest.service -n 30 --no-pager
+```
+
+常驻接收运行时，不再手动运行第二个 `quest_receiver`。独立 ROS launch 默认 `quest_enabled:=true`，复用常驻节点时需设为 false。域 76 的 mock 快捷启动仍自行监听 15006，不占用实际 Quest 的 5006。

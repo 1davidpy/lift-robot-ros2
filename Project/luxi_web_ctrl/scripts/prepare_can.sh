@@ -2,7 +2,7 @@
 # Run only by the optional hardware systemd unit, as root.
 set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)
-for process in openarm_adapter r680_adapter quest_receiver; do
+for process in openarm_adapter r680_adapter; do
   if pgrep -x "$process" >/dev/null; then echo "Stop existing $process before CAN setup" >&2; exit 1; fi
 done
 MODULE="$ROOT/build/kh-sdk/KH-UCANFD_Linux_SDK-1.4.2/driver/kcan.ko"

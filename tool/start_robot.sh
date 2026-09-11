@@ -15,6 +15,9 @@ for entry in luxi_device_adapters/r680_adapter luxi_device_adapters/openarm_adap
   package=${entry%%/*}
   [[ -x "$ROOT/build/install/$package/lib/$entry" ]] || { echo "Missing executable: $entry" >&2; exit 1; }
 done
+QUEST_ENABLED=true
+QUEST_SERVICE=false
+if systemctl is-active --quiet luxi-quest.service; then QUEST_SERVICE=true; fi
 WEB_ENABLED=true
 WEB_SERVICE=false
 HTTP_PORT=8000
@@ -22,6 +25,8 @@ QUEST_PORT=5006
 if systemctl is-active --quiet luxi-web.service; then
   WEB_SERVICE=true
   if [[ "$MODE" == --hardware ]]; then
+    [[ "$QUEST_SERVICE" == true ]] || { echo 'Start luxi-quest.service before hardware launch' >&2; exit 1; }
+    QUEST_ENABLED=false
     WEB_ENABLED=false
     export ROS_DOMAIN_ID=0 ROS_LOCALHOST_ONLY=1
   else
@@ -33,11 +38,13 @@ fi
 # Do not reconfigure buses while another controller is running.
 for name in openarm_adapter r680_adapter quest_receiver data_server web_ctrl; do
   if [[ "$name" == web_ctrl && "$WEB_SERVICE" == true ]]; then continue; fi
+  if [[ "$name" == quest_receiver && "$QUEST_SERVICE" == true ]]; then continue; fi
   if pgrep -x "$name" >/dev/null; then echo "Stop existing $name before starting another stack" >&2; exit 1; fi
 done
 for spec in "udp $QUEST_PORT" "tcp $HTTP_PORT"; do
   read -r protocol port <<< "$spec"
   if [[ "$protocol" == tcp && "$WEB_ENABLED" == false ]]; then continue; fi
+  if [[ "$protocol" == udp && "$QUEST_ENABLED" == false ]]; then continue; fi
   if [[ "$protocol" == udp ]]; then output=$(ss -H -lun "sport = :$port"); else output=$(ss -H -ltn "sport = :$port"); fi
   [[ -z "$output" ]] || { echo "$protocol port $port is busy" >&2; exit 1; }
 done
@@ -75,4 +82,4 @@ sudo "$SETUP" "$ROOT/device/R680/channels-r680.json" --apply
 printf '%s\n' 'Starting REAL arms and R680; cameras OFF; motion permission remains disabled.' 'Local control: http://127.0.0.1:8000 ; Quest destination: board WLAN IPv4, UDP 5006'
 exec "$ROOT/tool/run.sh" mock:=false allow_hardware:=true base_enabled:=true \
   "config:=$ROOT/Project/robot_bringup/config/arms-kh.json" \
-  no_cameras:=true require_cameras:=false "directory:=$ROOT/data/real" "web_enabled:=$WEB_ENABLED"
+  no_cameras:=true require_cameras:=false "directory:=$ROOT/data/real" "web_enabled:=$WEB_ENABLED" "quest_enabled:=$QUEST_ENABLED"

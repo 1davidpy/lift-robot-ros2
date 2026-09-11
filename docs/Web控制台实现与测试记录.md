@@ -38,3 +38,21 @@
 - 海康真实 SDK 尚待验证，实机开机配置默认关闭相机，不会伪造 RGB。
 - 控制令牌为 `log/web-control.token`，0600 权限，未提交 Git；浏览器中输入后才授权操作。
 - 保留原数据格式和回传工具，不增加训练功能；升降平台仍待接入。
+
+## 2026-09-11：Quest 随网页启动修复
+
+原问题：网页独立运行，但 Quest 接收节点放在整机 launch 中；CAN 未初始化或机器人服务未启动时，UDP 5006 无人监听。
+
+修改为 `luxi-web.service` 自动拉起独立 `luxi-quest.service`，两者使用域 0。Quest 监听 `0.0.0.0:5006`，不读取 CAN、不控制电机，异常退出自动重启；网页重启/停止会同步作用于 Quest 服务。整机服务传 `quest_enabled:=false` 复用接收节点，CAN 准备不再拒绝常驻 Quest 进程。mock 快捷启动仍隔离在域 76、UDP 15006。网页追踪文案按原协议修正为 0=正常、1=过期、2=无效。
+
+已安装并启动该服务；无需手动运行 Quest 接收命令。配套 APK 填板端 IP 和 UDP 5006、持续发送即可由网页显示接收状态；不新增其他 APK 的握手或 Air Link 协议。
+
+验证：
+
+- 相关包编译成功，新网关与录制回传回归通过，测试汇总仍为 30 tests / 0 failures。
+- 无硬件驱动运行时，用合成协议报文验证 UDP → ROS → 网页，显示 fresh=true、约 95 Hz；停止发送后 fresh=false。
+- 网页重启后 Quest PID 更新，UDP 5006 自动恢复监听。
+- 隔离 mock launch 传 `quest_enabled:=false` 时未新增 Quest 接收进程。
+- 模拟快捷启动预检通过；实机预检只报告 KH USB 未检测到，不再被正常占用的 UDP 5006 阻断。
+
+日志：`log/build-quest-autostart.log`、`log/test-quest-autostart.log`、`log/quest-autostart-validation.log`、`log/quest-shared-launch.log`。上述 95 Hz 来自合成测试数据，不代表真实头显已经连接；测试后重启接收节点，清除了测试时间戳状态。未进行实机运动。
