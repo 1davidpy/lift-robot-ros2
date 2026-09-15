@@ -2,6 +2,7 @@
 // Quest/OpenArm/Hikrobot behavior ported from Enactic openarm_teleop; see
 // docs/CPP迁移与接口说明.md.
 #include <deque>
+#include <luxi/core.hpp>
 #include <luxi/storage.hpp>
 #include <rosbag2_cpp/writer.hpp>
 #include <std_msgs/msg/string.hpp>
@@ -19,6 +20,7 @@ class Recorder : public rclcpp::Node {
   std::deque<luxi::State> state_history_;
   std::array<std::deque<luxi::Frame>, 3> frame_history_;
   luxi::Json hardware_config_;
+  luxi::Json camera_config_ = luxi::Json::object();
   std::array<luxi::Frame, 3> frames_;
   std::vector<rclcpp::SubscriptionBase::SharedPtr> subscriptions_;
   rclcpp::Service<luxi::Service>::SharedPtr service_;
@@ -26,8 +28,8 @@ class Recorder : public rclcpp::Node {
   rclcpp::Client<luxi::Service>::SharedPtr control_;
   rclcpp::TimerBase::SharedPtr timer_;
   std::array<bool, 4> buttons_{};
-  int64_t last_quest_ = 0, y_start_ = 0, b_start_ = 0;
-  bool menu_ = false, y_fired_ = false, b_fired_ = false, quit_pending_ = false;
+  int64_t last_quest_ = 0, b_start_ = 0;
+  bool menu_ = false, b_fired_ = false, quit_pending_ = false;
   const std::array<std::string, 5> reasons_{{"bad_demonstration", "grasp_failure",
                                              "incomplete_fold", "unsafe_motion",
                                              "hardware_or_sensor"}};
@@ -97,6 +99,7 @@ class Recorder : public rclcpp::Node {
                        {"started_ns", std::to_string(now().nanoseconds())},
                        {"time_domain", "board_monotonic_and_ros_wall"}});
     luxi::atomic_json(active_ / "robot_config.json", hardware_config_);
+    luxi::atomic_json(active_ / "camera_config.json", camera_config_);
     writer_ = std::make_unique<rosbag2_cpp::Writer>();
     writer_->open((active_ / "bag").string());
     // Include the initial observation context so early sample references always
@@ -204,6 +207,8 @@ class Recorder : public rclcpp::Node {
   Recorder() : Node("data_recorder") {
     auto config_file = declare_parameter<std::string>("config", "");
     if (!config_file.empty()) hardware_config_ = luxi::config(config_file);
+    auto camera_config = declare_parameter<std::string>("camera_config", "");
+    if (!camera_config.empty()) camera_config_ = luxi::config(camera_config);
     root_ = declare_parameter<std::string>("directory", "data");
     reserve_ = declare_parameter("minimum_free_gib", 20.0);
     require_cameras_ = declare_parameter("require_cameras", true);
@@ -248,7 +253,6 @@ class Recorder : public rclcpp::Node {
       if (!luxi::fresh(q.receive_mono_ns, luxi::mono())) return;
       if (!luxi::fresh(last_quest_, q.receive_mono_ns, 500000000)) {
         buttons_.fill(false);
-        y_start_ = 0;
         b_start_ = 0;
       }
       last_quest_ = q.receive_mono_ns;
@@ -272,14 +276,7 @@ class Recorder : public rclcpp::Node {
         reason_ = (reason_ + (q.sticks[1] < 0 ? 1 : 4)) % 5;
         menu_time_ = q.receive_mono_ns;
       }
-      if (q.buttons[3] && !buttons_[3]) {
-        y_start_ = q.receive_mono_ns;
-        y_fired_ = false;
-      }
-      if (q.buttons[3] && !y_fired_ && q.receive_mono_ns - y_start_ >= 1500000000) {
-        finish("cancel", "operator");
-        y_fired_ = true;
-      }
+      // Y belongs exclusively to the base toggle; cancel remains an episode service command.
       if (q.buttons[1] && !b_fired_ && !writer_ && q.receive_mono_ns - b_start_ >= 1500000000) {
         pause();
         quit_pending_ = true;

@@ -5,12 +5,19 @@
 #include <luxi/core.hpp>
 #include <std_msgs/msg/string.hpp>
 class Manager : public rclcpp::Node {
-  luxi::ArmConfig cfg_;
+  luxi::ArmConfig cfg_, home_cfg_;
+  double home_tolerance_ = .05;
+  double home_joint_speed_limit_ = 0.;
+  double input_hold_timeout_ = .5;
+  int64_t input_hold_ns_ = 500000000;
   luxi::State state_;
   luxi::Command intent_;
   luxi::Quest quest_;
   std::array<double, 16> last_{};
   std::string phase_ = "disabled";
+  std::string reason_ = "disabled";
+  bool input_paused_ = false;
+  int64_t last_tracking_ = 0, tracking_resume_after_ = 0;
   int64_t previous_ = 0, transition_ = 0;
   bool x_ = false, long_x_ = false;
   int64_t x_start_ = 0;
@@ -36,6 +43,7 @@ class Manager : public rclcpp::Node {
         return false;
       last_ = state_.position;
       phase_ = "homing";
+      reason_ = "operator_start";
       transition_ = luxi::mono();
       life("enable");
       return true;
@@ -43,12 +51,14 @@ class Manager : public rclcpp::Node {
     if (s == "stop") {
       if (phase_ == "disabled") return true;
       phase_ = "returning";
+      reason_ = "operator_return";
       transition_ = luxi::mono();
       return true;
     }
     if (s == "disable") {
       life("disable");
       phase_ = "disabled";
+      reason_ = "operator_disable";
       return true;
     }
     return false;
@@ -56,7 +66,24 @@ class Manager : public rclcpp::Node {
 
  public:
   Manager()
-      : Node("control_manager"), cfg_(luxi::config(declare_parameter<std::string>("config", ""))) {
+      : Node("control_manager"), cfg_(luxi::config(declare_parameter<std::string>("config", ""))),
+        home_cfg_(cfg_) {
+    home_tolerance_ = declare_parameter<double>("home_tolerance", .05);
+    if (!std::isfinite(home_tolerance_) || home_tolerance_ <= 0 || home_tolerance_ > .1)
+      throw std::invalid_argument("home_tolerance must be finite and in (0, 0.1] radians");
+    home_joint_speed_limit_ = declare_parameter<double>("home_joint_speed_limit", 0.);
+    if (!std::isfinite(home_joint_speed_limit_) || home_joint_speed_limit_ < 0.)
+      throw std::invalid_argument("home_joint_speed_limit must be finite and nonnegative");
+    // A separate, optional cap keeps startup/return slow when following is faster.
+    // Zero preserves the configured limits. Grippers keep their configured speed.
+    if (home_joint_speed_limit_ > 0.)
+      for (int i = 0; i < 16; ++i)
+        if (i % 8 != 7)
+          home_cfg_.speed[i] = std::min(cfg_.speed[i], home_joint_speed_limit_);
+    input_hold_timeout_ = declare_parameter<double>("input_hold_timeout", .5);
+    if (!std::isfinite(input_hold_timeout_) || input_hold_timeout_ < .15 || input_hold_timeout_ > 1.)
+      throw std::invalid_argument("input_hold_timeout must be finite and in [0.15, 1.0] seconds");
+    input_hold_ns_ = static_cast<int64_t>(input_hold_timeout_ * 1e9);
     pub_ = create_publisher<luxi::Command>("/luxi/command", 1);
     lifecycle_ = create_publisher<std_msgs::msg::String>("/luxi/driver_lifecycle", 10);
     status_ = create_publisher<std_msgs::msg::String>("/luxi/control_status",
@@ -72,6 +99,11 @@ class Manager : public rclcpp::Node {
             x_ = false;
             long_x_ = false;
             arrivals_.clear();
+          }
+          if (q->left_tracking != 2 && q->right_tracking != 2) {
+            if (quest_.left_tracking == 2 || quest_.right_tracking == 2)
+              tracking_resume_after_ = q->receive_mono_ns;
+            last_tracking_ = q->receive_mono_ns;
           }
           quest_ = *q;
           arrivals_.push_back(q->receive_mono_ns);
@@ -99,31 +131,79 @@ class Manager : public rclcpp::Node {
     auto t = luxi::mono();
     double dt = previous_ ? std::min(.05, (t - previous_) * 1e-9) : .01;
     previous_ = t;
+    input_paused_ = false;
     if (phase_ != "disabled") {
       bool healthy = luxi::valid_state(state_) && luxi::fresh(state_.receive_mono_ns, t);
       if (!healthy) {
         phase_ = "fault";
+        reason_ = "feedback_unavailable";
       }  // Never pretend missing motor feedback is a valid measurement.
       if (phase_ == "homing" || phase_ == "returning") {
         if (healthy) {
-          last_ = cfg_.limit(cfg_.home, last_, dt);
+          last_ = home_cfg_.limit(cfg_.home, last_, dt);
           bool arrived = true;
           for (int i = 0; i < 16; i++)
-            if (i % 8 != 7 && std::abs(state_.position[i] - cfg_.home[i]) > .05) arrived = false;
+            if (i % 8 != 7 && std::abs(state_.position[i] - cfg_.home[i]) > home_tolerance_)
+              arrived = false;
           if (arrived && t - transition_ > 2000000000) {
             if (phase_ == "returning") {
               life("disable");
               phase_ = "disabled";
-            } else
+              reason_ = "returned";
+            } else {
               phase_ = "aligning";
+              reason_ = "aligning";
+            }
           }
-          if (t - transition_ > 30000000000) phase_ = "fault";
+          if (t - transition_ > 30000000000) {
+            phase_ = "fault";
+            reason_ = "home_timeout";
+          }
         }
       } else if (phase_ == "aligning" || phase_ == "teleop") {
-        if (!luxi::fresh(quest_.receive_mono_ns, t) || !luxi::fresh(intent_.source_mono_ns, t) ||
-            quest_.left_tracking == 2 || quest_.right_tracking == 2) {
-          phase_ = "hold";
+        const bool invalid_tracking = quest_.left_tracking == 2 || quest_.right_tracking == 2;
+        if (!luxi::fresh(quest_.receive_mono_ns, t)) {
+          // Network delivery may be bursty even at a healthy average packet rate.
+          // Freeze at 150 ms; only a longer outage latches operator recovery.
+          input_paused_ = true;
+          reason_ = "quest_gap";
+          tracking_resume_after_ = std::max(tracking_resume_after_, quest_.receive_mono_ns + 1);
+          if (!luxi::fresh(quest_.receive_mono_ns, t, input_hold_ns_)) {
+            phase_ = "hold";
+            reason_ = "quest_timeout";
+          }
+        } else if (invalid_tracking) {
+          // Freeze the submitted target immediately. A brief tracking interruption
+          // may recover within the existing 150 ms freshness window.
+          input_paused_ = true;
+          reason_ = "tracking_gap";
+          if (!luxi::fresh(last_tracking_, t)) {
+            phase_ = "hold";
+            reason_ = "tracking_invalid";
+          }
+        } else if (tracking_resume_after_ && intent_.source_mono_ns < tracking_resume_after_) {
+          // Do not follow a cached target before IK has processed the recovered pose.
+          input_paused_ = true;
+          reason_ = "waiting_for_recovered_ik";
+          if (!luxi::fresh(tracking_resume_after_, t, input_hold_ns_)) {
+            phase_ = "hold";
+            reason_ = "ik_timeout";
+          }
+        } else if (!luxi::fresh(intent_.source_mono_ns, t)) {
+          input_paused_ = true;
+          reason_ = "ik_gap";
+          if (!luxi::fresh(intent_.source_mono_ns, t, input_hold_ns_)) {
+            phase_ = "hold";
+            reason_ = "ik_timeout";
+          }
+        } else if (phase_ == "aligning" && intent_.phase == "ik_unconverged") {
+          // A finite, joint-limited IK iterate may still place the hand far
+          // from its requested pose. Keep holding home until IK has converged.
+          input_paused_ = true;
+          reason_ = "waiting_for_ik_solution";
         } else if (phase_ == "aligning") {
+          tracking_resume_after_ = 0;
+          reason_ = "aligning";
           bool aligned = true;
           auto next = intent_.position;
           for (int s = 0; s < 2; s++) {
@@ -136,9 +216,15 @@ class Manager : public rclcpp::Node {
             }
           }
           last_ = cfg_.limit(next, last_, dt);
-          if (aligned) phase_ = "teleop";
-        } else
+          if (aligned) {
+            phase_ = "teleop";
+            reason_ = "teleop";
+          }
+        } else {
+          tracking_resume_after_ = 0;
+          reason_ = "teleop";
           last_ = cfg_.limit(intent_.position, last_, dt);
+        }
       }
       if (phase_ != "disabled" && healthy) {
         luxi::Command out;
@@ -153,6 +239,14 @@ class Manager : public rclcpp::Node {
     }
     std_msgs::msg::String s;
     s.data = luxi::Json{{"phase", phase_},
+                        {"reason", reason_},
+                        {"input_paused", input_paused_},
+                        {"quest_age_ms", quest_.receive_mono_ns ? (t - quest_.receive_mono_ns) / 1e6 : -1.0},
+                        {"intent_age_ms", intent_.source_mono_ns ? (t - intent_.source_mono_ns) / 1e6 : -1.0},
+                        {"home_tolerance", home_tolerance_},
+                        {"home_joint_speed_limit", home_joint_speed_limit_},
+                        {"joint_speed_limits", cfg_.speed},
+                        {"input_hold_timeout", input_hold_timeout_},
                         {"vr_fresh", luxi::fresh(quest_.receive_mono_ns, t)},
                         {"tracking_left", quest_.left_tracking},
                         {"tracking_right", quest_.right_tracking}}

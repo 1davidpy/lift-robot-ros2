@@ -10,6 +10,8 @@
 #include <httplib.h>
 // clang-format on
 #include <luxi/storage.hpp>
+#include <luxi/core.hpp>
+#include <luxi/receiver_queue.hpp>
 #include <mutex>
 #include <deque>
 #include <ament_index_cpp/get_package_share_directory.hpp>
@@ -22,7 +24,7 @@ class Server : public rclcpp::Node {
   std::thread thread_;
   std::mutex mutex_;
   luxi::fs::path root_;
-  std::string token_;
+  std::unique_ptr<luxi::ReceiverQueue> receiver_;
   bool mock_, base_enabled_, no_cameras_;
   luxi::Quest quest_;
   std::deque<int64_t> quest_arrivals_;
@@ -38,20 +40,27 @@ class Server : public rclcpp::Node {
     root_ = declare_parameter<std::string>("directory", "data");
     luxi::fs::create_directories(root_);
     root_ = luxi::fs::canonical(root_);
+    const bool ram_staging = declare_parameter("ram_staging", false);
+    receiver_ = std::make_unique<luxi::ReceiverQueue>(root_, ram_staging);
+    http_.Get("/api/receiver", [this](const auto&, auto& res) {
+      res.set_content(receiver_->status().dump(), "application/json");
+    });
+    http_.Post("/api/receiver", [this](const auto& req, auto& res) {
+      if (req.has_header("Origin") || req.get_header_value("Content-Type").find("application/json") != 0) {
+        res.status = 403; return;
+      }
+      try {
+        res.set_content(receiver_->request(luxi::Json::parse(req.body), req.remote_addr).dump(), "application/json");
+      } catch (const std::exception& e) {
+        res.status = 409;
+        res.set_content(luxi::Json{{"success", false}, {"message", e.what()}}.dump(), "application/json");
+      }
+    });
     auto host = declare_parameter("host", "127.0.0.1");
     int port = declare_parameter("port", 8000);
-    token_ = declare_parameter<std::string>("control_token", "");
-    const auto token_file = declare_parameter<std::string>("token_file", "");
-    if (!token_file.empty()) {
-      std::ifstream in(token_file);
-      if (!std::getline(in, token_) || token_.size() < 16)
-        throw std::runtime_error("control token file missing or too short");
-    }
     mock_ = declare_parameter("mock", true);
     base_enabled_ = declare_parameter("base_enabled", false);
     no_cameras_ = declare_parameter("no_cameras", false);
-    if (host != "127.0.0.1" && token_.empty())
-      RCLCPP_WARN(get_logger(), "Remote server is read-only until control_token is configured");
     subs_.push_back(create_subscription<luxi::Quest>("/luxi/quest", 10,
       [this](luxi::Quest::ConstSharedPtr q) {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -138,7 +147,6 @@ class Server : public rclcpp::Node {
     });
     http_.Post("/api/devices/([a-z_]+)", [this, management](const auto& req, auto& res) {
       auto fail = [&](int code, const char* message) { res.status = code; res.set_content(luxi::Json{{"success", false}, {"message", message}}.dump(), "application/json"); };
-      if (token_.empty() ? req.remote_addr != "127.0.0.1" : req.get_header_value("Authorization") != "Bearer " + token_) { fail(403, "请先验证控制令牌"); return; }
       const std::string id = req.matches[1];
       const std::set<std::string> ids{"arms", "base", "quest", "program", "head_rgb", "left_wrist_rgb", "right_wrist_rgb"};
       auto body = luxi::Json::parse(req.body, nullptr, false);
@@ -157,7 +165,7 @@ class Server : public rclcpp::Node {
       res.status = result.value("success", false) ? 202 : 503;
       res.set_content(result.dump(), "application/json");
     });
-    http_.Get("/api/state", [this](const auto& req, auto& res) {
+    http_.Get("/api/state", [this, ram_staging](const auto&, auto& res) {
       std::lock_guard<std::mutex> lock(mutex_);
       const auto now = luxi::mono();
       auto base = base_, arms = state_, control = control_, recorder = recorder_, base_status = base_status_;
@@ -203,8 +211,9 @@ class Server : public rclcpp::Node {
           {"sticks", quest_.sticks}, {"grips", quest_.grips}}}, {"cameras", cameras},
         {"system", {{"mock", mock_}, {"base_enabled", base_enabled_}, {"no_cameras", no_cameras_},
           {"data_directory", root_.string()}, {"free_gib", ec ? -1.0 : disk.available / 1073741824.0},
-          {"control_authorized", token_.empty() ? req.remote_addr == "127.0.0.1" : req.get_header_value("Authorization") == "Bearer " + token_},
+          {"control_authorized", true},
           {"services", {{"control", arm_client_->service_is_ready()}, {"base", base_client_->service_is_ready()}, {"episode", record_client_->service_is_ready()}}}}},
+        {"receiver", receiver_->status()}, {"ram_staging", ram_staging},
         {"server_mono_ns", std::to_string(now)}}.dump(), "application/json");
       res.set_header("Cache-Control", "no-store");
     });
@@ -240,7 +249,9 @@ class Server : public rclcpp::Node {
         res.status = 404;
         return;
       }
-      res.set_content(luxi::config(p).dump(), "application/json");
+      std::ifstream in(p, std::ios::binary);
+      std::ostringstream body; body << in.rdbuf();
+      res.set_content(body.str(), "application/json");
     });
     http_.Get("/api/files/([A-Za-z0-9_-]+)/(.+)", [this](const auto& req, auto& res) {
       auto dir = root_ / req.matches[1].str();
@@ -286,11 +297,6 @@ class Server : public rclcpp::Node {
     });
     http_.Post("/api/(control|episode|base|keyboard)", [this](const auto& req, auto& res) {
       const bool keyboard = req.matches[1] == "keyboard";
-      if (!keyboard && ((token_.empty() && req.remote_addr != "127.0.0.1") ||
-          (!token_.empty() && req.get_header_value("Authorization") != "Bearer " + token_))) {
-        res.status = 403;
-        return;
-      }
       auto j = luxi::Json::parse(req.body, nullptr, false);
       if (j.is_discarded() || !j.is_object() || !j.contains("command") ||
           !j["command"].is_string() || (j.contains("detail") && !j["detail"].is_string())) {

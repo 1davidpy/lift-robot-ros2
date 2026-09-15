@@ -222,7 +222,8 @@ int main(int argc, char** argv) {
       }
     }
     sending = false;
-    std::this_thread::sleep_for(400ms);
+    // Exceed the 500 ms latched-hold deadline; targets freeze at 150 ms.
+    std::this_thread::sleep_for(700ms);
     uint64_t stopped;
     {
       std::lock_guard<std::mutex> l(mutex);

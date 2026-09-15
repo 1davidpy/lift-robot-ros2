@@ -10,12 +10,11 @@ const frames = {};
 function text(id, value) { $(id).textContent = value; }
 function badge(id, label, tone = '') { text(id, label); $(id).className = 'pill ' + tone; }
 function log(message) { text('result', new Date().toLocaleTimeString() + '  ' + message + '\n' + $('result').textContent.slice(0, 2500)); }
-function auth() { return {'Authorization':'Bearer ' + $('token').value}; }
 async function request(path, options = {}) {
-  const r = await fetch(path, {...options, headers:{...auth(), ...options.headers}, signal:AbortSignal.timeout(options.method ? 12000 : 2500), cache:'no-store'});
+  const r = await fetch(path, {...options, signal:AbortSignal.timeout(options.method ? 12000 : 2500), cache:'no-store'});
   const body = await r.text();
   let data; try { data = JSON.parse(body); } catch { data = null; }
-  if (!r.ok) throw new Error(data?.message || ({403:'控制令牌无效或未设置',409:'设备当前状态不允许此操作',503:'对应节点未就绪',504:'指令响应超时，请检查状态后再操作'}[r.status] || 'HTTP ' + r.status));
+  if (!r.ok) throw new Error(data?.message || ({409:'设备当前状态不允许此操作',503:'对应节点未就绪',504:'指令响应超时，请检查状态后再操作'}[r.status] || 'HTTP ' + r.status));
   return data;
 }
 function buttons() {
@@ -23,7 +22,7 @@ function buttons() {
   keyboardUI();
   document.querySelectorAll('[data-command]').forEach(b => {
     const kind = b.dataset.kind, cmd = b.dataset.command;
-    let allow = connected && s?.system?.control_authorized && services[kind] && !busy;
+    let allow = connected && services[kind] && !busy;
     if (cmd === 'start') {
       if (kind === 'control') allow &&= s.arms?.fresh && s.arms.valid.every(Boolean) && s.quest?.fresh && s.quest.rate_hz >= 50 && s.control?.fresh && s.control.phase === 'disabled';
       if (kind === 'base') allow &&= s.base?.valid && s.base_status?.fresh && !s.base_status.enabled && s.quest?.fresh && !s.base_status.receive_only;
@@ -50,7 +49,6 @@ function render(s) {
   badge('connection','● 服务在线','good');
   text('updated','更新于 ' + new Date().toLocaleTimeString());
   badge('mode',s.system.mock ? 'MOCK · 模拟设备' : 'REAL · 实机模式',s.system.mock ? 'warn' : 'good');
-  badge('auth',s.system.control_authorized ? '可操作' : '只读',s.system.control_authorized ? 'good' : 'warn');
   const q = s.quest || {}, a = s.arms, b = s.base, bs = s.base_status, r = s.recorder;
   badge('quest-badge',q.fresh ? '已接收' : '未连接',q.fresh ? 'good' : 'bad');
   text('quest-rate',q.fresh ? q.rate_hz + ' Hz' : '— Hz');
@@ -74,16 +72,17 @@ function render(s) {
   text('base-speed',b?.valid ? Math.hypot(b.velocity[0],b.velocity[1]).toFixed(3) + ' m/s' : '— m/s');
   text('base-detail',b?.valid ? b.voltage.toFixed(1)+' V · '+(bs?.fresh ? (bs.enabled ? '已启用' : '未使能') : '许可未知')+' · FlagStop '+b.flag_stop+' · '+(bs?.input_source || 'quest') : '检查供电、CH3、共地和底盘固件');
   if (bs?.fresh) $('base-detail').textContent += ' · ' + (bs.interface || 'CH3') + ' · ' + (bs.receive_only ? '只读诊断，禁止运动' : bs.reason) + ' · 有效包 ' + bs.accepted_groups;
+  text('quest-base-hint', !bs?.fresh ? '底盘状态失效，请等待连接恢复。' : bs.require_left_grip === false ? '摇杆回中后短按 Y 启用底盘，再按 Y 停车并撤销许可；长按不重复切换，也不取消录制。启用后左摇杆平移，右摇杆左右转向；回中停车。B 撤销底盘许可；X 仅控制双臂。两侧中指握持键预留给升降，当前未接入。' : '摇杆回中、松开左握持键后短按 Y 启用底盘，再按 Y 停车并撤销许可；长按不重复切换，也不取消录制。行驶时按住左握持键，松开停车。左摇杆平移，右摇杆左右转向。B 撤销底盘许可；X 仅控制双臂。');
   const count = Object.values(s.cameras).filter(c => c.fresh).length;
   badge('camera-badge',s.system.no_cameras ? '已关闭' : count === 3 ? '全部在线' : count ? '部分在线' : '等待图像',count ? 'good' : 'warn');
   text('camera-count',count + ' / 3 在线');
-  text('disk','磁盘可用 ' + (s.system.free_gib < 0 ? '未知' : s.system.free_gib.toFixed(1) + ' GiB'));
+  text('disk',(s.ram_staging ? 'RAM 缓冲可用 ' : '磁盘可用 ') + (s.system.free_gib < 0 ? '未知' : s.system.free_gib.toFixed(1) + ' GiB'));
   text('camera-note',s.system.mock ? '当前显示模拟图像，不能作为实机采集数据。' : s.system.no_cameras ? 'RGB 采集已暂停，请先检查 USB 连接和供电，恢复相机服务后再开启。' : '已接入的相机自动显示 RGB 预览；未接入的相机显示等待图像。');
   for (const id of cameraIds) {
     const c = s.cameras[id];
     const problem = c.driver?.fresh && c.driver.phase === 'error' ? c.driver.reason : null;
     text(id+'-state',c.fresh ? '● 在线' : problem ? '采集异常' : c.enabled ? '等待连接' : '已关闭');
-    text(id+'-meta',c.fresh ? `${c.width} × ${c.height} · #${c.sequence} · ${c.age_ms} ms · ${c.timestamp_quality}` : problem || '等待有效图像');
+    text(id+'-meta',`SN ${c.driver?.serial || '—'} · ${Number.isFinite(c.driver?.fps) ? c.driver.fps.toFixed(1) + ' FPS · ' : ''}` + (c.fresh ? `${c.width} × ${c.height} · #${c.sequence} · ${c.age_ms} ms · ${c.timestamp_quality}` : problem || '等待有效图像'));
     if (!c.fresh || !$('preview').checked) hideFrame(id,$('preview').checked ? (problem || '暂无实时图像') : '预览已暂停');
   }
   const recording = r?.fresh && r.state === 'recording';
@@ -93,6 +92,11 @@ function render(s) {
   text('record-phase',r?.fresh ? (phases[r.state] || r.state) : '未知');
   text('episode-id',r?.episode || '尚未开始录制');
   text('qc',(r?.qc?.length ? '质量检查：' + JSON.stringify(r.qc) + '。' : '') + '保存目录：' + s.system.data_directory);
+  const receiver = s.receiver || {}, peer = receiver.peer || {}, delivered = receiver.last_verified || {};
+  text('receiver-state', receiver.online ? `接收中：${peer.name} (${peer.address})` : '未连接接收电脑');
+  text('receiver-directory', receiver.online ? `保存到：${peer.directory} · ${peer.episode || ''} ${peer.message || '等待新数据'}` : '在要保存数据的电脑上运行 episode_receive，填写板端地址和本机保存目录。');
+  text('receiver-last', delivered.episode_id ? `最近已校验：${delivered.episode_id}${delivered.source_released ? ' · X5 RAM 副本已释放' : ''}` : '尚无已校验的回传记录');
+  text('storage-note', s.ram_staging ? '录制先进入 X5 RAM；断电前未回传的数据会丢失。PC 校验并保存后自动释放 RAM；断网保留待传，空间不足会停止录制。' : '录制保存在板端磁盘。接收电脑会自动下载并校验已完成的数据。');
   text('raw',JSON.stringify(s,null,2)); buttons();
 }
 async function poll() {
@@ -140,13 +144,12 @@ document.querySelectorAll('[data-command]').forEach(b => b.addEventListener('cli
   } catch (e) { log('操作未确认：' + e.message + '。请查看设备状态，超时指令不会自动重发。'); }
   finally { busy = false; buttons(); }
 }));
-$('unlock').addEventListener('click',async () => { try { const s = await request('/api/state'); render(s); log(s.system.control_authorized ? '控制权限验证通过' : '当前只读，请检查令牌'); } catch(e) { log(e.message); } });
-$('token').addEventListener('input',() => { if (state) state.system.control_authorized = false; buttons(); });
 $('task').addEventListener('input',buttons);
 $('preview').addEventListener('change',() => { if (!$('preview').checked) cameraIds.forEach(id => hideFrame(id,'预览已暂停')); });
 $('refresh-episodes').addEventListener('click',episodes);
 setInterval(() => { if (connected && Date.now() - lastUpdate > 2500) offline(); },300);
 poll(); episodes(); cameraIds.forEach(preview);
+setInterval(episodes,5000);
 
 function keyboardUI() {
   const s = state, bs = s?.base_status;
@@ -225,7 +228,7 @@ function deviceButtons() {
     const labels = {active:'服务运行中', activating:'正在启动 / 自动重试', deactivating:'正在停止', inactive:'已关闭', failed:'启动失败，可重试'};
     box.querySelector('.service-state').textContent = d ? (d.LoadState === 'not-found' ? '服务未安装' : labels[d.ActiveState] || d.ActiveState) : '服务状态不可用';
     box.querySelectorAll('button').forEach(b => {
-      b.disabled = deviceBusy || !connected || !state?.system?.control_authorized || !d || d.LoadState !== 'loaded' || d.ActiveState === 'deactivating';
+      b.disabled = deviceBusy || !connected || !d || d.LoadState !== 'loaded' || d.ActiveState === 'deactivating';
       if (b.dataset.serviceAction === 'toggle') {
         b.textContent = (running ? '关闭' : '开启') + (id === 'program' ? '控制与录制程序' : '采集');
         b.setAttribute('role', 'switch'); b.setAttribute('aria-checked', String(!!running));

@@ -20,7 +20,7 @@ def command(cmd, detail=''):
 messages = []
 try:
     launch('luxi_device_adapters', 'r680_adapter', '-p', 'mock:=true')
-    launch('luxi_web_ctrl', 'web_ctrl', '-p', 'port:=8001', '-p', 'control_token:=mock-other-controls-only', '-p', 'base_enabled:=true', '-p', 'no_cameras:=true', '-p', 'directory:=' + str(ROOT / 'build/test_runs/keyboard'))
+    launch('luxi_web_ctrl', 'web_ctrl', '-p', 'port:=8001', '-p', 'base_enabled:=true', '-p', 'no_cameras:=true', '-p', 'directory:=' + str(ROOT / 'build/test_runs/keyboard'))
     rclpy.init()
     node = rclpy.create_node('keyboard_probe')
     sub = node.create_subscription(String, '/luxi/base/applied', lambda m: messages.append(json.loads(m.data)), 100)

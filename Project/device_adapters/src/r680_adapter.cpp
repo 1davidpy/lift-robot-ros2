@@ -11,6 +11,7 @@ class R680 : public rclcpp::Node {
   bool mock_;
   bool receive_only_ = false;
   bool keyboard_ = false;
+  bool y_released_ = false;
   int64_t keyboard_time_ = 0;
   rb::Velocity keyboard_velocity_{};
   std::string interface_;
@@ -177,6 +178,7 @@ class R680 : public rclcpp::Node {
                      {"interface", interface_},
                      {"receive_only", receive_only_},
                      {"input_source", keyboard_ ? "keyboard" : "quest"},
+                     {"require_left_grip", gate_.require_left_grip},
                      {"reason", gate_.reason},
                      {"feedback_fresh", rb::fresh(gate_.feedback_time, luxi::mono(), 250000000)},
                      {"flag_stop", gate_.stop},
@@ -197,6 +199,7 @@ class R680 : public rclcpp::Node {
     gate_.mapping.angular = declare_parameter("max_angular", .3141592653589793);
     gate_.mapping.deadzone = declare_parameter("deadzone", .16);
     gate_.mapping.reverse_steering = declare_parameter("ps2_reverse_steering", true);
+    gate_.require_left_grip = declare_parameter("require_left_grip", true);
     linear_accel_ = declare_parameter("linear_acceleration", .3);
     angular_accel_ = declare_parameter("angular_acceleration", .6);
     for (double x : {gate_.mapping.linear, gate_.mapping.angular, linear_accel_, angular_accel_})
@@ -219,11 +222,37 @@ class R680 : public rclcpp::Node {
     battery_ = create_publisher<sensor_msgs::msg::BatteryState>("/base/battery", 10);
     quest_ =
         create_subscription<luxi::Quest>("/luxi/quest", 1, [this](luxi::Quest::ConstSharedPtr q) {
+          const auto t = luxi::mono();
+          const bool input_fresh = rb::fresh(q->receive_mono_ns, t, 200000000);
+          const bool input_ordered = q->receive_mono_ns > gate_.quest_time;
+          // Startup, an input gap or reordered data require a new release before
+          // Y may enable the base. A held button must never re-enable on recovery.
+          if (!input_fresh || !rb::fresh(gate_.quest_time, t, 200000000) ||
+              !input_ordered)
+            y_released_ = false;
+          const bool y_toggle = input_fresh && q->buttons[3] && y_released_;
           gate_.quest_time = q->receive_mono_ns;
-          gate_.tracking = q->tracking == 0 && q->left_tracking == 0 && q->right_tracking == 0;
+          // Ordinary STALE poses still carry current stick/button input, as in
+          // arm teleop. INVALID (including a missing controller pose) must stop.
+          gate_.tracking = q->tracking < 2 && q->left_tracking < 2 && q->right_tracking < 2;
           gate_.sticks = q->sticks;
           gate_.grip = q->grips[0];
-          if (q->buttons[1] || q->buttons[2] || q->buttons[3]) gate_.halt("operator_stop");
+          y_released_ = input_fresh && input_ordered && gate_.tracking && !q->buttons[3];
+          // X belongs only to the arms. B stops the base and overrides Y.
+          if (q->buttons[1]) {
+            gate_.halt("operator_stop");
+          } else if (y_toggle) {
+            if (gate_.enabled) {
+              gate_.halt("operator_stop");
+            } else if (receive_only_) {
+              gate_.reason = "receive_only_no_motion";
+            } else if (gate_.start(t)) {
+              keyboard_ = false;
+            } else {
+              // Consume rejected presses; centering while holding Y cannot arm.
+              gate_.reason = "y_enable_rejected";
+            }
+          }
         });
     menu_ = create_subscription<std_msgs::msg::String>(
         "/luxi/recorder/status", rclcpp::QoS(1).transient_local(),
@@ -273,7 +302,9 @@ class R680 : public rclcpp::Node {
           res->message =
               res->success
                   ? gate_.reason
-                  : "Need fresh feedback/Quest, no menu, centered sticks and released left grip";
+                  : (gate_.require_left_grip
+                         ? "Need fresh feedback/Quest, valid tracking, no menu, centered sticks and released left grip"
+                         : "Need fresh feedback/Quest, valid tracking, no menu and centered sticks");
         });
     timer_ = create_wall_timer(std::chrono::milliseconds(10), [this] { tick(); });
   }

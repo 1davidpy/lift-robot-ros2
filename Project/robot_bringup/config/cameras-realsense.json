@@ -1,0 +1,36 @@
+{
+  "backend": "realsense_v4l2",
+  "streams": "rgb_only",
+  "capture": {
+    "width": 640,
+    "height": 360,
+    "fps": 30,
+    "format": "YUYV"
+  },
+  "recording": {
+    "width": 640,
+    "height": 360,
+    "fps": 30,
+    "format": "jpeg",
+    "quality": 90
+  },
+  "timestamp_quality": "v4l2_host_monotonic",
+  "hardware_synchronized": false,
+  "wrist_mapping_confirmed": false,
+  "cameras": {
+    "head_rgb": {
+      "model": "D455f",
+      "serial": "261043062235"
+    },
+    "left_wrist_rgb": {
+      "model": "D435i",
+      "serial": "254843065015"
+    },
+    "right_wrist_rgb": {
+      "model": "D435i",
+      "serial": "261443062039"
+    }
+  },
+  "profile": "reduced_usb_traffic_30fps",
+  "profile_hardware_validation": "pending_stability_test_with_known_power"
+}

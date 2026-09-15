@@ -75,8 +75,6 @@ inline Quest parse_quest(const std::string& raw) {
   auto j = Json::parse(raw);
   Quest q;
   q.sender_time = number(j, "t");
-  q.left = parse_pose(j.at("lc"));
-  q.right = parse_pose(j.at("rc"));
   q.reference.orientation.w = 1;
   if (j.contains("rf")) q.reference = parse_pose(j.at("rf"));
   auto flag = [&](const char* key) {
@@ -89,6 +87,19 @@ inline Quest parse_quest(const std::string& raw) {
   q.right_tracking = flag("vr");
   if (q.tracking > 2 || q.left_tracking > 2 || q.right_tracking > 2)
     throw std::invalid_argument("tracking range");
+  auto controller = [&j](const char* key, geometry_msgs::msg::Pose& p, uint8_t& tracking) {
+    const auto it = j.find(key);
+    if (it == j.end() || it->is_null()) {
+      // The APK keeps sending timestamps/buttons when a pose is unavailable.
+      // Preserve reception and stop controls, but never expose a usable target.
+      tracking = 2;
+      p.orientation.w = 1;
+      return;
+    }
+    p = parse_pose(*it);
+  };
+  controller("lc", q.left, q.left_tracking);
+  controller("rc", q.right, q.right_tracking);
   for (int i = 0; i < 2; i++) {
     q.triggers[i] = number(j, i ? "rt" : "lt");
     q.grips[i] = j.value(i ? "rg" : "lg", 0.0);

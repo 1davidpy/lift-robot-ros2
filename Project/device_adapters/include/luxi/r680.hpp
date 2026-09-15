@@ -103,6 +103,7 @@ class Gate {
  public:
   Mapping mapping;
   bool enabled = false, tracking = false, menu = false;
+  bool require_left_grip = true;
   double grip = 0;
   int64_t quest_time = 0, feedback_time = 0;
   uint8_t stop = 1;
@@ -115,7 +116,8 @@ class Gate {
   }
   bool start(int64_t now) {
     if (!input_valid() || !fresh(quest_time, now, 200000000) ||
-        !fresh(feedback_time, now, 100000000) || !tracking || menu || stop || grip > .2)
+        !fresh(feedback_time, now, 100000000) || !tracking || menu || stop ||
+        (require_left_grip && grip > .2))
       return false;
     auto v = mapping.map(sticks);
     if (v[0] != 0 || v[1] != 0 || v[2] != 0) return false;
@@ -142,7 +144,7 @@ class Gate {
     else if (stop)
       halt("chassis_disabled");
     if (!enabled) return {};
-    if (grip < .7) {
+    if (require_left_grip && grip < .7) {
       reason = "deadman_released";
       return {};
     }
@@ -150,8 +152,10 @@ class Gate {
       reason = "feedback_delayed";
       return {};
     }
-    reason = "teleop";
-    return mapping.map(sticks);
+    const auto wanted = mapping.map(sticks);
+    // Centering is an explicit stop: bypass the adapter's acceleration ramp.
+    reason = wanted == Velocity{} ? "sticks_centered" : "teleop";
+    return wanted;
   }
 };
 }  // namespace luxi::r680

@@ -139,3 +139,18 @@ TEST(R680Gate, NonfiniteInputCannotEnableOrMove) {
   EXPECT_EQ(g.command(1000000000), Velocity{});
   EXPECT_FALSE(g.enabled);
 }
+
+TEST(R680Gate, DirectJoystickModeReservesGripAndCentersImmediately) {
+  auto g = ready();
+  g.require_left_grip = false;
+  g.grip = 1;
+  ASSERT_TRUE(g.start(1000000000));
+  g.sticks[1] = 1;
+  EXPECT_GT(g.command(1000000000)[0], 0);
+  g.grip = 0;
+  EXPECT_GT(g.command(1000000000)[0], 0);
+  g.sticks = {};
+  EXPECT_EQ(g.command(1000000000), Velocity{});
+  EXPECT_EQ(g.reason, "sticks_centered");
+  EXPECT_TRUE(g.enabled);
+}

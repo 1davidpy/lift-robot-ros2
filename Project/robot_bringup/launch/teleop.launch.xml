@@ -16,7 +16,6 @@
  <arg name="sdk_library" default=""/>
  <arg name="http_host" default="127.0.0.1"/>
  <arg name="http_port" default="8000"/>
- <arg name="control_token" default=""/>
  <arg name="quest_port" default="5006"/>
  <arg name="sender_ip" default=""/>
  <arg name="config" default="$(find-pkg-share luxi_bringup)/config/arms.json"/>
@@ -38,5 +37,5 @@
   <node pkg="luxi_device_adapters" exec="hikrobot_camera" name="camera_right_wrist_rgb" output="screen"><param name="mock" value="$(var mock)"/><param name="camera_id" value="right_wrist_rgb"/><param name="serial" value="00DA8573792"/><param name="sdk_library" value="$(var sdk_library)"/></node>
  </group>
  <node pkg="luxi_data_recorder" exec="data_recorder" output="screen"><param name="config" value="$(var config)"/><param name="directory" value="$(var directory)"/><param name="minimum_free_gib" value="$(var minimum_free_gib)"/><param name="require_cameras" value="$(var require_cameras)"/></node>
- <node if="$(var web_enabled)" pkg="luxi_web_ctrl" exec="web_ctrl" output="screen"><param name="directory" value="$(var directory)"/><param name="host" value="$(var http_host)"/><param name="port" value="$(var http_port)"/><param name="control_token" value="$(var control_token)"/><param name="mock" value="$(var mock)"/><param name="base_enabled" value="$(var base_enabled)"/><param name="no_cameras" value="$(var no_cameras)"/></node>
+ <node if="$(var web_enabled)" pkg="luxi_web_ctrl" exec="web_ctrl" output="screen"><param name="directory" value="$(var directory)"/><param name="host" value="$(var http_host)"/><param name="port" value="$(var http_port)"/><param name="mock" value="$(var mock)"/><param name="base_enabled" value="$(var base_enabled)"/><param name="no_cameras" value="$(var no_cameras)"/></node>
 </launch>

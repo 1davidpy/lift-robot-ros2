@@ -12,14 +12,16 @@
   <arg name="no_cameras" default="false" />
   <arg name="require_cameras" default="true" />
   <arg name="directory" default="data/real" />
+  <arg name="camera_config" default="" />
   <arg name="minimum_free_gib" default="20.0" />
   <arg name="sdk_library" default="" />
   <arg name="http_host" default="127.0.0.1" />
   <arg name="http_port" default="8000" />
-  <arg name="control_token" default="" />
   <arg name="quest_port" default="5006" />
   <arg name="sender_ip" default="" />
-  <arg name="config" default="$(find-pkg-share luxi_bringup)/config/arms-kh.json" />
+  <arg name="config" default="$(find-pkg-share luxi_bringup)/config/arms-teleop.json" />
+  <arg name="home_tolerance" default="0.1" />
+  <arg name="home_joint_speed_limit" default="0.2" />
   <node pkg="luxi_teleop_mapper" exec="teleop_mapper" output="screen" respawn="true" respawn_delay="3.0">
     <param name="config" value="$(var config)" />
   </node>
@@ -29,11 +31,14 @@
   </node>
   <node pkg="luxi_control_manager" exec="control_manager" output="screen" respawn="true" respawn_delay="3.0">
     <param name="config" value="$(var config)" />
+    <param name="home_tolerance" value="$(var home_tolerance)" />
+    <param name="home_joint_speed_limit" value="$(var home_joint_speed_limit)" />
   </node>
   <node pkg="luxi_data_recorder" exec="data_recorder" output="screen" respawn="true" respawn_delay="3.0">
     <param name="config" value="$(var config)" />
     <param name="directory" value="$(var directory)" />
     <param name="minimum_free_gib" value="$(var minimum_free_gib)" />
+    <param name="camera_config" value="$(var camera_config)" />
     <param name="require_cameras" value="$(var require_cameras)" />
   </node>
 </launch>

@@ -9,10 +9,6 @@ MODE=${1:---web-only}
 [[ -x "$ROOT/build/install/luxi_web_ctrl/lib/luxi_web_ctrl/web_ctrl" ]] || { echo 'Build first'; exit 1; }
 [[ -x "$ROOT/build/install/luxi_quest_receiver/lib/luxi_quest_receiver/quest_receiver" ]] || { echo 'Build Quest receiver first'; exit 1; }
 mkdir -p "$ROOT/log" "$ROOT/data/real" "$ROOT/build/web-systemd"
-if [[ ! -f "$ROOT/log/web-control.token" ]]; then
- (umask 077; openssl rand -hex 24 > "$ROOT/log/web-control.token")
-fi
-chmod 600 "$ROOT/log/web-control.token"
 USER_NAME=$(id -un)
 cat > "$ROOT/build/web-systemd/luxi-web.service" <<UNIT
 [Unit]
@@ -76,8 +72,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable luxi-web.service
 if [[ "$MODE" == --hardware ]]; then sudo systemctl enable luxi-robot.service; fi
 sudo systemctl start luxi-web.service luxi-quest.service
-printf '%s\n' 'Web dashboard enabled on boot: http://BOARD_LAN_IP:8000' \
- "Read control token locally: cat $ROOT/log/web-control.token"
+printf '%s\n' 'Web dashboard enabled on boot: http://BOARD_LAN_IP:8000 (no password required)'
 if [[ "$MODE" == --hardware ]]; then
  echo 'Hardware startup enabled for NEXT BOOT; no motors enabled now. Cameras remain off.'
 else

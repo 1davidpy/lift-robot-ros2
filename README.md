@@ -73,7 +73,7 @@ bash tool/run.sh mock:=false allow_hardware:=true   "sdk_library:=$PWD/device/sd
 ```bash
 # LAN 只读输出；ROS 数据同样可由同域 ROS 2 客户端订阅。
 bash tool/run.sh http_host:=0.0.0.0
-# 远程网页运动/录制操作需要另设置 control_token，不能把网页按钮当硬件急停。
+# 远程网页运动/录制操作无需密码；仍需设备就绪和显式使能，网页按钮不是硬件急停。
 ```
 
 接收机装好同版本工具后：

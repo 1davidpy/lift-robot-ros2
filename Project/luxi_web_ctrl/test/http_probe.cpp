@@ -21,17 +21,17 @@ int main(int argc, char** argv) {
     for (auto path : {"/app.js", "/style.css"}) {
       auto asset = http.Get(path); check(asset && asset->status == 200, "asset missing");
     }
-    const httplib::Headers token{{"Authorization", "Bearer web-test-token-123456"}};
-    auto denied = http.Post("/api/base", "{\"command\":\"start\"}", "application/json");
-    check(denied && denied->status == 403, "unauthorized command allowed");
-    auto malformed = http.Post("/api/base", token, "{\"command\":\"start\",\"detail\":42}", "application/json");
+    check(page->body.find("type=\"password\"") == std::string::npos, "password input still present");
+    auto malformed = http.Post("/api/base", "{\"command\":\"start\",\"detail\":42}", "application/json");
     check(malformed && malformed->status == 400, "invalid detail not rejected");
-    auto missing = http.Post("/api/base", token, "{\"command\":\"start\"}", "application/json");
-    check(missing && missing->status == 503, "missing service not reported");
+    for (auto path : {"/api/base", "/api/control", "/api/episode"}) {
+      auto missing = http.Post(path, "{\"command\":\"start\"}", "application/json");
+      check(missing && missing->status == 503, "anonymous command did not reach service readiness check");
+    }
+    auto invalid_device = http.Post("/api/devices/unknown", "{\"action\":\"start\"}", "application/json");
+    check(invalid_device && invalid_device->status == 400, "anonymous device request did not reach validation");
     auto s = luxi::Json::parse(http.Get("/api/state")->body);
-    check(!s["system"]["control_authorized"].get<bool>() && !s["quest"]["fresh"].get<bool>(), "initial status wrong");
-    s = luxi::Json::parse(http.Get("/api/state", token)->body);
-    check(s["system"]["control_authorized"].get<bool>(), "token rejected");
+    check(s["system"]["control_authorized"].get<bool>() && !s["quest"]["fresh"].get<bool>(), "initial password-free status wrong");
     auto node = std::make_shared<rclcpp::Node>("web_test_publisher");
     auto quest = node->create_publisher<luxi::Quest>("/luxi/quest", 10);
     auto arm = node->create_publisher<luxi::State>("/luxi/arms/state", 1);
@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
     s = luxi::Json::parse(http.Get("/api/state")->body);
     check(!s["quest"]["fresh"].get<bool>() && !s["arms"]["fresh"].get<bool>() && !s["base"]["valid"].get<bool>() && !s["cameras"]["head_rgb"]["fresh"].get<bool>(), "stale device shown online");
     img = http.Get("/api/cameras/head_rgb"); check(img && img->status == 503, "stale camera exposed");
-    std::cout << "Web assets, auth, validation, unavailable services, live/stale devices and camera expiry passed\n";
+    std::cout << "Password-free web assets/control, validation, unavailable services, live/stale devices and camera expiry passed\n";
     rclcpp::shutdown(); return 0;
   } catch (const std::exception& e) {
     std::cerr << e.what() << '\n'; rclcpp::shutdown(); return 1;

@@ -7,9 +7,13 @@
 #include <unistd.h>
 
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
-#include <luxi/core.hpp>
+#include <sstream>
+#include <stdexcept>
+#include <nlohmann/json.hpp>
 namespace luxi {
+using Json = nlohmann::json;
 namespace fs = std::filesystem;
 inline std::string hash_file(const fs::path& path) {
   std::ifstream f(path, std::ios::binary);
