@@ -1,10 +1,10 @@
 # LUXI 机器人接收端数据与控制接入手册
 
-版本 1.0　更新日期 2026 年 10 月 15 日
+版本 1.1　更新日期 2026 年 10 月 15 日
 
 面向接收方开发人员。本机指运行 LUXI ROS 2 程序的机器人设备，接收端指局域网内的计算机、工控机或其他设备。接收端可通过 HTTP 获取关节、底盘、升降、RGB 和深度数据，并调用现有控制服务；需要连续 ROS 数据时，再接入 ROS 2 话题。
 
-**先确认接口版本和控制模式。** 本手册对应 `/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2` 的代码及新增深度功能。此前活动控制台为 `192.168.0.245:8001`，来自另一份工作目录；它不自动具备新深度接口。深度功能已分别实测三台相机，但临时测试进程已退出。由机器人端启动本仓库的新网关与深度节点，再将实际 `BASE_URL` 交给接收方。
+**本次交付地址为 `http://192.168.0.245:18030`。** 本手册对应 `/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2` 的代码及新增 RGB 与对齐深度功能。三路统一采集节点和独立网关已部署运行并启用开机启动，已完成三路同时采集及 Windows 局域网接收测试。其他目录的旧网关不会自动更新，接收方应使用此地址，并在控制前核对当前模式与反馈。
 
 ## 1 接入选择与能力范围
 
@@ -13,7 +13,8 @@
 | 读取关节与设备状态 | `GET /api/state` | HTTP JSON 快照，无需安装 ROS |
 | 读取 RGB | `GET /api/cameras/{id}` | JPEG 快照，也可订阅 ROS 压缩图像 |
 | 读取深度与内参 | `GET /api/cameras/{id}/depth` 和 `/depth/info` | 新版网关与对应深度节点须已运行 |
-| 查询深度像素距离 | `GET /api/cameras/{id}/depth/point` | 返回原生深度像素的光轴 Z 距离 |
+| 成对接收 RGB 与对齐深度 | `GET /api/cameras/{id}/rgbd` | 一次请求返回 metadata、JPEG 和对齐深度，按 pair_id 识别同组数据 |
+| 查询深度像素距离 | `GET /api/cameras/{id}/depth/point` | 返回当前模式深度像素值；对齐模式可使用对应 RGB 像素 |
 | 连续订阅反馈 | ROS 2 话题 | 机器人端和接收端须配置跨机 DDS 通信 |
 | 使能与停放 | HTTP `/api/control` 或 ROS `/luxi/control` | 受当前控制模式、反馈、Quest 和状态机门禁约束 |
 | 底盘键盘式移动 | HTTP `/api/keyboard` | 仅独立模式；只支持有限平移，不提供该接口下的转向 |
@@ -30,8 +31,8 @@
 | 参数 | 约定 |
 | --- | --- |
 | 机器人 IP | 本次设备为 `192.168.0.245`，部署时确认实际地址 |
-| HTTP 地址 | 提供方交付实际 `BASE_URL`；以下完整功能示例使用 `http://192.168.0.245:18030` |
-| 示例端口 18030 | 由第 12 节的机器人端启动命令创建，不表示当前已有该服务 |
+| HTTP 地址 | 本次 `BASE_URL=http://192.168.0.245:18030`；设备地址变更时由提供方更新 |
+| 端口 18030 | 已部署的独立网关 `luxi-rgbd-gateway.service`，与相机使用 ROS 域 0；第 12 节用于重新部署 |
 | HTTP 访问控制 | 当前代码无需密码或令牌；局域网可达的客户端可提交控制请求 |
 | HTTPS | 当前网关为 HTTP；需要加密或鉴权时另行部署网关或网络访问控制 |
 | ROS 版本 | 机器人端 Ubuntu 22.04 ARM64，ROS 2 Humble；接收端 ROS 接入使用匹配版本和消息定义 |
@@ -68,7 +69,7 @@ curl --fail --max-time 3 "$BASE_URL/api/cameras/head_rgb/depth/info"
 | `control` | 控制器阶段、原因、输入是否暂停、模式与控制参数 |
 | `base` 和 `base_status` | 底盘测量反馈与驱动许可、输入源、故障原因 |
 | `lift` 和 `lift_status` | 升降测量反馈与驱动会话、目标和就绪状态 |
-| `cameras` | 各 RGB 流状态，以及新版的 `depth` 子对象 |
+| `cameras` | 各 RGB 流状态，以及新版的 `depth`、`rgbd` 子对象 |
 | `quest` | 新鲜度、接收频率、左右追踪状态、摇杆和握键 |
 | `recorder` | 录制状态、episode、样本数、质量检查等 |
 | `system` | 运行模式、数据目录、空间、服务是否就绪 |
@@ -177,7 +178,7 @@ HTTP `base` 对应 `/luxi/base/state` 的 JSON，schema 为 `r680_v1`。
 
 ### HTTP 与编码
 
-`GET /api/cameras/{id}` 返回 `Content-Type: image/jpeg`。当前 RealSense RGB 配置通常发布 640×360、30 Hz，但尺寸和驱动帧率应从实际状态读取。HTTP 每次获取一张最新快照，不是 RTSP、MJPEG 或 WebSocket 视频流；接收端自行按需要轮询，并用帧号去重。
+`GET /api/cameras/{id}` 返回 `Content-Type: image/jpeg`。原 V4L2 RGB 配置为 640×360、30 Hz；新版 SDK 对齐节点默认同时输出 640×480、15 Hz 的 RGB 和深度。尺寸和驱动帧率应从实际状态读取。HTTP 每次获取一张最新快照，不是 RTSP、MJPEG 或 WebSocket 视频流；接收端自行按需要轮询，并用帧号去重。要求 RGB 与深度来自同组时使用第 6 节的成对接口。
 
 响应头包括 `X-Frame-Id`、`X-Receive-Mono-Ns`、`X-Device-Timestamp`、`X-Timestamp-Quality`。当前 V4L2 RGB 的设备时间戳为 0，时间质量通常为 `v4l2_host_monotonic`；不要将通用 RGB 的原始设备时间字段与深度明确标注的纳秒字段混为一谈。
 
@@ -186,6 +187,8 @@ ROS 图像入口为 `/camera/{id}/image/compressed`，类型 `sensor_msgs/msg/Co
 ## 6 深度画面和相机内参
 
 ### 整幅深度
+
+新版节点默认 `align_to_color=true`，统一采集同一相机的 RGB 和深度并将深度对齐到 RGB 像素网格。保留 `align_to_color=false` 的原生深度模式。启动对齐节点前必须停止同一相机的旧 RGB 服务，避免设备占用和重复发布；详见第 12 节。
 
 `GET /api/cameras/{id}/depth` 返回 `application/octet-stream`：
 
@@ -198,8 +201,8 @@ ROS 图像入口为 `/camera/{id}/image/compressed`，类型 `sensor_msgs/msg/Co
 | 无效像素 | NaN；原始相机 0 值转换为 NaN |
 | 默认采集 | 640×480、15 Hz；由机器人端配置和设备支持的 profile 决定 |
 | 单帧长度 | 默认 `640 × 480 × 4 = 1,228,800` 字节 |
-| 坐标 | 原生深度光学坐标，右、下、前；像素值是光轴 Z 距离 |
-| RGB 对齐 | `aligned_to_color=false`，尚未对齐 RGB |
+| 坐标 | 光学轴右、下、前；对齐模式为 RGB 图像网格，原生模式为深度图像网格 |
+| RGB 对齐 | 通过 `aligned_to_color` 和响应头区分，默认对齐模式为 true |
 
 深度不使用 JPEG 或伪彩色编码。接收端可将有效深度另行着色显示，但应保留原始 float32 数组，不能从显示颜色反推距离。非 NaN 的远距离值仍需按应用量程过滤；本接口不代替现场测距精度与量程验收。
 
@@ -209,7 +212,8 @@ ROS 图像入口为 `/camera/{id}/image/compressed`，类型 `sensor_msgs/msg/Co
 | `X-Depth-Encoding`、`X-Depth-Unit`、`X-Byte-Order` | `32FC1`、`metre`、`little-endian` |
 | `X-Mock` | 是否模拟数据，真实采集应为 false |
 | `X-Frame-Id` | 当前帧序号 |
-| `X-Optical-Frame` | 如 `head_rgb_depth_optical` |
+| `X-Optical-Frame` | 对齐模式如 `head_rgb_color_optical`；原生模式为 `head_rgb_depth_optical` |
+| `X-Aligned-To-Color` | true 或 false，不能仅根据相同尺寸判断对齐 |
 | `X-Stamp-Sec`、`X-Stamp-Nanosec` | 当前帧 ROS 时间戳，主机接收时刻 |
 | `X-Device-Timestamp-Ns`、`X-Timestamp-Quality` | SDK 时间值转为 ns 及对应时间域 |
 | `X-Receive-Mono-Ns`、`X-Age-Ms` | 机器人接收单调时间及服务端帧年龄 |
@@ -238,15 +242,29 @@ ROS 图像入口为 `/camera/{id}/image/compressed`，类型 `sensor_msgs/msg/Co
 }
 ```
 
-以上仅为字段示例，实际响应还包含 R、P 和时间等字段。每台相机使用自己的实时内参，不能复制示例 K 或将深度 K 套用到 RGB。
+以上为原生深度模式的字段示例，实际响应还包含 R、P 和时间等字段。对齐模式返回 `aligned_to_color=true` 及对齐网格的内参。每台相机使用自己的实时内参，不能复制示例 K 或将原生深度 K 套用到 RGB。
+
+零畸变可以等价表达为 ROS plumb_bob；非零的 SDK 特殊模型以 `realsense_N` 保存，N 为 rs2_distortion 枚举值，`realsense_2` 为 Inverse Brown Conrady。成对元数据的 `ros_projection_compatible=false` 表示不能使用普通 ROS/OpenCV Brown 投影公式，并不表示标定参数缺失。像素对应读取深度不受影响，三维计算应使用实际模型。
 
 `GET /api/cameras/{id}/depth/point?x=320&y=240` 返回同类元数据，加上 `x`、`y`、`valid` 和 `depth_m`。无效像素返回 `valid=false, depth_m=null`；缺坐标、重复坐标、非整数或越界返回 400。x 和 y 是**深度图**像素，原点在左上角。
 
-当 `calibration_available=true` 且畸变为零时，可用 `fx=K[0]`、`fy=K[4]`、`cx=K[2]`、`cy=K[5]` 反投影：`X=(u-cx)Z/fx`，`Y=(v-cy)Z/fy`。非零畸变需先按对应模型校正；本接口不提供深度到 RGB 或机器人基座的已标定外参。
+原生深度模式下，当 `calibration_available=true` 且畸变为零时，可用 `fx=K[0]`、`fy=K[4]`、`cx=K[2]`、`cy=K[5]` 反投影：`X=(u-cx)Z/fx`，`Y=(v-cy)Z/fy`。非零畸变需先按对应模型校正。对齐模式沿用 SDK align 将源深度 Z 重采样到 RGB 像素的数值语义，并非重新计算严格的 RGB 光轴 Z；精确三维点应由原始深度反投影再用外参变换。本接口不提供完整原始标定链或机器人基座外参。
 
 SDK 时间域通过 `timestamp_quality` 区分 Hardware Clock、System Time、Global Time，不能无条件视为 Unix 时间或多相机硬件同步依据。RGB 与深度、不同相机之间均不保证曝光同步。
 
 ROS 深度图为 `/camera/{id}/depth/image_raw`，类型 `sensor_msgs/msg/Image`；内参为 `/camera/{id}/depth/camera_info`，类型 `sensor_msgs/msg/CameraInfo`。两者 stamp 与 frame_id 配对。内部网关传输为 `/luxi/cameras/{id}/depth`，自定义 `CameraFrame.encoding=32FC1`。
+
+### 成对获取 RGB 与对齐深度
+
+`GET /api/cameras/{id}/rgbd` 返回同一 SDK frameset 产生的不可变快照，响应为 `multipart/mixed`，包含 metadata JSON、color JPEG、depth 小端 float32 三部分。三部分的 `Content-Disposition` name 分别为 `metadata`、`color`、`depth`，像素不做 base64 编码。响应头 `X-Pair-Id` 与 metadata.pair_id 相同。
+
+metadata 包含 `schema=luxi_rgbd_v1`、camera_id、pair_id、sequence、width、height、frame_id、stamp、receive_mono_ns、age_ms、mock、`aligned_to_color=true`、`pairing=sdk_frameset`、`hardware_synchronized=false`，以及 color/depth 的编码、字节数、设备帧号、设备时间戳和时钟域；有效标定在 intrinsics 中。组序号和 64 位设备时间、帧号均为十进制字符串。depth 另有 `step=width*4`、`unit=metre`、`byte_order=little-endian`、`invalid_value=NaN`、`value_semantics=source_depth_z_resampled_to_color`。
+
+RGB JPEG 解码后尺寸与深度一致，可用同组 RGB 的 `(x,y)` 读取 `depth_m[y,x]`。遮挡、边界和无法测距处仍有 NaN。相机 ID 与 pair_id 共同识别一组，节点重启会换会话标识；不应跨相机比较组序号。SDK frameset 配对不是硬件曝光同步，运动场景应评估两路原始时间偏差。
+
+`GET /api/cameras/{id}/rgbd/info` 只返回最新元数据，适合诊断；解码像素须使用同次 `/rgbd` 响应内的 metadata。无对齐节点、只运行原生深度或整组数据超过 1 秒未更新时返回 503，旧网关返回 404。不将旧 RGB 进程和独立深度节点的帧临时拼接。`/api/state` 的 `cameras[id].rgbd` 提供 fresh、pair_id 和 url。
+
+成对接口的完整 MIME 字段与部署方式见 [RGB 与对齐深度输出](DEPTH_OUTPUT_ZH.md)。接收端不应分别请求旧 RGB 和深度接口后假定它们已配对。
 
 ## 7 ROS 2 连续数据接入
 
@@ -291,7 +309,9 @@ R 表示 reliable，BE 表示 best effort，V 表示 volatile，TL 表示 transi
 | `/camera/{id}/image/compressed` | `sensor_msgs/msg/CompressedImage` | SensorDataQoS，BE V，JPEG |
 | `/camera/{id}/depth/image_raw` | `sensor_msgs/msg/Image` | SensorDataQoS，BE V，32FC1 米 |
 | `/camera/{id}/depth/camera_info` | `sensor_msgs/msg/CameraInfo` | SensorDataQoS，BE V，匹配深度图 |
-| `/luxi/cameras/{id}` | `luxi_interfaces/msg/CameraFrame` | R V，深度 4，RGB 内部传输 |
+| `/luxi/cameras/{id}` | `luxi_interfaces/msg/CameraFrame` | R V，旧 RGB 深度 4，对齐节点深度 1 |
+| `/luxi/cameras/{id}/rgbd` | `luxi_interfaces/msg/RGBDFrame` | SensorDataQoS，BE V，深度 1，RGB 与对齐深度及内参整组传输 |
+| `/camera/{id}/color/camera_info` | `sensor_msgs/msg/CameraInfo` | SensorDataQoS，BE V，对齐节点提供的图像网格内参 |
 | `/luxi/cameras/{id}/depth` | `luxi_interfaces/msg/CameraFrame` | SensorDataQoS，BE V，深度内部传输 |
 | `/luxi/cameras/{id}/depth/status` | `std_msgs/msg/String` | JSON，R TL，深度驱动状态与错误 |
 | `/luxi/recorder/status` | `std_msgs/msg/String` | JSON，R TL，录制状态 |
@@ -299,6 +319,8 @@ R 表示 reliable，BE 表示 best effort，V 表示 volatile，TL 表示 transi
 JSON 状态话题须先读取 `msg.data` 再解析 JSON，不是直接把 `std_msgs/String` 当成设备状态结构体。
 
 `CameraFrame` 的完整字段为：`header`、`camera_id`、`sequence`、`device_timestamp`、`receive_mono_ns`、`timestamp_quality`、`width`、`height`、`encoding`、`data`。RGB 的 `encoding=jpeg`；新增深度为 `32FC1`，采用小端 float32 米。不能对两者都执行 JPEG 解码。
+
+新增 `RGBDFrame` 包含公共 header、camera_id、pair_id、sequence、depth_device_sequence、color_device_sequence、color/depth CameraFrame 与 camera_info。内部两帧使用公共组序号、stamp 和 color_optical 图像网格，原始设备时间分别保留。跨机 ROS 接收端需要更新接口包；配对处理优先订阅整组消息，无需在多个独立话题之间自行猜测对应关系。
 
 ### 实测值与控制目标
 
@@ -453,7 +475,9 @@ HTTP 目前没有 `move_to`、`target_m` 或 `set_height` 接口。外部绝对�
 
 ### HTTP 接收状态与两类图像
 
-安装 `requests`、`numpy`、`opencv-python` 后，保存下面代码为 `receiver_http.py`。它默认只读，不发送控制请求；一次调用读取一组独立快照，不能将它们当作硬件同步样本。Shell 命令按 bash 编写，Windows 可直接使用 Python 示例，或用 `curl.exe` 避免 PowerShell 的 curl 别名差异。
+需要成对图像时，复制仓库 `Project/luxi_web_ctrl/scripts/receive_rgbd.py`，安装 numpy 与 OpenCV 后执行 `python3 receive_rgbd.py http://192.168.0.245:18030 --camera head_rgb --save`，一次取回 RGB、对齐深度和配对元数据。脚本可在 Windows 使用，且不需要 requests、ROS 或相机 SDK。程序入口 `receive_rgbd(base_url, camera)` 返回 metadata、BGR 图和深度米数组；按 `np.isfinite(depth_m) & (depth_m > 0)` 筛选有效值。
+
+以下旧接口示例用于分别诊断状态、RGB 和深度，不能替代成对读取。安装 `requests`、`numpy`、`opencv-python` 后，保存为 `receiver_http.py`。它默认只读，不发送控制请求；独立快照不能假定来自同组。Shell 命令按 bash 编写，Windows 可用 `curl.exe` 避免 PowerShell 的 curl 别名差异。
 
 ```python
 import argparse
@@ -526,6 +550,49 @@ python receiver_http.py http://192.168.0.245:18030 --camera head_rgb
 ```
 
 需要持续接收时，在上层按设定周期调用或改成常驻会话，丢弃重复帧并处理请求异常。默认深度单路若以 15 帧每秒获取，纯像素负载约为 18.4 MB/s；三路约 55.3 MB/s，尚未包含 RGB、HTTP 和 DDS 开销。根据网络和处理能力选择相机及读取频率。
+
+### ROS 订阅整组成对图像
+
+接收端编译新版接口包后，可直接订阅整组消息，避免独立话题匹配。下例只读取图像，不发送控制命令；生产程序还应按 camera_id/pair_id 去重，并用接收端单调时钟监测断流。
+
+```python
+import cv2
+import numpy as np
+import rclpy
+from rclpy.qos import qos_profile_sensor_data
+from luxi_interfaces.msg import RGBDFrame
+
+
+def receive_pair(pair):
+    if not (pair.header == pair.color.header == pair.depth.header == pair.camera_info.header):
+        return
+    w, h = pair.depth.width, pair.depth.height
+    if (pair.color.encoding != 'jpeg' or pair.depth.encoding != '32FC1'
+            or w != pair.color.width or h != pair.color.height
+            or w == 0 or h == 0 or len(pair.depth.data) != w * h * 4):
+        return
+    color = cv2.imdecode(np.frombuffer(bytes(pair.color.data), np.uint8), cv2.IMREAD_COLOR)
+    if color is None or color.shape[:2] != (h, w):
+        return
+    depth = np.frombuffer(bytes(pair.depth.data), dtype='<f4').reshape(h, w)
+    valid = np.isfinite(depth) & (depth > 0)
+    print(pair.camera_id, pair.pair_id, color.shape, float(valid.mean()))
+
+
+if __name__ == '__main__':
+    rclpy.init()
+    node = rclpy.create_node('luxi_rgbd_receiver')
+    subscription = node.create_subscription(RGBDFrame, '/luxi/cameras/head_rgb/rgbd',
+                                             receive_pair, qos_profile_sensor_data)
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+```
 
 ### ROS 订阅关节与深度
 
@@ -682,17 +749,18 @@ def send_command(base_url, endpoint, command, detail=''):
 ```bash
 cd /home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2
 bash tool/build_depth_sdk.sh --prebuilt
-bash tool/build.sh --packages-select luxi_device_adapters luxi_web_ctrl
+bash tool/build.sh --packages-select luxi_interfaces luxi_device_adapters luxi_web_ctrl
 ```
 
-确认物理相机与序列号后，在独立终端启动需要的深度节点。先验证一路，再根据 USB、供电和网络负载决定是否同时启用三路：
+确认物理相机与序列号、结束录制后，先停止该相机旧 RGB 服务和旧深度进程，再在独立终端启动统一对齐节点。先验证一路，再根据 CPU、USB、供电和网络负载决定是否同时启用三路：
 
 ```bash
-ROS_DOMAIN_ID=0 ROS_LOCALHOST_ONLY=1 CAMERA_SERIAL=261043062235 \
+sudo systemctl stop luxi-rgb-head_rgb.service
+ROS_DOMAIN_ID=0 ROS_LOCALHOST_ONLY=1 CAMERA_SERIAL=261043062235 ALIGN_TO_COLOR=true \
   bash Project/luxi_web_ctrl/scripts/run_depth_camera.sh head_rgb
 ```
 
-左腕与右腕分别使用表中的 id 和 ASIC/USB serial。默认分辨率与频率可通过 `DEPTH_WIDTH`、`DEPTH_HEIGHT`、`DEPTH_FPS` 配置，需为设备实际支持的 profile。独立 systemd 安装与细节见 [深度输出说明](DEPTH_OUTPUT_ZH.md)。
+左腕与右腕分别使用表中的 id 和 ASIC/USB serial。默认分辨率与频率可通过 `DEPTH_WIDTH`、`DEPTH_HEIGHT`、`DEPTH_FPS` 配置，对齐模式同时用于 RGB 和深度，需为两路共同支持的 profile。默认两路 640×480、15 Hz，JPEG_QUALITY 默认 90。`ALIGN_TO_COLOR=false` 保留只开深度的旧模式，不输出 rgbd。对齐节点停止后可用 `sudo systemctl start luxi-rgb-head_rgb.service` 恢复原 RGB 服务。独立 systemd 安装、开机项互斥及完整回退步骤见 [深度输出说明](DEPTH_OUTPUT_ZH.md)。对齐 service 启用后，设备管理白名单助手将该相机的启停操作映射到对齐 service，不再只操作旧 RGB 进程。
 
 ### 单独启动新版网关
 
@@ -712,6 +780,8 @@ ROS_DOMAIN_ID=0 ROS_LOCALHOST_ONLY=1 \
 
 HTTP 即使对外监听，ROS 仍可保持 local-only。只有接收方需要跨机 ROS 时，才统一安排选定发布节点与接收节点的 DDS 网络配置。不要为获取 HTTP 深度而重复启动整机控制栈。
 
+需要网关常驻时可运行 `bash Project/luxi_web_ctrl/scripts/install_rgbd_gateway.sh 18030`，再执行 `sudo systemctl enable --now luxi-rgbd-gateway.service`。该独立网关使用相同参数和单独数据目录，不重启既有控制台或启动运动节点。
+
 ## 13 交付确认与实现待办
 
 提供方交付时应明确以下信息，接收方据此完成接入，不依赖默认值猜测：
@@ -723,7 +793,7 @@ HTTP 即使对外监听，ROS 仍可保持 local-only。只有接收方需要跨
 - 控制的 shared、独立或 external 模式，谁持有控制权，以及正常停止和停放的约定。
 - 是否要求自主双臂轨迹控制；若要求，需先实现并验收机器人侧统一桥接接口。
 
-截至本版本，关节与设备反馈、RGB、深度及现有控制服务的接口已列明。新增深度经过三台相机分别采集、内参配对和局域网 HTTP 读取验证；这不等于三路深度同时长期运行、相机外参标定或整机自主运动控制验收。
+截至本版本，关节与设备反馈、RGB、深度及现有控制服务的接口已列明。`depth_output`、`rgbd_output`、`web_gateway` 测试均通过。三台物理相机在 640×480、15 Hz 配置下完成同时采集、成对 RGB/深度解码、内参和停止后 503 检查；Windows 接收端通过 18030 网关成功解码每路 3 组、共 9 组成对数据。三路对齐相机服务与网关已常驻运行并启用开机启动，旧 RGB 服务已停止并禁用开机启动。测试记录与限制见 [深度输出说明](DEPTH_OUTPUT_ZH.md) 的“当前实施状态”。此次未执行运动控制命令，未通过设备重启验证开机过程；短时结果不等于长期稳定性、相机外参标定或整机自主运动控制验收。
 
 ### 后续功能的边界
 
@@ -731,7 +801,7 @@ HTTP 即使对外监听，ROS 仍可保持 local-only。只有接收方需要跨
 | --- | --- | --- |
 | 接收端直接下发双臂轨迹 | 关节反馈、IK 与现有控制管理器 | 明确目标 schema、控制权仲裁、租期、限幅与状态确认的统一桥接 |
 | 接收端发底盘速度和升降目标 | 两类驱动的本地 external 协议 | 跨机接入层、机器人本地时间戳转换、模式管理和故障撤销 |
-| RGB 检测框查询对应深度 | RGB 与原生深度、深度内参 | RGB 内参、深度到 RGB 外参以及对齐或重投影 |
+| RGB 检测框查询对应深度 | 成对 RGB、对齐深度和图像网格内参已提供 | 接收端检测与有效深度统计、实际场景测距精度验证 |
 | 多传感器同步数据集 | 各自时间戳、原始状态与帧 | 时钟标定、采样配对规则、质量标记及新的录制 schema |
 | 基座坐标系点云或末端位姿 | 深度数据、关节角与模型 | 相机外参、坐标变换链和相应测量验证 |
 
@@ -743,6 +813,8 @@ HTTP 即使对外监听，ROS 仍可保持 local-only。只有接收方需要跨
 | --- | --- |
 | `Project/robot_interfaces/msg/ArmState.msg` | 16 路实际关节反馈定义 |
 | `Project/robot_interfaces/msg/CameraFrame.msg` | 内部 RGB 和深度帧容器 |
+| `Project/robot_interfaces/msg/RGBDFrame.msg` | RGB 与对齐深度、网格内参及原始设备帧号的整组消息 |
+| `Project/luxi_web_ctrl/scripts/receive_rgbd.py` | HTTP 成对图像接收与 MIME 解码示例 |
 | `Project/robot_interfaces/srv/Command.srv` | 通用控制服务定义 |
 | `Project/luxi_web_ctrl/src/web_ctrl.cpp` | HTTP 路由、状态聚合与有效性 |
 | `Project/control_manager/src/control_manager.cpp` | 双臂与整机控制状态机 |

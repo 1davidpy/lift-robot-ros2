@@ -29,6 +29,7 @@ subscriptions = [
                              lambda m: frames.update({key(m): m}), qos_profile_sensor_data),
 ]
 process = subprocess.Popen([sys.argv[1], '--ros-args', '-p', 'mock:=true',
+                            '-p', 'align_to_color:=false',
                             '-p', 'width:=64', '-p', 'height:=48', '-p', 'fps:=10'])
 try:
     deadline = time.monotonic() + 15

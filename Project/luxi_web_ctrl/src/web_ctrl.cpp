@@ -21,6 +21,7 @@
 #include <cstdio>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <cstring>
+#include <luxi/rgbd.hpp>
 class Server : public rclcpp::Node {
   httplib::Server http_;
   std::thread thread_;
@@ -35,6 +36,7 @@ class Server : public rclcpp::Node {
   int64_t lift_status_time_ = 0;
   std::map<std::string, luxi::Frame> frames_;
   std::map<std::string, luxi::Frame::ConstSharedPtr> depths_;
+  std::map<std::string, luxi_interfaces::msg::RGBDFrame::ConstSharedPtr> rgbd_;
   std::map<std::string, std::deque<sensor_msgs::msg::CameraInfo>> depth_info_;
   std::map<std::string, luxi::Json> depth_status_;
   std::map<std::string, luxi::Json> camera_status_;
@@ -148,6 +150,11 @@ class Server : public rclcpp::Node {
         }));
     for (auto camera : {"head_rgb", "left_wrist_rgb", "right_wrist_rgb"}) {
       const std::string id = camera;
+      subs_.push_back(create_subscription<luxi_interfaces::msg::RGBDFrame>("/luxi/cameras/" + id + "/rgbd",
+          rclcpp::SensorDataQoS().keep_last(1), [this, id](luxi_interfaces::msg::RGBDFrame::ConstSharedPtr p) {
+            if (!luxi::valid_rgbd(*p, id) || !luxi::fresh(p->depth.receive_mono_ns, luxi::mono(), 1000000000)) return;
+            std::lock_guard<std::mutex> lock(mutex_); rgbd_[id] = p;
+          }));
       subs_.push_back(create_subscription<std_msgs::msg::String>("/luxi/cameras/" + id + "/depth/status",
           rclcpp::QoS(1).transient_local(), [this, id](std_msgs::msg::String::ConstSharedPtr m) {
             auto value = luxi::Json::parse(m->data, nullptr, false);
@@ -170,6 +177,39 @@ class Server : public rclcpp::Node {
             while (queue.size() > 8) queue.pop_front();
           }));
     }
+    http_.Get("/api/cameras/(head_rgb|left_wrist_rgb|right_wrist_rgb)/rgbd(/info)?",
+        [this](const auto& req, auto& res) {
+          const std::string id = req.matches[1], operation = req.matches[2];
+          luxi_interfaces::msg::RGBDFrame::ConstSharedPtr pair;
+          { std::lock_guard<std::mutex> lock(mutex_);
+            auto it = rgbd_.find(id); if (it != rgbd_.end()) pair = it->second; }
+          res.set_header("Cache-Control", "no-store");
+          if (!pair || !luxi::fresh(pair->depth.receive_mono_ns, luxi::mono(), 1000000000)) {
+            res.status = 503;
+            res.set_content(luxi::Json{{"error", "aligned_rgbd_unavailable_or_stale"}, {"camera_id", id}}.dump(), "application/json");
+            return;
+          }
+          res.set_header("X-Pair-Id", pair->pair_id);
+          res.set_header("X-Aligned-To-Color", "true");
+          auto metadata = luxi::rgbd_metadata(*pair).dump();
+          if (operation == "/info") { res.set_content(metadata, "application/json"); return; }
+          // One immutable ROS message supplies every part of this response.
+          std::string boundary = "luxi_rgbd_" + pair->pair_id;
+          std::replace(boundary.begin(), boundary.end(), ':', '_');
+          std::string body;
+          body.reserve(metadata.size() + pair->color.data.size() + pair->depth.data.size() + 512);
+          const auto part = [&](const char* name, const char* type, const char* data, size_t length) {
+            body += "--" + boundary + "\r\nContent-Type: " + type +
+                "\r\nContent-Disposition: inline; name=\"" + name + "\"\r\n\r\n";
+            body.append(data, length); body += "\r\n";
+          };
+          part("metadata", "application/json", metadata.data(), metadata.size());
+          part("color", "image/jpeg", reinterpret_cast<const char*>(pair->color.data.data()), pair->color.data.size());
+          part("depth", "application/octet-stream", reinterpret_cast<const char*>(pair->depth.data.data()), pair->depth.data.size());
+          body += "--" + boundary + "--\r\n";
+          const auto content_type = "multipart/mixed; boundary=" + boundary;
+          res.set_content(body, content_type.c_str());
+        });
     http_.Get("/api/cameras/(head_rgb|left_wrist_rgb|right_wrist_rgb)/depth(/info|/point)?",
         [this](const auto& req, auto& res) {
           const std::string id = req.matches[1], operation = req.matches[2];
@@ -210,11 +250,13 @@ class Server : public rclcpp::Node {
           res.set_header("X-Age-Ms", std::to_string((now - f->receive_mono_ns) / 1000000));
           res.set_header("X-Byte-Order", "little-endian");
           res.set_header("X-Mock", f->timestamp_quality == "mock_host" ? "true" : "false");
+          const bool aligned = f->header.frame_id == id + "_color_optical";
+          res.set_header("X-Aligned-To-Color", aligned ? "true" : "false");
           auto metadata = luxi::Json{{"camera_id", id}, {"sequence", f->sequence},
               {"frame_id", f->header.frame_id}, {"width", f->width}, {"height", f->height},
               {"encoding", "32FC1"}, {"unit", "metre"}, {"byte_order", "little-endian"},
               {"step", f->width * 4}, {"invalid_value", "NaN"},
-              {"mock", f->timestamp_quality == "mock_host"}, {"aligned_to_color", false},
+              {"mock", f->timestamp_quality == "mock_host"}, {"aligned_to_color", aligned},
               {"age_ms", (now - f->receive_mono_ns) / 1000000},
               {"receive_mono_ns", std::to_string(f->receive_mono_ns)},
               {"device_timestamp_ns", std::to_string(f->device_timestamp)},
@@ -318,12 +360,20 @@ class Server : public rclcpp::Node {
         const auto it = frames_.find(id);
         cameras[id] = {{"fresh", false}, {"enabled", !no_cameras_}};
         cameras[id]["depth"] = {{"fresh", false}};
+        auto pair = rgbd_.find(id);
+        cameras[id]["rgbd"] = {{"fresh", false}, {"url", std::string("/api/cameras/") + id + "/rgbd"}};
+        if (pair != rgbd_.end()) {
+          cameras[id]["rgbd"]["fresh"] = luxi::fresh(pair->second->depth.receive_mono_ns, now, 1000000000);
+          cameras[id]["rgbd"]["pair_id"] = pair->second->pair_id;
+          cameras[id]["rgbd"]["aligned_to_color"] = true;
+        }
         auto depth = depths_.find(id);
         if (depth != depths_.end()) {
           const auto& f = *depth->second;
           cameras[id]["depth"] = {{"fresh", luxi::fresh(f.receive_mono_ns, now, 1000000000)},
               {"width", f.width}, {"height", f.height}, {"sequence", f.sequence},
               {"encoding", f.encoding}, {"unit", "metre"}, {"mock", f.timestamp_quality == "mock_host"},
+              {"aligned_to_color", f.header.frame_id == std::string(id) + "_color_optical"},
               {"url", std::string("/api/cameras/") + id + "/depth"}};
         }
         auto depth_status = depth_status_.find(id);
