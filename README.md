@@ -1,5 +1,9 @@
 # LUXI Lift Robot / ROS 2 C++
 
+RealSense 原生深度图、ROS 2 话题和局域网 HTTP 测距接口见 [深度输出说明](docs/DEPTH_OUTPUT_ZH.md)。
+
+接收方获取关节、底盘、升降、RGB、深度及调用控制服务见 [接收端数据与控制接入手册](docs/RECEIVER_INTEGRATION_ZH.md)。
+
 当前实现 **Quest 3 → 双 OpenArm / R680 三轮全向底盘 → 三路 RGB → 本地录制 → 局域网回传**。底盘为可选模块，默认 `base_enabled:=false`。
 业务节点、IK、硬件适配、录制、HTTP 服务和接收工具使用 C++17；启动用 XML，构建/依赖工具用 Shell。没有 Python 业务节点、训练器或模型推理服务。
 

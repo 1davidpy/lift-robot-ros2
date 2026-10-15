@@ -36,8 +36,28 @@ ament_target_dependencies(realsense_camera rclcpp luxi_interfaces luxi_core sens
 add_executable(kh_can_setup src/kh_can_setup.cpp)
 target_include_directories(kh_can_setup PRIVATE include)
 install(TARGETS kh_can_setup openarm_adapter hikrobot_camera realsense_camera DESTINATION lib/${PROJECT_NAME})
+find_package(realsense2 QUIET CONFIG)
+add_executable(realsense_depth src/realsense_depth.cpp)
+target_include_directories(realsense_depth PRIVATE include)
+target_link_libraries(realsense_depth dl)
+ament_target_dependencies(realsense_depth rclcpp luxi_interfaces luxi_core sensor_msgs)
+if(realsense2_FOUND)
+ target_compile_definitions(realsense_depth PRIVATE LUXI_HAVE_REALSENSE=1)
+ add_library(luxi_realsense_depth SHARED src/realsense_depth_backend.cpp)
+ target_include_directories(luxi_realsense_depth PRIVATE include)
+ target_link_libraries(luxi_realsense_depth PRIVATE realsense2::realsense2)
+ set_target_properties(luxi_realsense_depth PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+ install(TARGETS luxi_realsense_depth LIBRARY DESTINATION lib/${PROJECT_NAME})
+else()
+ message(WARNING "librealsense2 unavailable: realsense_depth supports mock only; run tool/build_depth_sdk.sh")
+endif()
+install(TARGETS realsense_depth DESTINATION lib/${PROJECT_NAME})
 if(BUILD_TESTING)
  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+ add_test(NAME depth_output
+   COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_depth_output.py
+     $<TARGET_FILE:realsense_depth>)
+ set_tests_properties(depth_output PROPERTIES TIMEOUT 25)
  add_test(NAME base_quest
    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_base_quest.py
      $<TARGET_FILE:r680_adapter>)

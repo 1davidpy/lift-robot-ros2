@@ -6,6 +6,6 @@
  <buildtool_depend>ament_cmake</buildtool_depend>
  <depend>ament_index_cpp</depend><depend>rclcpp</depend><depend>luxi_core</depend>
  <depend>luxi_interfaces</depend><depend>luxi_data_recorder</depend><depend>std_msgs</depend>
- <depend>libcpp-httplib-dev</depend><depend>openssl</depend>
+ <depend>libcpp-httplib-dev</depend><depend>openssl</depend><depend>sensor_msgs</depend>
  <export><build_type>ament_cmake</build_type></export>
 </package>
