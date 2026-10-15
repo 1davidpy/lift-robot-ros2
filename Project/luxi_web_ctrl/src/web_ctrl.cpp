@@ -29,11 +29,12 @@ class Server : public rclcpp::Node {
   luxi::Quest quest_;
   std::deque<int64_t> quest_arrivals_;
   int64_t control_time_ = 0, recorder_time_ = 0, base_status_time_ = 0;
-  luxi::Json state_, control_, recorder_, base_, base_status_;
+  luxi::Json state_, control_, recorder_, base_, base_status_, lift_, lift_status_;
+  int64_t lift_status_time_ = 0;
   std::map<std::string, luxi::Frame> frames_;
   std::map<std::string, luxi::Json> camera_status_;
   std::vector<rclcpp::SubscriptionBase::SharedPtr> subs_;
-  rclcpp::Client<luxi::Service>::SharedPtr arm_client_, record_client_, base_client_;
+  rclcpp::Client<luxi::Service>::SharedPtr arm_client_, record_client_, base_client_, lift_client_;
 
  public:
   Server() : Node("web_ctrl") {
@@ -73,6 +74,16 @@ class Server : public rclcpp::Node {
     arm_client_ = create_client<luxi::Service>("/luxi/control");
     record_client_ = create_client<luxi::Service>("/luxi/episode");
     base_client_ = create_client<luxi::Service>("/luxi/base/control");
+    lift_client_ = create_client<luxi::Service>("/luxi/lift/control");
+    for (auto topic : {"/luxi/lift/state", "/luxi/lift/status"})
+      subs_.push_back(create_subscription<std_msgs::msg::String>(topic, rclcpp::QoS(10),
+        [this, topic](std_msgs::msg::String::ConstSharedPtr m) {
+          auto j = luxi::Json::parse(m->data, nullptr, false);
+          if (!j.is_object()) return;
+          std::lock_guard<std::mutex> lock(mutex_);
+          if (std::string(topic) == "/luxi/lift/state") lift_ = j;
+          else { lift_status_ = j; lift_status_time_ = luxi::mono(); }
+        }));
     subs_.push_back(create_subscription<std_msgs::msg::String>("/luxi/base/state", 1,
       [this](std_msgs::msg::String::ConstSharedPtr m) {
         auto j = luxi::Json::parse(m->data, nullptr, false);
@@ -148,7 +159,7 @@ class Server : public rclcpp::Node {
     http_.Post("/api/devices/([a-z_]+)", [this, management](const auto& req, auto& res) {
       auto fail = [&](int code, const char* message) { res.status = code; res.set_content(luxi::Json{{"success", false}, {"message", message}}.dump(), "application/json"); };
       const std::string id = req.matches[1];
-      const std::set<std::string> ids{"arms", "base", "quest", "program", "head_rgb", "left_wrist_rgb", "right_wrist_rgb"};
+      const std::set<std::string> ids{"arms", "base", "lift", "quest", "program", "head_rgb", "left_wrist_rgb", "right_wrist_rgb"};
       auto body = luxi::Json::parse(req.body, nullptr, false);
       if (!ids.count(id) || req.get_header_value("Content-Type").find("application/json") != 0 || !body.is_object() || !body.value("action", luxi::Json()).is_string()) { fail(400, "无效设备或操作"); return; }
       auto action = body.at("action").template get<std::string>();
@@ -157,6 +168,7 @@ class Server : public rclcpp::Node {
         std::lock_guard<std::mutex> lock(mutex_);
         if ((state_.is_object() && state_.value("enabled", false) && luxi::fresh(std::stoll(state_.at("receive_mono_ns").template get<std::string>()), luxi::mono(), 500000000)) ||
             (base_status_.is_object() && base_status_.value("enabled", false) && luxi::fresh(base_status_time_, luxi::mono(), 500000000)) ||
+            (lift_status_.is_object() && lift_status_.value("enabled", false) && luxi::fresh(lift_status_time_, luxi::mono(), 500000000)) ||
             (recorder_.is_object() && recorder_.value("state", std::string()) == "recording" && luxi::fresh(recorder_time_, luxi::mono(), 2000000000))) {
           fail(409, "请先撤销电机使能并结束录制，再管理采集服务"); return;
         }
@@ -169,11 +181,19 @@ class Server : public rclcpp::Node {
       std::lock_guard<std::mutex> lock(mutex_);
       const auto now = luxi::mono();
       auto base = base_, arms = state_, control = control_, recorder = recorder_, base_status = base_status_;
+      auto lift = lift_, lift_status = lift_status_;
       const auto recent = [now](const luxi::Json& j, int64_t ttl) {
         return j.is_object() && j.contains("receive_mono_ns") &&
           luxi::fresh(std::stoll(j.at("receive_mono_ns").template get<std::string>()), now, ttl);
       };
       if (base.is_object()) base["valid"] = base.value("valid", false) && recent(base, 250000000);
+      if (lift.is_object()) {
+        double elapsed_ms = lift.contains("receive_mono_ns") ?
+            (now - std::stoll(lift.at("receive_mono_ns").template get<std::string>())) / 1e6 : 1e9;
+        lift["valid"] = lift.value("valid", false) && recent(lift, 300000000) &&
+            lift.value("effective_age_ms", 1e9) + std::max(0.0, elapsed_ms) <= 250;
+      }
+      if (lift_status.is_object()) lift_status["fresh"] = luxi::fresh(lift_status_time_, now, 500000000);
       if (arms.is_object()) arms["fresh"] = recent(arms, 150000000);
       if (control.is_object()) {
         control["fresh"] = luxi::fresh(control_time_, now, 500000000);
@@ -206,13 +226,14 @@ class Server : public rclcpp::Node {
       auto disk = luxi::fs::space(root_, ec);
       res.set_content(luxi::Json{
         {"arms", arms}, {"base", base}, {"base_status", base_status}, {"control", control}, {"recorder", recorder},
+        {"lift", lift}, {"lift_status", lift_status},
         {"quest", {{"fresh", luxi::fresh(quest_.receive_mono_ns, now, 200000000)}, {"rate_hz", rate},
           {"left_tracking", quest_.left_tracking}, {"right_tracking", quest_.right_tracking},
           {"sticks", quest_.sticks}, {"grips", quest_.grips}}}, {"cameras", cameras},
         {"system", {{"mock", mock_}, {"base_enabled", base_enabled_}, {"no_cameras", no_cameras_},
           {"data_directory", root_.string()}, {"free_gib", ec ? -1.0 : disk.available / 1073741824.0},
           {"control_authorized", true},
-          {"services", {{"control", arm_client_->service_is_ready()}, {"base", base_client_->service_is_ready()}, {"episode", record_client_->service_is_ready()}}}}},
+          {"services", {{"control", arm_client_->service_is_ready()}, {"base", base_client_->service_is_ready()}, {"lift", lift_client_->service_is_ready()}, {"episode", record_client_->service_is_ready()}}}}},
         {"receiver", receiver_->status()}, {"ram_staging", ram_staging},
         {"server_mono_ns", std::to_string(now)}}.dump(), "application/json");
       res.set_header("Cache-Control", "no-store");
@@ -295,7 +316,7 @@ class Server : public rclcpp::Node {
                                  return true;
                                });
     });
-    http_.Post("/api/(control|episode|base|keyboard)", [this](const auto& req, auto& res) {
+    http_.Post("/api/(control|episode|base|keyboard|lift)", [this](const auto& req, auto& res) {
       const bool keyboard = req.matches[1] == "keyboard";
       auto j = luxi::Json::parse(req.body, nullptr, false);
       if (j.is_discarded() || !j.is_object() || !j.contains("command") ||
@@ -308,7 +329,7 @@ class Server : public rclcpp::Node {
         res.status = 400;
         return;
       }
-      auto client = req.matches[1] == "control" ? arm_client_ : (req.matches[1] == "base" || keyboard) ? base_client_ : record_client_;
+      auto client = req.matches[1] == "lift" ? lift_client_ : req.matches[1] == "control" ? arm_client_ : (req.matches[1] == "base" || keyboard) ? base_client_ : record_client_;
       if (!client->service_is_ready()) {
         res.status = 503;
         return;

@@ -154,3 +154,50 @@ TEST(R680Gate, DirectJoystickModeReservesGripAndCentersImmediately) {
   EXPECT_EQ(g.reason, "sticks_centered");
   EXPECT_TRUE(g.enabled);
 }
+
+TEST(R680Gate, RecoveryCallbackCannotHideLongGapBeforeWatchdog) {
+  auto g = ready();
+  g.require_left_grip = false;
+  g.recover_short_gaps = true;
+  ASSERT_TRUE(g.start(1000000000));
+  g.sticks[1] = 1;
+  g.note_input_arrival(1600000000);
+  g.quest_time = g.feedback_time = 1600000000;
+  EXPECT_FALSE(g.enabled);
+  EXPECT_EQ(g.command(1600000000), Velocity{});
+}
+TEST(R680Gate, ShortGapCallbackRequiresNewNeutralSamples) {
+  auto g = ready();
+  g.require_left_grip = false;
+  g.recover_short_gaps = true;
+  ASSERT_TRUE(g.start(1000000000));
+  g.sticks[1] = 1;
+  g.note_input_arrival(1300000000);
+  g.quest_time = g.feedback_time = 1300000000;
+  EXPECT_EQ(g.command(1300000000), Velocity{});
+  EXPECT_TRUE(g.enabled);
+  g.sticks = {};
+  EXPECT_EQ(g.command(1300000000), Velocity{});
+  g.feedback_time = 1410000000;
+  EXPECT_EQ(g.command(1410000000), Velocity{});
+  EXPECT_TRUE(g.input_recovery); // Re-reading one sample cannot establish dwell.
+  g.note_input_arrival(1410000000);
+  g.quest_time = 1410000000;
+  EXPECT_EQ(g.command(1410000000), Velocity{});
+  EXPECT_FALSE(g.input_recovery);
+  g.sticks[1] = -1;
+  EXPECT_LT(g.command(1410000000)[0], 0);
+}
+TEST(R680Gate, DeviceFaultsOverrideShortGapRecovery) {
+  for (int mode = 0; mode < 4; ++mode) {
+    auto g = ready();
+    g.recover_short_gaps = true;
+    ASSERT_TRUE(g.start(1000000000));
+    if (mode == 0) g.stop = 1;
+    if (mode == 1) g.menu = true;
+    if (mode == 2) g.tracking = false;
+    if (mode != 3) g.feedback_time = 1300000000;
+    EXPECT_EQ(g.command(1300000000), Velocity{});
+    EXPECT_FALSE(g.enabled);
+  }
+}

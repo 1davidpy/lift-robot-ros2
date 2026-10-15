@@ -1,3 +1,11 @@
+# 统一使能（可选）
+
+管理程序传入 `shared_enable=true`：长按 X 准备全部设备，双臂完成对齐后开放底盘/升降；短按 X 先停车并保持双臂，升降 HOME 到保存 0 mm，再返回已确认有支撑的双臂 home 并撤销转矩。B 和 `disable/halt` 只停止保持，不回位、不移除转矩。
+
+实现要求新鲜反馈和带 epoch 的协调心跳；错误后须新操作，不自动重放。`supported_home_confirmed` 默认 false，管理启动依据用户确认设为 true。完整顺序与交付限制见 `docs/SHARED_X_CONTROL_ZH.md`。本轮未编译/测试。
+
+以下为 `shared_enable=false` 的原独立模式说明。
+
 # luxi_control_manager — 控制阶段管理
 
 管理 disabled/homing/aligning/teleop/hold/returning/fault；输出 /luxi/command，通过 /luxi/control 服务启停。反馈和输入超时禁止自动继续。

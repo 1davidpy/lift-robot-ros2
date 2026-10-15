@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <geometry_msgs/msg/twist_stamped.hpp>
 #include <luxi/core.hpp>
+#include <luxi/external_control.hpp>
+#include <luxi/coordinated_control.hpp>
 #include <luxi/r680.hpp>
 #include <luxi/r680_socket.hpp>
 #include <sensor_msgs/msg/battery_state.hpp>
@@ -9,9 +11,47 @@
 namespace rb = luxi::r680;
 class R680 : public rclcpp::Node {
   bool mock_;
+  bool external_mode_ = false;
+  luxi::ExternalControl external_;
+  rb::Velocity external_velocity_{};
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr external_sub_;
+  void external_command(const std::string& data) {
+    if (!external_mode_) return;
+    try {
+      const auto t = luxi::mono();
+      const auto j = luxi::Json::parse(data);
+      const auto op = external_.accept(j, t);
+      if (op == "stop") {
+        external_.revoke(); external_velocity_ = {}; gate_.halt("external_stop");
+      } else if (op == "arm") {
+        if (receive_only_ || gate_.enabled || gate_.menu || gate_.stop || stationary_samples_ < 2 ||
+            !rb::fresh(gate_.feedback_time, t, 100000000))
+          throw std::runtime_error("external ARM requires fresh stopped chassis");
+        external_velocity_ = {}; gate_.enabled = true; gate_.reason = "external_ready";
+      } else if (op == "velocity") {
+        if (!gate_.enabled || !j.contains("velocity") || !j["velocity"].is_array() || j["velocity"].size() != 3)
+          throw std::runtime_error("external velocity unavailable");
+        rb::Velocity value{};
+        for (int i = 0; i < 3; ++i) {
+          if (!j["velocity"][i].is_number()) throw std::runtime_error("invalid velocity scalar");
+          value[i] = j["velocity"][i].get<double>();
+          if (!std::isfinite(value[i])) throw std::runtime_error("nonfinite velocity");
+        }
+        if (std::hypot(value[0], value[1]) > .10 || std::abs(value[2]) > .20)
+          throw std::runtime_error("external velocity exceeds commissioning limits");
+        external_velocity_ = value;
+      } else throw std::runtime_error("unsupported external base operation");
+    } catch (const std::exception& e) {
+      external_.revoke(); external_velocity_ = {}; gate_.halt(e.what());
+    }
+  }
   bool receive_only_ = false;
   bool keyboard_ = false;
   bool y_released_ = false;
+  bool coordinated_mode_ = false;
+  luxi::CoordinatedControl coordination_;
+  int stationary_samples_ = 0;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr coordination_sub_;
   int64_t keyboard_time_ = 0;
   rb::Velocity keyboard_velocity_{};
   std::string interface_;
@@ -36,6 +76,23 @@ class R680 : public rclcpp::Node {
     m.data = value.dump();
     p->publish(m);
   }
+  bool shared_ready(int64_t t) const {
+    auto candidate = gate_;
+    candidate.enabled = false;
+    return !receive_only_ && stationary_samples_ >= 2 && candidate.start(t);
+  }
+  void coordinate(const std::string& data) {
+    if (!coordinated_mode_) return;
+    const auto t = luxi::mono();
+    const bool changed = coordination_.accept(data, t);
+    if (!coordination_.live(t)) { gate_.halt("coordinator_not_ready"); return; }
+    if (!changed) return;
+    keyboard_ = false; keyboard_velocity_ = {};
+    gate_.halt("shared_" + coordination_.phase);
+    if (coordination_.phase == "active" && (!shared_ready(t) || !gate_.start(t))) {
+      coordination_.blocked = true; gate_.halt("shared_enable_rejected");
+    }
+  }
   void consume(const can_frame& frame, int64_t receive_mono, int64_t kernel_wall = 0) {
     json(raw_, {{"id", frame.can_id},
                 {"dlc", frame.can_dlc},
@@ -50,8 +107,12 @@ class R680 : public rclcpp::Node {
     auto feedback = decoder_.consume(frame, receive_mono);
     if (!feedback) return;
     const auto& s = *feedback;
+    if (!rb::fresh(gate_.feedback_time, s.mono_ns[2], 250000000)) stationary_samples_ = 0;
     gate_.feedback_time = s.mono_ns[2];
     gate_.stop = s.stop;
+    const bool stopped = std::abs(s.velocity[0]) <= .005 && std::abs(s.velocity[1]) <= .005 &&
+                         std::abs(s.velocity[2]) <= .01;
+    stationary_samples_ = stopped ? std::min(stationary_samples_ + 1, 3) : 0;
     if (s.stop) gate_.halt("chassis_disabled");
     auto stamp = now();
     json(state_, {{"schema", "r680_v1"},
@@ -133,9 +194,26 @@ class R680 : public rclcpp::Node {
         }
       }
       // 10 ms receive loop, 20 ms command period, 50 ms feedback mock period.
+      if (coordinated_mode_) {
+        if (!coordination_.live(luxi::mono())) {
+          if (!coordination_.epoch.empty()) coordination_.blocked = true;
+          gate_.halt("coordinator_lost_or_stopped");
+        } else if (coordination_.phase != "active") gate_.halt("shared_" + coordination_.phase);
+        else if (!gate_.enabled) coordination_.blocked = true;
+      }
       if (ticks_ % 2 == 0) {
         rb::Velocity wanted{};
-        if (keyboard_) {
+        if (external_mode_) {
+          if (!external_.live(luxi::mono()) || gate_.menu || gate_.stop ||
+              !rb::fresh(gate_.feedback_time, luxi::mono(), 250000000)) {
+            external_.revoke(); gate_.halt("external_lease_or_feedback_lost");
+          }
+          if (gate_.enabled && rb::fresh(gate_.feedback_time, luxi::mono(), 100000000)) {
+            wanted = external_velocity_;
+            gate_.reason = wanted == rb::Velocity{} ? "external_ready" : "teleop";
+          }
+          if (!gate_.enabled) external_.revoke();
+        } else if (keyboard_) {
           if (!rb::fresh(keyboard_time_, luxi::mono(), 200000000)) gate_.halt("keyboard_timeout");
           if (!rb::fresh(gate_.feedback_time, luxi::mono(), 250000000)) gate_.halt("feedback_timeout");
           if (gate_.menu || gate_.stop) gate_.halt("chassis_disabled_or_menu");
@@ -144,6 +222,8 @@ class R680 : public rclcpp::Node {
             gate_.reason = wanted == rb::Velocity{} ? "keyboard_ready" : "teleop";
           } else if (gate_.enabled) gate_.reason = "feedback_delayed";
         } else wanted = gate_.command(luxi::mono());
+        if (coordinated_mode_ && coordination_.phase == "active" && !gate_.enabled)
+          coordination_.blocked = true;
         double norm = std::hypot(wanted[0], wanted[1]);
         if (norm > gate_.mapping.linear) {
           wanted[0] *= gate_.mapping.linear / norm;
@@ -168,6 +248,7 @@ class R680 : public rclcpp::Node {
                         {"mock", mock_}});
       }
     } catch (const std::exception& e) {
+      if (coordinated_mode_) coordination_.blocked = true;
       gate_.halt("can_or_input_fault");
       sent_ = {};
       RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), 2000, "%s", e.what());
@@ -175,11 +256,19 @@ class R680 : public rclcpp::Node {
     }
     if (ticks_ % 10 == 0)
       json(status_, {{"enabled", gate_.enabled},
+                     {"external_control", external_mode_}, {"external_owner", external_.owner},
+                     {"shared_enable", coordinated_mode_}, {"shared_epoch", coordination_.epoch},
+                     {"shared_phase", coordination_.phase}, {"shared_failed", coordination_.blocked},
+                     {"shared_ready", coordination_.live(luxi::mono()) && shared_ready(luxi::mono())},
+                     {"stationary", stationary_samples_ >= 2 && rb::fresh(gate_.feedback_time, luxi::mono(), 250000000)},
+                     {"receive_mono_ns", std::to_string(luxi::mono())},
+                     {"feedback_mono_ns", std::to_string(gate_.feedback_time)},
                      {"interface", interface_},
                      {"receive_only", receive_only_},
-                     {"input_source", keyboard_ ? "keyboard" : "quest"},
+                     {"input_source", external_mode_ ? "external" : (keyboard_ ? "keyboard" : "quest")},
                      {"require_left_grip", gate_.require_left_grip},
                      {"reason", gate_.reason},
+                     {"input_recovery", gate_.input_recovery},
                      {"feedback_fresh", rb::fresh(gate_.feedback_time, luxi::mono(), 250000000)},
                      {"flag_stop", gate_.stop},
                      {"accepted_groups", decoder_.accepted},
@@ -193,6 +282,11 @@ class R680 : public rclcpp::Node {
     const auto iface = declare_parameter<std::string>("interface", "luxi_base");
     interface_ = iface;
     receive_only_ = declare_parameter("receive_only", false);
+    coordinated_mode_ = declare_parameter("shared_enable", false);
+    external_mode_ = declare_parameter("external_control", false);
+    if (external_mode_ && (coordinated_mode_ || receive_only_))
+      throw std::runtime_error("external_control excludes shared/receive_only modes");
+    gate_.recover_short_gaps = coordinated_mode_;
     if (receive_only_) gate_.reason = "receive_only_no_motion";
     bool hardware = declare_parameter("allow_hardware", false);
     gate_.mapping.linear = declare_parameter("max_linear", .2);
@@ -220,8 +314,18 @@ class R680 : public rclcpp::Node {
     velocity_ = create_publisher<geometry_msgs::msg::TwistStamped>("/base/velocity", 10);
     imu_ = create_publisher<sensor_msgs::msg::Imu>("/base/imu", 10);
     battery_ = create_publisher<sensor_msgs::msg::BatteryState>("/base/battery", 10);
+    coordination_sub_ = create_subscription<std_msgs::msg::String>("/luxi/coordinated_control", 1,
+        [this](std_msgs::msg::String::ConstSharedPtr m) { coordinate(m->data); });
+    external_sub_ = create_subscription<std_msgs::msg::String>("/luxi/base/external_command", 10,
+        [this](std_msgs::msg::String::ConstSharedPtr m) { external_command(m->data); });
     quest_ =
         create_subscription<luxi::Quest>("/luxi/quest", 1, [this](luxi::Quest::ConstSharedPtr q) {
+          if (external_mode_) {
+            if (q->buttons[1] || q->buttons[2]) {
+              external_.revoke(); gate_.halt("Quest_B_X_stop");
+            }
+            return; // Quest cannot start or steer an external-control driver.
+          }
           const auto t = luxi::mono();
           const bool input_fresh = rb::fresh(q->receive_mono_ns, t, 200000000);
           const bool input_ordered = q->receive_mono_ns > gate_.quest_time;
@@ -231,6 +335,7 @@ class R680 : public rclcpp::Node {
               !input_ordered)
             y_released_ = false;
           const bool y_toggle = input_fresh && q->buttons[3] && y_released_;
+          if (input_fresh && input_ordered) gate_.note_input_arrival(q->receive_mono_ns);
           gate_.quest_time = q->receive_mono_ns;
           // Ordinary STALE poses still carry current stick/button input, as in
           // arm teleop. INVALID (including a missing controller pose) must stop.
@@ -241,7 +346,8 @@ class R680 : public rclcpp::Node {
           // X belongs only to the arms. B stops the base and overrides Y.
           if (q->buttons[1]) {
             gate_.halt("operator_stop");
-          } else if (y_toggle) {
+            if (coordinated_mode_) coordination_.blocked = true;
+          } else if (y_toggle && !coordinated_mode_) {
             if (gate_.enabled) {
               gate_.halt("operator_stop");
             } else if (receive_only_) {
@@ -263,6 +369,19 @@ class R680 : public rclcpp::Node {
     control_ = create_service<luxi::Service>(
         "/luxi/base/control", [this](const std::shared_ptr<luxi::Service::Request> req,
                                      std::shared_ptr<luxi::Service::Response> res) {
+          if (external_mode_) {
+            res->success = req->command == "stop" || req->command == "disable";
+            if (res->success) { external_.revoke(); gate_.halt("operator_stop"); }
+            res->message = "external_control: explicit bridge ARM/leased commands only";
+            return;
+          }
+          if (coordinated_mode_) {
+            if (req->command == "stop" || req->command == "disable") {
+              coordination_.blocked = true; gate_.halt("operator_stop"); res->success = true;
+            }
+            res->message = "Shared X control: use /luxi/control start, park or halt; Y/independent enables are inactive";
+            return;
+          }
           if (receive_only_ && req->command != "stop" && req->command != "disable") {
             res->success = false; res->message = "CAN receive-only diagnostics; motion disabled"; return;
           }

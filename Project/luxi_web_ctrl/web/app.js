@@ -2,6 +2,7 @@
 const $ = id => document.getElementById(id);
 const cameraIds = ['head_rgb', 'left_wrist_rgb', 'right_wrist_rgb'];
 const phases = {disabled:'未使能',homing:'回起始姿态',aligning:'等待手柄对齐',teleop:'遥操作中',hold:'保持',returning:'返回中',idle:'空闲',recording:'录制中'};
+const systemPhases = {disabled:'已失能',preparing:'检查底盘与升降',starting:'双臂归位 / 对齐',arming:'等待统一使能确认',active:'全部遥操作已启用',stopping_base:'底盘 / 升降停车，双臂保持',homing_lift:'旧版流程：升降返回零点',returning_arms:'双臂返回 home，升降原位停止',disabling:'等待双臂失能反馈',stopped:'已停止 · 双臂保持'};
 let keyboardActive = false, keyboardPending = false, keyboardStarting = false;
 let keyboardError = "";
 const heldKeys = new Set();
@@ -24,8 +25,14 @@ function buttons() {
     const kind = b.dataset.kind, cmd = b.dataset.command;
     let allow = connected && services[kind] && !busy;
     if (cmd === 'start') {
-      if (kind === 'control') allow &&= s.arms?.fresh && s.arms.valid.every(Boolean) && s.quest?.fresh && s.quest.rate_hz >= 50 && s.control?.fresh && s.control.phase === 'disabled';
+      if (kind === 'control') {
+        allow &&= s.arms?.fresh && s.arms.valid.every(Boolean) && s.quest?.fresh && s.quest.rate_hz >= 50 && s.control?.fresh;
+        if (s.control?.shared_enable) allow &&= ['disabled','stopped'].includes(s.control.system_phase) && s.base_status?.fresh && s.base?.valid && s.lift_status?.fresh && s.lift_status.feedback_healthy && s.lift_status.stationary && s.lift_status.allow_motion && (s.control.parking_policy === 'arms_home_lift_stopped' || s.control.supported_home_confirmed) && s.quest.grips.every(v => v < 0.35) && s.quest.sticks.every(v => Math.abs(v) < 0.16);
+        else allow &&= s.control?.phase === 'disabled';
+      }
+      if (kind === 'lift') allow &&= s.lift_status?.feedback_healthy && s.lift_status?.stationary && s.lift_status?.fresh && !s.lift_status.enabled && s.lift_status.allow_motion && s.quest?.fresh && s.quest.grips.every(v => v < 0.35);
       if (kind === 'base') allow &&= s.base?.valid && s.base_status?.fresh && !s.base_status.enabled && s.quest?.fresh && !s.base_status.receive_only;
+      if ((kind === 'base' || kind === 'lift') && (s.control?.shared_enable || s.base_status?.shared_enable || s.lift_status?.shared_enable)) allow = false;
       if (kind === 'episode') allow &&= s.recorder?.fresh && s.recorder.state === 'idle' && s.arms?.fresh && s.arms.enabled && $('task').value.trim().length > 0;
     } else if (kind === 'episode') allow &&= s.recorder?.fresh && s.recorder.state === 'recording';
     b.disabled = !allow;
@@ -37,10 +44,11 @@ function hideFrame(id, message) {
 }
 function offline() {
   stopKeyboard();
+  document.body.classList.remove('recording');
   connected = false; $('offline').hidden = false;
   badge('connection','服务断开','bad');
   $('arm-joints').textContent = '连接中断，关节反馈已失效';
-  for (const id of ['quest-badge','arms-badge','base-badge','camera-badge','record-badge']) badge(id,'状态失效','bad');
+  for (const id of ['quest-badge','arms-badge','base-badge','lift-badge','camera-badge','record-badge']) badge(id,'状态失效','bad');
   cameraIds.forEach(id => hideFrame(id,'连接中断，画面已隐藏'));
   buttons();
 }
@@ -50,6 +58,13 @@ function render(s) {
   text('updated','更新于 ' + new Date().toLocaleTimeString());
   badge('mode',s.system.mock ? 'MOCK · 模拟设备' : 'REAL · 实机模式',s.system.mock ? 'warn' : 'good');
   const q = s.quest || {}, a = s.arms, b = s.base, bs = s.base_status, r = s.recorder;
+  const shared = !!s.control?.shared_enable;
+  text('shared-control-status', shared ? (systemPhases[s.control.system_phase] || s.control.system_phase) + ' · ' + s.control.reason : '当前运行版本使用独立使能；统一控制尚未加载。');
+  document.querySelector('[data-kind="control"][data-command="start"]').textContent = shared ? '启用全部遥操作' : '使能双臂';
+  document.querySelector('[data-kind="control"][data-command="stop"]').textContent = shared ? '双臂归位并失能 / 底盘升降停车' : '双臂返回并失能';
+  document.querySelector('[data-kind="control"][data-command="disable"]').textContent = shared ? '停止全部 / 双臂保持' : '撤销双臂使能（移除转矩）';
+  document.querySelectorAll('[data-independent-enable]').forEach(e => { e.hidden = shared; });
+  document.querySelectorAll('[data-shared-control]').forEach(e => { e.hidden = !shared; });
   badge('quest-badge',q.fresh ? '已接收' : '未连接',q.fresh ? 'good' : 'bad');
   text('quest-rate',q.fresh ? q.rate_hz + ' Hz' : '— Hz');
   const tracking = v => ({0:'正常',1:'过期',2:'无效'}[v] || '未知');
@@ -72,7 +87,25 @@ function render(s) {
   text('base-speed',b?.valid ? Math.hypot(b.velocity[0],b.velocity[1]).toFixed(3) + ' m/s' : '— m/s');
   text('base-detail',b?.valid ? b.voltage.toFixed(1)+' V · '+(bs?.fresh ? (bs.enabled ? '已启用' : '未使能') : '许可未知')+' · FlagStop '+b.flag_stop+' · '+(bs?.input_source || 'quest') : '检查供电、CH3、共地和底盘固件');
   if (bs?.fresh) $('base-detail').textContent += ' · ' + (bs.interface || 'CH3') + ' · ' + (bs.receive_only ? '只读诊断，禁止运动' : bs.reason) + ' · 有效包 ' + bs.accepted_groups;
-  text('quest-base-hint', !bs?.fresh ? '底盘状态失效，请等待连接恢复。' : bs.require_left_grip === false ? '摇杆回中后短按 Y 启用底盘，再按 Y 停车并撤销许可；长按不重复切换，也不取消录制。启用后左摇杆平移，右摇杆左右转向；回中停车。B 撤销底盘许可；X 仅控制双臂。两侧中指握持键预留给升降，当前未接入。' : '摇杆回中、松开左握持键后短按 Y 启用底盘，再按 Y 停车并撤销许可；长按不重复切换，也不取消录制。行驶时按住左握持键，松开停车。左摇杆平移，右摇杆左右转向。B 撤销底盘许可；X 仅控制双臂。');
+  text('quest-base-hint', bs?.shared_enable ? '底盘随 X 统一启用；Y 已预留，不再独立使能。左摇杆平移，右摇杆左右转向；回中停车。B 停止全部，不执行回位。' : '当前独立模式：Y 切换底盘；左摇杆平移，右摇杆左右转向，回中停车。');
+  const ls = s.lift_status, lift = s.lift;
+  // Connection tracks complete CAN telemetry, independently of the stricter
+  // measurement-valid flag used by motion planning and dataset consumers.
+  const liftAgeMs = (Number(s.server_mono_ns) - Number(lift?.receive_first_mono_ns)) / 1e6;
+  const liftConnected = !!(ls?.fresh && Number.isFinite(liftAgeMs) && liftAgeMs >= 0 && liftAgeMs <= 300);
+  const liftTransport = ls?.transport === 'uart' ? 'UART' : 'CAN';
+  const liftFault = liftConnected && (!!lift.fault || !!(lift.flags & 128) || (liftTransport === 'CAN' && !!(lift.guard & 4)));
+  const liftLabel = !ls?.fresh ? '服务离线' : !liftConnected ? `无 ${liftTransport} 反馈` :
+    liftFault ? '已连接 · 保护/故障' : !(lift.flags & 1) ? '已连接 · 等待电机/位置参考' :
+    ls.health === 'locked_startup_preparation' ? '已连接 · 锁闸启动准备' :
+    !ls.feedback_healthy ? '已连接 · 电机反馈过期' : `已连接 · ${liftTransport}`;
+  badge('lift-badge', liftLabel, liftFault ? 'bad' : liftConnected && ls.feedback_healthy ? 'good' : 'warn');
+  const liftHasPosition = liftConnected && !!(lift.flags & 1) && Number.isFinite(lift.current_um);
+  text('lift-height', liftHasPosition ? (lift.current_um / 1000).toFixed(3) + ' mm' : '— mm');
+  const motorAgeMs = liftConnected ? Number(lift.feedback_age_ms) + liftAgeMs : NaN;
+  const liftMeasurement = !liftHasPosition ? '位置无效' : liftFault ? '最近位置读数，保护/故障中' : lift.valid ? '位置样本有效' : '位置样本过期，显示最近读数';
+  text('lift-detail', ls?.fresh ? (ls.enabled ? '已启用' : '未使能') + ' · ' + ls.phase + ' · ' + ls.reason +
+    (liftConnected ? ' · ' + liftMeasurement + ' · 电机反馈年龄 ' + Math.round(motorAgeMs) + ' ms · ' + lift.speed_rpm + ' rpm · 抱闸输出' + ((lift.flags & 4) ? '释放' : '锁定') : ` · 等待完整 ${liftTransport} 遥测`) : '检查升降服务、配置接口及设备供电');
   const count = Object.values(s.cameras).filter(c => c.fresh).length;
   badge('camera-badge',s.system.no_cameras ? '已关闭' : count === 3 ? '全部在线' : count ? '部分在线' : '等待图像',count ? 'good' : 'warn');
   text('camera-count',count + ' / 3 在线');
@@ -85,11 +118,12 @@ function render(s) {
     text(id+'-meta',`SN ${c.driver?.serial || '—'} · ${Number.isFinite(c.driver?.fps) ? c.driver.fps.toFixed(1) + ' FPS · ' : ''}` + (c.fresh ? `${c.width} × ${c.height} · #${c.sequence} · ${c.age_ms} ms · ${c.timestamp_quality}` : problem || '等待有效图像'));
     if (!c.fresh || !$('preview').checked) hideFrame(id,$('preview').checked ? (problem || '暂无实时图像') : '预览已暂停');
   }
-  const recording = r?.fresh && r.state === 'recording';
+  const recording = !!(r?.fresh && r.state === 'recording');
   document.body.classList.toggle('recording',recording);
-  badge('record-badge',r?.fresh ? (recording ? '● 录制中' : '待命') : '未连接',recording ? 'bad' : r?.fresh ? 'good' : 'warn');
+  const recorderOffline = s.system.services?.episode ? '状态过期' : '未启动';
+  badge('record-badge',r?.fresh ? (recording ? '● 录制中' : '待命') : recorderOffline,recording ? 'bad' : r?.fresh ? 'good' : 'warn');
   text('samples',r?.fresh ? r.samples : '—');
-  text('record-phase',r?.fresh ? (phases[r.state] || r.state) : '未知');
+  text('record-phase',r?.fresh ? (phases[r.state] || r.state) : recorderOffline);
   text('episode-id',r?.episode || '尚未开始录制');
   text('qc',(r?.qc?.length ? '质量检查：' + JSON.stringify(r.qc) + '。' : '') + '保存目录：' + s.system.data_directory);
   const receiver = s.receiver || {}, peer = receiver.peer || {}, delivered = receiver.last_verified || {};
@@ -157,6 +191,7 @@ function keyboardUI() {
   if (!connected) reason = '网页服务未连接，请检查网络。';
   else if (!s.system.services.base) reason = '底盘控制服务未启动。';
   else if (!bs?.fresh) reason = '底盘控制状态已过期。';
+  else if (bs.shared_enable) reason = '统一 X 模式使用 Quest 摇杆；独立键盘使能已关闭。';
   else if (bs.receive_only) reason = '底盘处于只读诊断模式，需要启动控制模式。';
   else if (!s.base?.valid || !bs.feedback_fresh) reason = '没有有效底盘反馈，请检查供电和 CAN3。';
   else if (s.base.flag_stop) reason = '底盘反馈失能（FlagStop 非零），请检查下位机状态。';

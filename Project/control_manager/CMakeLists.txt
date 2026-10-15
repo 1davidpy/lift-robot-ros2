@@ -31,5 +31,10 @@ if(BUILD_TESTING)
       $<TARGET_FILE:control_manager>
       ${CMAKE_CURRENT_SOURCE_DIR}/../robot_bringup/config/arms-teleop.json)
   set_tests_properties(phase_speeds PROPERTIES TIMEOUT 30)
+  add_test(NAME shared_parking
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_shared_parking.py
+      $<TARGET_FILE:control_manager>
+      ${CMAKE_CURRENT_SOURCE_DIR}/../robot_bringup/config/arms-teleop.json)
+  set_tests_properties(shared_parking PROPERTIES TIMEOUT 60)
 endif()
 ament_package()

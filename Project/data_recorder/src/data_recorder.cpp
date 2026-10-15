@@ -13,6 +13,7 @@ class Recorder : public rclcpp::Node {
   luxi::Json counts_, qc_ = luxi::Json::array();
   std::string id_, task_, phase_ = "idle";
   bool require_cameras_;
+  bool shared_enable_ = false;
   uint64_t count_ = 0;
   int64_t last_sample_ = 0;
   double reserve_;
@@ -69,7 +70,7 @@ class Recorder : public rclcpp::Node {
   void pause() {
     if (control_->service_is_ready()) {
       auto r = std::make_shared<luxi::Service::Request>();
-      r->command = "stop";
+      r->command = shared_enable_ ? "halt" : "stop";
       control_->async_send_request(r);
     }
   }
@@ -205,6 +206,7 @@ class Recorder : public rclcpp::Node {
 
  public:
   Recorder() : Node("data_recorder") {
+    shared_enable_ = declare_parameter("shared_enable", false);
     auto config_file = declare_parameter<std::string>("config", "");
     if (!config_file.empty()) hardware_config_ = luxi::config(config_file);
     auto camera_config = declare_parameter<std::string>("camera_config", "");
@@ -232,7 +234,10 @@ class Recorder : public rclcpp::Node {
     watch<luxi::Command>("/luxi/command");
     watch<luxi::Targets>("/luxi/targets");
     watch<std_msgs::msg::String>("/luxi/control_status");
+    watch<std_msgs::msg::String>("/luxi/coordinated_control");
     for (const auto& topic : {"/luxi/base/state", "/luxi/base/applied", "/luxi/base/can_rx", "/luxi/base/status"})
+      watch<std_msgs::msg::String>(topic);
+    for (const auto& topic : {"/luxi/lift/state", "/luxi/lift/events", "/luxi/lift/can_rx", "/luxi/lift/uart_rx", "/luxi/lift/status"})
       watch<std_msgs::msg::String>(topic);
     watch<std_msgs::msg::String>("/luxi/faults", [this](const auto& s) {
       if (writer_) qc_.push_back(s.data);
@@ -276,10 +281,10 @@ class Recorder : public rclcpp::Node {
         reason_ = (reason_ + (q.sticks[1] < 0 ? 1 : 4)) % 5;
         menu_time_ = q.receive_mono_ns;
       }
-      // Y belongs exclusively to the base toggle; cancel remains an episode service command.
+      // Shared mode reserves Y; B never requests parking or process shutdown.
       if (q.buttons[1] && !b_fired_ && !writer_ && q.receive_mono_ns - b_start_ >= 1500000000) {
         pause();
-        quit_pending_ = true;
+        quit_pending_ = !shared_enable_;
         b_fired_ = true;
       }
       buttons_ = q.buttons;

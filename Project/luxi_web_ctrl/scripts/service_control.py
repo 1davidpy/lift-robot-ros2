@@ -3,7 +3,7 @@
 import json
 import subprocess
 import sys
-UNITS = {"arms": "luxi-openarm-monitor.service", "base": "luxi-base.service", "quest": "luxi-quest.service", "program": "luxi-program.service", **{k: "luxi-rgb-" + k + ".service" for k in ("head_rgb", "left_wrist_rgb", "right_wrist_rgb")}}
+UNITS = {"arms": "luxi-openarm-monitor.service", "base": "luxi-base.service", "lift": "luxi-lift.service", "quest": "luxi-quest.service", "program": "luxi-program.service", **{k: "luxi-rgb-" + k + ".service" for k in ("head_rgb", "left_wrist_rgb", "right_wrist_rgb")}}
 def run(args):
     return subprocess.run(["/usr/bin/systemctl", *args], text=True, capture_output=True, timeout=5)
 try:

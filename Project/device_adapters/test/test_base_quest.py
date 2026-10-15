@@ -29,6 +29,9 @@ class BaseQuest(unittest.TestCase):
         self.quest = QuestInput()
         self.quest.grips = [0., 0.]
         self.sending = True
+        self.shared = False
+        self.shared_phase = 'prepare'
+        self.coordination_pub = self.node.create_publisher(String, self.prefix + '/coordinated_control', 1)
         self.status = {}
         self.applied = {}
         self.process = None
@@ -39,13 +42,15 @@ class BaseQuest(unittest.TestCase):
                                       lambda m: self.applied.update(json.loads(m.data)), 10)
         self.client = self.node.create_client(Command, self.prefix + '/base/control')
 
-    def launch(self, require_grip, receive_only=False):
+    def launch(self, require_grip, receive_only=False, shared=False):
+        self.shared = shared
         args = [str(BINARY), '--ros-args', '-p', 'mock:=true', '-p',
-                'require_left_grip:=' + str(require_grip).lower()]
+                'require_left_grip:=' + str(require_grip).lower(),
+                '-p', 'shared_enable:=' + str(shared).lower()]
         if receive_only:
             args += ['-p', 'receive_only:=true']
         for topic in ['quest', 'recorder/status', 'base/state', 'base/can_rx',
-                      'base/applied', 'base/status', 'base/control']:
+                      'base/applied', 'base/status', 'base/control', 'coordinated_control']:
             args += ['-r', f'/luxi/{topic}:={self.prefix}/{topic}']
         for topic in ['velocity', 'imu', 'battery']:
             args += ['-r', f'/base/{topic}:={self.prefix}/{topic}']
@@ -58,6 +63,11 @@ class BaseQuest(unittest.TestCase):
         self.assertFalse(self.status['enabled'])
 
     def step(self):
+        if self.shared:
+            message = String()
+            message.data = json.dumps({'epoch': 'base-gap-test', 'phase': self.shared_phase,
+                                       'sent_mono_ns': str(time.monotonic_ns())})
+            self.coordination_pub.publish(message)
         if self.sending:
             self.quest.receive_mono_ns = time.monotonic_ns()
             self.pub.publish(self.quest)
@@ -80,6 +90,49 @@ class BaseQuest(unittest.TestCase):
         sent_after = time.monotonic_ns()
         self.wait_for(lambda: int(self.applied.get('source_quest_mono_ns', 0)) >= sent_after,
                       1, 'base acknowledged current Quest input')
+
+    def start_shared(self):
+        self.launch(False, shared=True)
+        self.wait_for(lambda: self.status.get('shared_ready'), 2, 'base ready')
+        self.shared_phase = 'active'
+        self.wait_for(lambda: self.status.get('enabled'), 2, 'shared enable')
+        self.quest.sticks = [0., 1., 0., 0.]
+        self.wait_for(lambda: any(self.applied.get('velocity', [])), 1, 'base movement command')
+
+    def test_shared_short_gap_stops_and_requires_center_before_recovery(self):
+        self.start_shared()
+        self.sending = False
+        self.run_for(.3)
+        self.assertTrue(self.status['enabled'])
+        self.assertEqual(self.applied['velocity'], [0., 0., 0.])
+        self.sending = True
+        self.run_for(.3)
+        self.assertEqual(self.applied['velocity'], [0., 0., 0.], 'held stick cannot replay motion')
+        self.quest.sticks = [0., 0., 0., 0.]
+        self.run_for(.2)
+        self.quest.sticks = [0., -1., 0., 0.]
+        self.wait_for(lambda: self.applied.get('velocity', [0])[0] < 0, 1, 'new joystick movement')
+        self.assertTrue(self.status['enabled'])
+
+    def test_shared_long_gap_requires_explicit_enable(self):
+        self.start_shared()
+        self.sending = False
+        self.run_for(.65)
+        self.assertFalse(self.status['enabled'])
+        self.assertEqual(self.applied['velocity'], [0., 0., 0.])
+        self.quest.sticks = [0., 0., 0., 0.]
+        self.sending = True
+        self.run_for(.3)
+        self.assertFalse(self.status['enabled'])
+
+    def test_shared_b_during_input_recovery_still_disables(self):
+        self.start_shared()
+        self.sending = False
+        self.run_for(.3)
+        self.assertTrue(self.status['enabled'])
+        self.quest.buttons[1] = True
+        self.sending = True
+        self.wait_for(lambda: not self.status.get('enabled'), .4, 'B overrides recovery')
 
     def request(self, command):
         # ROS services can overtake topic updates. Assert enable conditions only

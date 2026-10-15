@@ -104,6 +104,8 @@ class Gate {
   Mapping mapping;
   bool enabled = false, tracking = false, menu = false;
   bool require_left_grip = true;
+  bool recover_short_gaps = false, input_recovery = false;
+  int64_t neutral_since = 0;
   double grip = 0;
   int64_t quest_time = 0, feedback_time = 0;
   uint8_t stop = 1;
@@ -122,18 +124,30 @@ class Gate {
     auto v = mapping.map(sticks);
     if (v[0] != 0 || v[1] != 0 || v[2] != 0) return false;
     enabled = true;
+    input_recovery = false;
+    neutral_since = 0;
     reason = "ready";
     return true;
   }
   void halt(const std::string& why) {
     enabled = false;
+    input_recovery = false;
+    neutral_since = 0;
     reason = why;
+  }
+  void note_input_arrival(int64_t stamp) {
+    if (!enabled || !recover_short_gaps) return;
+    if (!fresh(quest_time, stamp, 500000000)) halt("quest_timeout");
+    else if (!fresh(quest_time, stamp, 200000000)) {
+      input_recovery = true;
+      neutral_since = 0;
+    }
   }
   Velocity command(int64_t now) {
     if (!enabled) return {};
     if (!input_valid())
       halt("invalid_input");
-    else if (!fresh(quest_time, now, 200000000))
+    else if (!fresh(quest_time, now, recover_short_gaps ? 500000000 : 200000000))
       halt("quest_timeout");
     else if (!tracking)
       halt("tracking_invalid");
@@ -144,6 +158,24 @@ class Gate {
     else if (stop)
       halt("chassis_disabled");
     if (!enabled) return {};
+    if (recover_short_gaps && !fresh(quest_time, now, 200000000)) {
+      input_recovery = true;
+      neutral_since = 0;
+      reason = "quest_gap";
+      return {}; // Preserve the 200 ms zero-speed deadline.
+    }
+    if (input_recovery) {
+      if (mapping.map(sticks) != Velocity{}) neutral_since = 0;
+      else if (!neutral_since) neutral_since = quest_time;
+      else if (quest_time - neutral_since >= 100000000) {
+        input_recovery = false;
+        neutral_since = 0;
+      }
+      // Multiple new neutral samples are required. A batch containing an old
+      // release/press must not immediately replay the previous joystick motion.
+      reason = input_recovery ? "center_sticks_after_quest_gap" : "sticks_centered";
+      return {};
+    }
     if (require_left_grip && grip < .7) {
       reason = "deadman_released";
       return {};
