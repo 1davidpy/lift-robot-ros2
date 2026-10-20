@@ -10,7 +10,7 @@ SHARED_ENABLE=true
 if [[ "$ACQUISITION_ONLY" == true ]]; then SHARED_ENABLE=false; fi
 case "${1:-}" in
  arms) exec ros2 run luxi_device_adapters openarm_adapter --ros-args -p "config:=$ROOT/Project/robot_bringup/config/arms-kh.json" -p mock:=false -p allow_hardware:=true -p "monitor_only:=$ACQUISITION_ONLY" ;;
- base) exec ros2 run luxi_device_adapters r680_adapter --ros-args -p mock:=false -p allow_hardware:=true -p interface:=luxi_base -p require_left_grip:=false -p "receive_only:=$ACQUISITION_ONLY" -p "shared_enable:=$SHARED_ENABLE" ;;
+ base) exec "$ROOT/build/install/luxi_device_adapters/lib/luxi_device_adapters/r680_adapter" --ros-args -p mock:=false -p allow_hardware:=true -p interface:=luxi_base -p require_left_grip:=false -p "receive_only:=$ACQUISITION_ONLY" -p "shared_enable:=$SHARED_ENABLE" ;;
  lift)
   source "$ROOT/Project/robot_bringup/config/lift.env"
   if [[ "$ACQUISITION_ONLY" == true ]]; then LIFT_ALLOW_MOTION=false; fi

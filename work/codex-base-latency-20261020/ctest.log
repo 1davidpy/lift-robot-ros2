@@ -1,0 +1,9 @@
+Test project /home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/build/packages/luxi_web_ctrl
+    Start 2: web_gateway
+1/2 Test #2: web_gateway ......................   Passed    6.28 sec
+    Start 3: dashboard_base_freshness
+2/2 Test #3: dashboard_base_freshness .........   Passed   14.84 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Total Test time (real) =  21.13 sec

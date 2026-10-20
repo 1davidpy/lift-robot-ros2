@@ -1,0 +1,30 @@
+{
+  "/luxi/base/status RELIABLE": {
+    "samples": 34,
+    "min_ms": 1.3,
+    "max_ms": 333.94,
+    "median_ms": 2.07
+  },
+  "/luxi/base/status BEST_EFFORT": {
+    "samples": 34,
+    "min_ms": 1.84,
+    "max_ms": 335.53,
+    "median_ms": 2.86
+  },
+  "/luxi/base/state BEST_EFFORT": {
+    "samples": 67,
+    "min_ms": 2.3,
+    "max_ms": 271.48,
+    "median_ms": 2.68
+  },
+  "/luxi/base/state RELIABLE": {
+    "samples": 9,
+    "min_ms": 707.36,
+    "max_ms": 952.99,
+    "median_ms": 907.23
+  },
+  "publisher": {
+    "node": "r680_adapter",
+    "qos": "QoSProfile(history=HistoryPolicy.UNKNOWN, depth=0, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.VOLATILE, lifespan=Infinite, deadline=Infinite, liveliness=LivelinessPolicy.AUTOMATIC, liveliness_lease_duration=Infinite, avoid_ros_namespace_conventions=False)"
+  }
+}

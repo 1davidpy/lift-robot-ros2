@@ -33,5 +33,8 @@ if(BUILD_TESTING)
  install(TARGETS http_probe DESTINATION lib/${PROJECT_NAME})
  add_test(NAME web_gateway COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/test/run_http_test.sh" "${LUXI_ROOT}")
  set_tests_properties(web_gateway PROPERTIES TIMEOUT 45)
+ add_test(NAME dashboard_base_freshness COMMAND ${Python3_EXECUTABLE}
+   ${CMAKE_CURRENT_SOURCE_DIR}/test/test_dashboard_base_freshness.py $<TARGET_FILE:web_ctrl>)
+ set_tests_properties(dashboard_base_freshness PROPERTIES TIMEOUT 35)
 endif()
 ament_package()

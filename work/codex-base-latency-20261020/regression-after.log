@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "domain": 76,
+  "results": [
+    {
+      "phase": "dashboard_started_before_publisher",
+      "samples": 30,
+      "median_ms": 30.55,
+      "maximum_ms": 53.32
+    },
+    {
+      "phase": "publisher_recreated_without_dashboard_restart",
+      "samples": 30,
+      "median_ms": 30.1,
+      "maximum_ms": 53.39
+    }
+  ],
+  "stale_publisher_rejected": true
+}

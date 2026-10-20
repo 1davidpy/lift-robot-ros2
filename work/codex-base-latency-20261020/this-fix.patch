@@ -1,0 +1,146 @@
+--- a/Project/luxi_web_ctrl/src/web_ctrl.cpp
++++ b/Project/luxi_web_ctrl/src/web_ctrl.cpp
+@@ -91,7 +91,7 @@
+           if (std::string(topic) == "/luxi/lift/state") lift_ = j;
+           else { lift_status_ = j; lift_status_time_ = luxi::mono(); }
+         }));
+-    subs_.push_back(create_subscription<std_msgs::msg::String>("/luxi/base/state", 1,
++    subs_.push_back(create_subscription<std_msgs::msg::String>("/luxi/base/state", rclcpp::SensorDataQoS().keep_last(1),
+       [this](std_msgs::msg::String::ConstSharedPtr m) {
+         auto j = luxi::Json::parse(m->data, nullptr, false);
+         if (j.is_discarded()) return;
+--- a/Project/luxi_web_ctrl/CMakeLists.txt
++++ b/Project/luxi_web_ctrl/CMakeLists.txt
+@@ -33,5 +33,8 @@
+  install(TARGETS http_probe DESTINATION lib/${PROJECT_NAME})
+  add_test(NAME web_gateway COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/test/run_http_test.sh" "${LUXI_ROOT}")
+  set_tests_properties(web_gateway PROPERTIES TIMEOUT 45)
++ add_test(NAME dashboard_base_freshness COMMAND ${Python3_EXECUTABLE}
++   ${CMAKE_CURRENT_SOURCE_DIR}/test/test_dashboard_base_freshness.py $<TARGET_FILE:web_ctrl>)
++ set_tests_properties(dashboard_base_freshness PROPERTIES TIMEOUT 35)
+ endif()
+ ament_package()
+--- a/Project/luxi_web_ctrl/package.xml
++++ b/Project/luxi_web_ctrl/package.xml
+@@ -7,5 +7,6 @@
+  <depend>ament_index_cpp</depend><depend>rclcpp</depend><depend>luxi_core</depend>
+  <depend>luxi_interfaces</depend><depend>luxi_data_recorder</depend><depend>std_msgs</depend>
+  <depend>libcpp-httplib-dev</depend><depend>openssl</depend><depend>sensor_msgs</depend>
++ <test_depend>rclpy</test_depend>
+  <export><build_type>ament_cmake</build_type></export>
+ </package>
+--- a/Project/luxi_web_ctrl/scripts/run_managed.sh
++++ b/Project/luxi_web_ctrl/scripts/run_managed.sh
+@@ -10,7 +10,7 @@
+ if [[ "$ACQUISITION_ONLY" == true ]]; then SHARED_ENABLE=false; fi
+ case "${1:-}" in
+  arms) exec ros2 run luxi_device_adapters openarm_adapter --ros-args -p "config:=$ROOT/Project/robot_bringup/config/arms-kh.json" -p mock:=false -p allow_hardware:=true -p "monitor_only:=$ACQUISITION_ONLY" ;;
+- base) exec ros2 run luxi_device_adapters r680_adapter --ros-args -p mock:=false -p allow_hardware:=true -p interface:=luxi_base -p require_left_grip:=false -p "receive_only:=$ACQUISITION_ONLY" -p "shared_enable:=$SHARED_ENABLE" ;;
++ base) exec "$ROOT/build/install/luxi_device_adapters/lib/luxi_device_adapters/r680_adapter" --ros-args -p mock:=false -p allow_hardware:=true -p interface:=luxi_base -p require_left_grip:=false -p "receive_only:=$ACQUISITION_ONLY" -p "shared_enable:=$SHARED_ENABLE" ;;
+  lift)
+   source "$ROOT/Project/robot_bringup/config/lift.env"
+   if [[ "$ACQUISITION_ONLY" == true ]]; then LIFT_ALLOW_MOTION=false; fi
+--- /dev/null
++++ b/Project/luxi_web_ctrl/test/test_dashboard_base_freshness.py
+@@ -0,0 +1,101 @@
++"""No hardware: exercise dashboard telemetry and publisher reconnect on ROS domain 76."""
++import json
++import os
++from pathlib import Path
++import signal
++import socket
++import statistics
++import subprocess
++import sys
++import tempfile
++import time
++import urllib.request
++
++os.environ['ROS_DOMAIN_ID'] = '76'
++os.environ['ROS_LOCALHOST_ONLY'] = '1'
++import rclpy
++from std_msgs.msg import String
++
++binary = Path(sys.argv[1]).resolve()
++port = 18126
++with socket.socket() as check:
++    check.bind(('127.0.0.1', port))
++
++def state():
++    with urllib.request.urlopen(f'http://127.0.0.1:{port}/api/state', timeout=1) as response:
++        return json.load(response)
++
++with tempfile.TemporaryDirectory(prefix='luxi-base-freshness-') as directory:
++    with open(Path(directory) / 'server.log', 'w') as log:
++        server = subprocess.Popen([str(binary), '--ros-args', '-p', f'port:={port}',
++                                   '-p', f'directory:={directory}', '-p', 'mock:=true',
++                                   '-p', 'no_cameras:=true', '-p', 'base_enabled:=true'],
++                                  stdout=log, stderr=subprocess.STDOUT)
++        node = None
++        try:
++            deadline = time.monotonic() + 8
++            while True:
++                try:
++                    state()
++                    break
++                except Exception:
++                    if server.poll() is not None or time.monotonic() >= deadline:
++                        raise RuntimeError('isolated dashboard did not start')
++                    time.sleep(.1)
++            rclpy.init()
++            node = rclpy.create_node('dashboard_base_freshness_test')
++            pub = node.create_publisher(String, '/luxi/base/state', 20)
++            sequence = 0
++
++            def sample_phase(name):
++                global sequence
++                begin = time.monotonic()
++                next_send = next_read = begin
++                ages = []
++                while time.monotonic() - begin < 6:
++                    now = time.monotonic()
++                    if now >= next_send:
++                        sequence += 1
++                        msg = String()
++                        msg.data = json.dumps({'schema': 'r680_v1', 'valid': True,
++                                               'receive_mono_ns': str(time.monotonic_ns()),
++                                               'sequence': sequence, 'mock': True,
++                                               'velocity': [0, 0, 0], 'voltage': 24.2,
++                                               'flag_stop': 0})
++                        pub.publish(msg)
++                        next_send = now + .05
++                    rclpy.spin_once(node, timeout_sec=.005)
++                    if now - begin > 3 and now >= next_read:
++                        s = state()
++                        b = s.get('base') or {}
++                        age = (int(s['server_mono_ns']) - int(b.get('receive_mono_ns', 0))) / 1e6
++                        if not b.get('valid') or age < 0 or age >= 250:
++                            raise AssertionError(f'{name}: stale/missing state, age {age:.1f} ms')
++                        ages.append(age)
++                        next_read = now + .1
++                if len(ages) < 20:
++                    raise AssertionError('insufficient telemetry samples')
++                return {'phase': name, 'samples': len(ages),
++                        'median_ms': round(statistics.median(ages), 2),
++                        'maximum_ms': round(max(ages), 2)}
++
++            result = [sample_phase('dashboard_started_before_publisher')]
++            node.destroy_publisher(pub)
++            # A stopped publisher must remain offline; no freshness threshold is relaxed.
++            time.sleep(.65)
++            assert state()['base']['valid'] is False, 'stopped publisher shown online'
++            pub = node.create_publisher(String, '/luxi/base/state', 20)
++            result.append(sample_phase('publisher_recreated_without_dashboard_restart'))
++            print(json.dumps({'passed': True, 'domain': 76, 'results': result,
++                              'stale_publisher_rejected': True}, indent=2))
++        finally:
++            if node is not None:
++                node.destroy_node()
++                rclpy.shutdown()
++            if server.poll() is None:
++                server.send_signal(signal.SIGINT)
++                try:
++                    server.wait(timeout=5)
++                except subprocess.TimeoutExpired:
++                    server.kill()
++                    server.wait()

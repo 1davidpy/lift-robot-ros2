@@ -91,7 +91,7 @@ class Server : public rclcpp::Node {
           if (std::string(topic) == "/luxi/lift/state") lift_ = j;
           else { lift_status_ = j; lift_status_time_ = luxi::mono(); }
         }));
-    subs_.push_back(create_subscription<std_msgs::msg::String>("/luxi/base/state", 1,
+    subs_.push_back(create_subscription<std_msgs::msg::String>("/luxi/base/state", rclcpp::SensorDataQoS().keep_last(1),
       [this](std_msgs::msg::String::ConstSharedPtr m) {
         auto j = luxi::Json::parse(m->data, nullptr, false);
         if (j.is_discarded()) return;
