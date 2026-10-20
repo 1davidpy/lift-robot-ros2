@@ -1,0 +1,218 @@
+{
+  "timestamp": "2026-10-20T15:07:38+0800",
+  "method": "0x33 parameter reads and 0xCC status refresh only",
+  "buses": {
+    "can2": [
+      {
+        "motor_id_requested": 1,
+        "responding": true,
+        "master_id": 17,
+        "reply_id": "0x11",
+        "parameter_reply_fd": true,
+        "motor_id": 1,
+        "mode": 1,
+        "pmax": 12.5,
+        "vmax": 45.0,
+        "tmax": 54.0,
+        "baud_code": 9,
+        "state": {
+          "status_code": 0,
+          "position_rad": 0.04406042572671076,
+          "velocity_rad_s": -0.010989010989007397,
+          "torque_nm": -0.01318681318681314,
+          "mos_c": 27,
+          "rotor_c": 26,
+          "reply_fd": true
+        }
+      },
+      {
+        "motor_id_requested": 2,
+        "responding": true,
+        "master_id": 18,
+        "reply_id": "0x12",
+        "parameter_reply_fd": true,
+        "motor_id": 2,
+        "mode": 1,
+        "pmax": 12.5,
+        "vmax": 45.0,
+        "tmax": 54.0,
+        "baud_code": 9,
+        "state": {
+          "status_code": 0,
+          "position_rad": 0.01621271076523989,
+          "velocity_rad_s": -0.010989010989007397,
+          "torque_nm": -0.03956043956043942,
+          "mos_c": 29,
+          "rotor_c": 27,
+          "reply_fd": true
+        }
+      },
+      {
+        "motor_id_requested": 3,
+        "responding": true,
+        "master_id": 19,
+        "reply_id": "0x13",
+        "parameter_reply_fd": true,
+        "motor_id": 3,
+        "mode": 1,
+        "pmax": 12.5,
+        "vmax": 10.0,
+        "tmax": 28.0,
+        "baud_code": 9,
+        "state": {
+          "status_code": 0,
+          "position_rad": 0.10090028229190473,
+          "velocity_rad_s": -0.0024420024420024333,
+          "torque_nm": -0.03418803418803407,
+          "mos_c": 31,
+          "rotor_c": 29,
+          "reply_fd": true
+        }
+      },
+      {
+        "motor_id_requested": 4,
+        "responding": true,
+        "master_id": 20,
+        "reply_id": "0x14",
+        "parameter_reply_fd": true,
+        "motor_id": 4,
+        "mode": 1,
+        "pmax": 12.5,
+        "vmax": 10.0,
+        "tmax": 28.0,
+        "baud_code": 9,
+        "state": {
+          "status_code": 0,
+          "position_rad": 0.03147173266193626,
+          "velocity_rad_s": -0.0024420024420024333,
+          "torque_nm": -0.03418803418803407,
+          "mos_c": 29,
+          "rotor_c": 27,
+          "reply_fd": true
+        }
+      },
+      {
+        "motor_id_requested": 5,
+        "responding": true,
+        "master_id": 21,
+        "reply_id": "0x15",
+        "parameter_reply_fd": true,
+        "motor_id": 5,
+        "mode": 1,
+        "pmax": 12.5,
+        "vmax": 10.0,
+        "tmax": 28.0,
+        "baud_code": 9,
+        "state": {
+          "status_code": 0,
+          "position_rad": -0.20618753337911144,
+          "velocity_rad_s": -0.0024420024420024333,
+          "torque_nm": -0.006837606837606813,
+          "mos_c": 28,
+          "rotor_c": 27,
+          "reply_fd": true
+        }
+      },
+      {
+        "motor_id_requested": 6,
+        "responding": true,
+        "master_id": 22,
+        "reply_id": "0x16",
+        "parameter_reply_fd": true,
+        "motor_id": 6,
+        "mode": 1,
+        "pmax": 12.5,
+        "vmax": 30.0,
+        "tmax": 10.0,
+        "baud_code": 9,
+        "state": {
+          "status_code": 0,
+          "position_rad": 0.08945601586938245,
+          "velocity_rad_s": -0.0073260073260073,
+          "torque_nm": 0.0024420024420024333,
+          "mos_c": 30,
+          "rotor_c": 28,
+          "reply_fd": true
+        }
+      },
+      {
+        "motor_id_requested": 7,
+        "responding": true,
+        "master_id": 23,
+        "reply_id": "0x17",
+        "parameter_reply_fd": true,
+        "motor_id": 7,
+        "mode": 1,
+        "pmax": 12.5,
+        "vmax": 30.0,
+        "tmax": 10.0,
+        "baud_code": 9,
+        "state": {
+          "status_code": 0,
+          "position_rad": -0.11501487754634887,
+          "velocity_rad_s": -0.0073260073260073,
+          "torque_nm": -0.0073260073260073,
+          "mos_c": 29,
+          "rotor_c": 27,
+          "reply_fd": true
+        }
+      },
+      {
+        "motor_id_requested": 8,
+        "responding": true,
+        "master_id": 24,
+        "reply_id": "0x18",
+        "parameter_reply_fd": true,
+        "motor_id": 8,
+        "mode": 1,
+        "pmax": 12.5,
+        "vmax": 30.0,
+        "tmax": 10.0,
+        "baud_code": 9,
+        "state": {
+          "status_code": 0,
+          "position_rad": 0.003242542153047978,
+          "velocity_rad_s": -0.0073260073260073,
+          "torque_nm": -0.0024420024420024333,
+          "mos_c": 28,
+          "rotor_c": 27,
+          "reply_fd": true
+        }
+      }
+    ],
+    "luxi_left": [
+      {
+        "motor_id_requested": 1,
+        "responding": false
+      },
+      {
+        "motor_id_requested": 2,
+        "responding": false
+      },
+      {
+        "motor_id_requested": 3,
+        "responding": false
+      },
+      {
+        "motor_id_requested": 4,
+        "responding": false
+      },
+      {
+        "motor_id_requested": 5,
+        "responding": false
+      },
+      {
+        "motor_id_requested": 6,
+        "responding": false
+      },
+      {
+        "motor_id_requested": 7,
+        "responding": false
+      },
+      {
+        "motor_id_requested": 8,
+        "responding": false
+      }
+    ]
+  }
+}

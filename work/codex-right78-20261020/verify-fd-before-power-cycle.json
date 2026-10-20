@@ -1,0 +1,582 @@
+{
+  "action": "verify",
+  "interface": "can2",
+  "targets": [
+    7,
+    8
+  ],
+  "tx_fd": true,
+  "timestamp": "2026-10-20T14:21:12+0800",
+  "writes": [],
+  "before": {
+    "7": {
+      "master_id": 23,
+      "motor_id": 7,
+      "timeout": 0,
+      "control_mode": 1,
+      "gear_ratio": 10.0,
+      "pmax": 12.5,
+      "vmax": 30.0,
+      "tmax": 10.0,
+      "can_baud_code": 9,
+      "state": {
+        "status_code": 0,
+        "position_rad": -0.0001907377737087046,
+        "velocity_rad_s": -0.0219780219780219,
+        "torque_nm": 0.0024420024420024333,
+        "mos_c": 28,
+        "rotor_c": 26,
+        "reply_fd": true,
+        "raw": "077fff7fe8001c1a"
+      }
+    },
+    "8": {
+      "master_id": 24,
+      "motor_id": 8,
+      "timeout": 0,
+      "control_mode": 1,
+      "gear_ratio": 10.0,
+      "pmax": 12.5,
+      "vmax": 30.0,
+      "tmax": 10.0,
+      "can_baud_code": 9,
+      "state": {
+        "status_code": 0,
+        "position_rad": -0.0001907377737087046,
+        "velocity_rad_s": -0.0073260073260073,
+        "torque_nm": -0.0024420024420024333,
+        "mos_c": 28,
+        "rotor_c": 26,
+        "reply_fd": true,
+        "raw": "087fff7ff7ff1c1a"
+      }
+    }
+  },
+  "after": {
+    "7": {
+      "master_id": 23,
+      "motor_id": 7,
+      "timeout": 0,
+      "control_mode": 1,
+      "gear_ratio": 10.0,
+      "pmax": 12.5,
+      "vmax": 30.0,
+      "tmax": 10.0,
+      "can_baud_code": 9,
+      "state": {
+        "status_code": 0,
+        "position_rad": -0.0001907377737087046,
+        "velocity_rad_s": -0.0073260073260073,
+        "torque_nm": 0.0024420024420024333,
+        "mos_c": 28,
+        "rotor_c": 26,
+        "reply_fd": true,
+        "raw": "077fff7ff8001c1a"
+      }
+    },
+    "8": {
+      "master_id": 24,
+      "motor_id": 8,
+      "timeout": 0,
+      "control_mode": 1,
+      "gear_ratio": 10.0,
+      "pmax": 12.5,
+      "vmax": 30.0,
+      "tmax": 10.0,
+      "can_baud_code": 9,
+      "state": {
+        "status_code": 0,
+        "position_rad": -0.0001907377737087046,
+        "velocity_rad_s": 0.0073260073260073,
+        "torque_nm": -0.0024420024420024333,
+        "mos_c": 28,
+        "rotor_c": 26,
+        "reply_fd": true,
+        "raw": "087fff8007ff1c1a"
+      }
+    }
+  },
+  "success": true,
+  "trace": [
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0700330700000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x17",
+      "fd": true,
+      "data": "0700330717000000"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0700330800000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x17",
+      "fd": true,
+      "data": "0700330807000000"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0700330900000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x17",
+      "fd": true,
+      "data": "0700330900000000"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0700330a00000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x17",
+      "fd": true,
+      "data": "0700330a01000000"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0700331400000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x17",
+      "fd": true,
+      "data": "0700331400002041"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0700331500000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x17",
+      "fd": true,
+      "data": "0700331500004841"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0700331600000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x17",
+      "fd": true,
+      "data": "070033160000f041"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0700331700000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x17",
+      "fd": true,
+      "data": "0700331700002041"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0700332300000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x17",
+      "fd": true,
+      "data": "0700332309000000"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0700cc0000000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x17",
+      "fd": true,
+      "data": "077fff7fe8001c1a"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0800330700000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x18",
+      "fd": true,
+      "data": "0800330718000000"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0800330800000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x18",
+      "fd": true,
+      "data": "0800330808000000"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0800330900000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x18",
+      "fd": true,
+      "data": "0800330900000000"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0800330a00000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x18",
+      "fd": true,
+      "data": "0800330a01000000"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0800331400000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x18",
+      "fd": true,
+      "data": "0800331400002041"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0800331500000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x18",
+      "fd": true,
+      "data": "0800331500004841"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0800331600000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x18",
+      "fd": true,
+      "data": "080033160000f041"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0800331700000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x18",
+      "fd": true,
+      "data": "0800331700002041"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0800332300000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x18",
+      "fd": true,
+      "data": "0800332309000000"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0800cc0000000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x18",
+      "fd": true,
+      "data": "087fff7ff7ff1c1a"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0700330700000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x17",
+      "fd": true,
+      "data": "0700330717000000"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0700330800000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x17",
+      "fd": true,
+      "data": "0700330807000000"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0700330900000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x17",
+      "fd": true,
+      "data": "0700330900000000"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0700330a00000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x17",
+      "fd": true,
+      "data": "0700330a01000000"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0700331400000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x17",
+      "fd": true,
+      "data": "0700331400002041"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0700331500000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x17",
+      "fd": true,
+      "data": "0700331500004841"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0700331600000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x17",
+      "fd": true,
+      "data": "070033160000f041"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0700331700000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x17",
+      "fd": true,
+      "data": "0700331700002041"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0700332300000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x17",
+      "fd": true,
+      "data": "0700332309000000"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0700cc0000000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x17",
+      "fd": true,
+      "data": "077fff7ff8001c1a"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0800330700000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x18",
+      "fd": true,
+      "data": "0800330718000000"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0800330800000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x18",
+      "fd": true,
+      "data": "0800330808000000"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0800330900000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x18",
+      "fd": true,
+      "data": "0800330900000000"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0800330a00000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x18",
+      "fd": true,
+      "data": "0800330a01000000"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0800331400000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x18",
+      "fd": true,
+      "data": "0800331400002041"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0800331500000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x18",
+      "fd": true,
+      "data": "0800331500004841"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0800331600000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x18",
+      "fd": true,
+      "data": "080033160000f041"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0800331700000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x18",
+      "fd": true,
+      "data": "0800331700002041"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0800332300000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x18",
+      "fd": true,
+      "data": "0800332309000000"
+    },
+    {
+      "direction": "tx",
+      "canid": "0x7ff",
+      "fd": true,
+      "data": "0800cc0000000000"
+    },
+    {
+      "direction": "rx",
+      "canid": "0x18",
+      "fd": true,
+      "data": "087fff8007ff1c1a"
+    }
+  ]
+}

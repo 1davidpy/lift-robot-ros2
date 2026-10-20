@@ -1,0 +1,173 @@
+diff --git a/Project/device_adapters/CMakeLists.txt b/Project/device_adapters/CMakeLists.txt
+index d93136a..a167bc7 100644
+--- a/Project/device_adapters/CMakeLists.txt
++++ b/Project/device_adapters/CMakeLists.txt
+@@ -53,6 +53,8 @@ else()
+ endif()
+ install(TARGETS realsense_depth DESTINATION lib/${PROJECT_NAME})
+ if(BUILD_TESTING)
++ add_executable(test_openarm_monitor_readonly test/test_openarm_monitor_readonly.cpp)
++ add_test(NAME openarm_monitor_readonly COMMAND test_openarm_monitor_readonly)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  add_test(NAME depth_output
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_depth_output.py
+diff --git a/Project/device_adapters/src/openarm_adapter.cpp b/Project/device_adapters/src/openarm_adapter.cpp
+index 6b66609..1cc4696 100644
+--- a/Project/device_adapters/src/openarm_adapter.cpp
++++ b/Project/device_adapters/src/openarm_adapter.cpp
+@@ -10,6 +10,7 @@
+ #include <luxi/core.hpp>
+ #include <openarm/can/socket/openarm.hpp>
+ #include <std_msgs/msg/string.hpp>
++#include "openarm_monitor.hpp"
+ namespace oa = openarm::can::socket;
+ namespace dm = openarm::damiao_motor;
+ class Adapter : public rclcpp::Node {
+@@ -20,6 +21,8 @@ class Adapter : public rclcpp::Node {
+   std::array<unsigned int, 2> bus_indices_{};
+   bool mock_, enabled_ = false;
+   std::array<std::unique_ptr<oa::OpenArm>, 2> arms_;
++  std::array<std::unique_ptr<luxi::monitor::Bus>, 2> monitors_;
++  std::array<int64_t, 2> monitor_retry_{};
+   std::array<int, 2> locks_{{-1, -1}};
+   std::array<int64_t, 16> seen_{};
+   luxi::State state_;
+@@ -98,6 +101,7 @@ class Adapter : public rclcpp::Node {
+           throw std::runtime_error("CAN owner already active");
+         bus_names_[s] = iface;
+         bus_indices_[s] = if_nametoindex(iface.c_str());
++        if (monitor_only_) continue;
+         arms_[s] = std::make_unique<oa::OpenArm>(iface, json_.at("fd"));
+         arms_[s]->init_arm_motors(
+             {dm::MotorType::DM8009, dm::MotorType::DM8009, dm::MotorType::DM4340,
+@@ -163,6 +167,32 @@ class Adapter : public rclcpp::Node {
+           state_.velocity[i] = d / dt;
+           seen_[i] = t;
+         }
++      } else if (monitor_only_) {
++        for (int s = 0; s < 2; ++s) {
++          try {
++            if (!monitors_[s] && t >= monitor_retry_[s])
++              monitors_[s] = std::make_unique<luxi::monitor::Bus>(bus_names_[s]);
++            if (!monitors_[s]) continue;
++            monitors_[s]->tick(t);
++            for (int i = 0; i < 8; ++i) {
++              const auto& m = monitors_[s]->motors[i];
++              const int k = s * 8 + i;
++              seen_[k] = m.calibrated() && m.healthy() ? m.seen : 0;
++              if (!seen_[k]) continue;
++              state_.position[k] = m.position() - cfg_.offset[k];
++              state_.velocity[k] = m.velocity();
++              state_.effort[k] = m.torque();
++              state_.mos_temperature[k] = m.data[6];
++              state_.rotor_temperature[k] = m.data[7];
++            }
++          } catch (const std::exception& e) {
++            // A disconnected arm must not suppress feedback from the other bus.
++            monitors_[s].reset();
++            monitor_retry_[s] = t + 2000000000;
++            for (int i = 0; i < 8; ++i) seen_[s * 8 + i] = 0;
++            error(e.what());
++          }
++        }
+       } else
+         for (int s = 0; s < 2; s++) {
+           if (if_nametoindex(bus_names_[s].c_str()) != bus_indices_[s])
+diff --git a/Project/luxi_web_ctrl/scripts/run_managed.sh b/Project/luxi_web_ctrl/scripts/run_managed.sh
+index 00c3f36..bdcf8e3 100755
+--- a/Project/luxi_web_ctrl/scripts/run_managed.sh
++++ b/Project/luxi_web_ctrl/scripts/run_managed.sh
+@@ -4,11 +4,16 @@ ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)
+ source /opt/ros/humble/setup.bash
+ source "$ROOT/build/install/setup.bash"
+ export ROS_LOG_DIR="$ROOT/log/ros"
++# Device cards collect feedback only by default. Motion uses an explicit launch.
++ACQUISITION_ONLY=${LUXI_ACQUISITION_ONLY:-true}
++SHARED_ENABLE=true
++if [[ "$ACQUISITION_ONLY" == true ]]; then SHARED_ENABLE=false; fi
+ case "${1:-}" in
+- arms) exec ros2 run luxi_device_adapters openarm_adapter --ros-args -p "config:=$ROOT/Project/robot_bringup/config/arms-kh.json" -p mock:=false -p allow_hardware:=true ;;
+- base) exec ros2 run luxi_device_adapters r680_adapter --ros-args -p mock:=false -p allow_hardware:=true -p interface:=luxi_base -p require_left_grip:=false -p shared_enable:=true ;;
++ arms) exec ros2 run luxi_device_adapters openarm_adapter --ros-args -p "config:=$ROOT/Project/robot_bringup/config/arms-kh.json" -p mock:=false -p allow_hardware:=true -p "monitor_only:=$ACQUISITION_ONLY" ;;
++ base) exec ros2 run luxi_device_adapters r680_adapter --ros-args -p mock:=false -p allow_hardware:=true -p interface:=luxi_base -p require_left_grip:=false -p "receive_only:=$ACQUISITION_ONLY" -p "shared_enable:=$SHARED_ENABLE" ;;
+  lift)
+   source "$ROOT/Project/robot_bringup/config/lift.env"
++  if [[ "$ACQUISITION_ONLY" == true ]]; then LIFT_ALLOW_MOTION=false; fi
+   exec ros2 run luxi_device_adapters lift_adapter --ros-args -p allow_hardware:=true -p shared_enable:=true \
+    -p "allow_motion:=$LIFT_ALLOW_MOTION" -p "interface:=$LIFT_INTERFACE" \
+    -p "transport:=${LIFT_TRANSPORT:-can}" -p "serial_port:=${LIFT_SERIAL_PORT:-}" \
+diff --git a/Project/luxi_web_ctrl/web/app.js b/Project/luxi_web_ctrl/web/app.js
+index d6b348a..67c099e 100644
+--- a/Project/luxi_web_ctrl/web/app.js
++++ b/Project/luxi_web_ctrl/web/app.js
+@@ -26,7 +26,7 @@ function buttons() {
+     let allow = connected && services[kind] && !busy;
+     if (cmd === 'start') {
+       if (kind === 'control') {
+-        allow &&= s.arms?.fresh && s.arms.valid.every(Boolean) && s.quest?.fresh && s.quest.rate_hz >= 50 && s.control?.fresh;
++        allow &&= s.arms?.fresh && s.arms.phase !== 'monitor_only' && s.arms.valid.every(Boolean) && s.quest?.fresh && s.quest.rate_hz >= 50 && s.control?.fresh;
+         if (s.control?.shared_enable) allow &&= ['disabled','stopped'].includes(s.control.system_phase) && s.base_status?.fresh && s.base?.valid && s.lift_status?.fresh && s.lift_status.feedback_healthy && s.lift_status.stationary && s.lift_status.allow_motion && (s.control.parking_policy === 'arms_home_lift_stopped' || s.control.supported_home_confirmed) && s.quest.grips.every(v => v < 0.35) && s.quest.sticks.every(v => Math.abs(v) < 0.16);
+         else allow &&= s.control?.phase === 'disabled';
+       }
+@@ -54,12 +54,12 @@ function offline() {
+ }
+ function render(s) {
+   state = s; connected = true; lastUpdate = Date.now(); $('offline').hidden = true;
+-  badge('connection','● 服务在线','good');
++  badge('connection','● 网页服务在线','good');
+   text('updated','更新于 ' + new Date().toLocaleTimeString());
+   badge('mode',s.system.mock ? 'MOCK · 模拟设备' : 'REAL · 实机模式',s.system.mock ? 'warn' : 'good');
+   const q = s.quest || {}, a = s.arms, b = s.base, bs = s.base_status, r = s.recorder;
+   const shared = !!s.control?.shared_enable;
+-  text('shared-control-status', shared ? (systemPhases[s.control.system_phase] || s.control.system_phase) + ' · ' + s.control.reason : '当前运行版本使用独立使能；统一控制尚未加载。');
++  text('shared-control-status', a?.phase === 'monitor_only' ? '当前为只读设备检查，运动控制未开启。' : shared ? (systemPhases[s.control.system_phase] || s.control.system_phase) + ' · ' + s.control.reason : '当前运行版本使用独立使能；统一控制尚未加载。');
+   document.querySelector('[data-kind="control"][data-command="start"]').textContent = shared ? '启用全部遥操作' : '使能双臂';
+   document.querySelector('[data-kind="control"][data-command="stop"]').textContent = shared ? '双臂归位并失能 / 底盘升降停车' : '双臂返回并失能';
+   document.querySelector('[data-kind="control"][data-command="disable"]').textContent = shared ? '停止全部 / 双臂保持' : '撤销双臂使能（移除转矩）';
+@@ -70,7 +70,8 @@ function render(s) {
+   const tracking = v => ({0:'正常',1:'过期',2:'无效'}[v] || '未知');
+   text('quest-detail',q.fresh ? '追踪：左 ' + tracking(q.left_tracking) + ' / 右 ' + tracking(q.right_tracking) : '请打开 Quest 应用并向板端发送 UDP');
+   const armValid = a?.fresh && a.valid?.every(Boolean);
+-  badge('arms-badge',armValid ? (s.system.mock ? '模拟反馈' : '反馈在线') : '未就绪',armValid ? 'good' : 'bad');
++  const armCount = a?.fresh ? a.valid.filter(Boolean).length : 0;
++  badge('arms-badge',armValid ? (s.system.mock ? '模拟反馈' : '反馈在线') : armCount ? '部分在线 · ' + armCount + '/16' : '未就绪',armValid ? 'good' : armCount ? 'warn' : 'bad');
+   text('arm-phase',!a?.fresh ? '采集节点离线' : a.phase === 'fault' ? '驱动通信异常' : a?.fresh && a.phase === 'monitor_only' ? '状态采集 · 未使能' : s.control?.fresh ? (phases[s.control.phase] || s.control.phase) : a?.fresh ? (a.enabled ? '已使能' : '未使能') : '采集节点离线');
+   text('arms-detail',a?.fresh ? '左臂 ' + a.valid.slice(8,16).filter(Boolean).length + '/8 · 右臂 ' + a.valid.slice(0,8).filter(Boolean).length + '/8 有效反馈' : '没有新鲜关节反馈');
+   const jointRows = [];
+@@ -94,6 +95,8 @@ function render(s) {
+   const liftAgeMs = (Number(s.server_mono_ns) - Number(lift?.receive_first_mono_ns)) / 1e6;
+   const liftConnected = !!(ls?.fresh && Number.isFinite(liftAgeMs) && liftAgeMs >= 0 && liftAgeMs <= 300);
+   const liftTransport = ls?.transport === 'uart' ? 'UART' : 'CAN';
++  text('lift-bus', ls?.transport === 'uart' ? 'USB 串口' : 'CH4');
++  text('lift-transport', ls?.transport === 'uart' ? 'UART · 115200 bit/s' : '经典 CAN · 500 kbit/s');
+   const liftFault = liftConnected && (!!lift.fault || !!(lift.flags & 128) || (liftTransport === 'CAN' && !!(lift.guard & 4)));
+   const liftLabel = !ls?.fresh ? '服务离线' : !liftConnected ? `无 ${liftTransport} 反馈` :
+     liftFault ? '已连接 · 保护/故障' : !(lift.flags & 1) ? '已连接 · 等待电机/位置参考' :
+diff --git a/Project/luxi_web_ctrl/web/index.html b/Project/luxi_web_ctrl/web/index.html
+index 2cf58eb..bf5a024 100644
+--- a/Project/luxi_web_ctrl/web/index.html
++++ b/Project/luxi_web_ctrl/web/index.html
+@@ -9,7 +9,7 @@
+ <section id="overview" class="devices">
+ <article class="card"><div class="card-heading"><span>◉ QUEST 3</span><span id="quest-badge" class="pill">未知</span></div><h2 id="quest-rate">— <small>Hz</small></h2><p id="quest-detail">等待遥操作报文</p><div class="foot">Wi-Fi / UDP <span>双手柄追踪</span></div><div class="device-actions" data-device="quest"><small class="service-state">读取服务状态…</small><div class="button-row"><button data-service-action="toggle" disabled>开启采集</button><button data-service-action="restart" disabled>重启 / 重连</button></div></div></article>
+ <article class="card"><div class="card-heading"><span>⌘ OPENARM × 2</span><span id="arms-badge" class="pill">未知</span></div><h2 id="arm-phase">等待反馈</h2><p id="arms-detail">左臂 — / 右臂 —</p><div class="foot">CH1 左臂 / CH2 右臂 <span>CAN FD</span></div><div class="device-actions" data-device="arms"><small class="service-state">读取服务状态…</small><div class="button-row"><button data-service-action="toggle" disabled>开启采集</button><button data-service-action="restart" disabled>重启 / 重连</button></div></div></article>
+-<article class="card"><div class="card-heading"><span>升降平台</span><span id="lift-badge" class="pill">未连接</span></div><h2 id="lift-height">— mm</h2><p id="lift-detail">等待升降 CAN 反馈</p><div class="foot">CH4 <span>经典 CAN · 500 kbit/s</span></div><div class="device-actions" data-device="lift"><small class="service-state">读取服务状态…</small><div class="button-row"><button data-service-action="toggle" disabled>开启采集</button><button data-service-action="restart" disabled>重启 / 重连</button></div></div></article>
++<article class="card"><div class="card-heading"><span>升降平台</span><span id="lift-badge" class="pill">未连接</span></div><h2 id="lift-height">— mm</h2><p id="lift-detail">等待升降反馈</p><div class="foot"><span id="lift-bus">接口待确认</span><span id="lift-transport">等待服务状态</span></div><div class="device-actions" data-device="lift"><small class="service-state">读取服务状态…</small><div class="button-row"><button data-service-action="toggle" disabled>开启采集</button><button data-service-action="restart" disabled>重启 / 重连</button></div></div></article>
+ <article class="card"><div class="card-heading"><span>⊞ R680 OMNI</span><span id="base-badge" class="pill">未知</span></div><h2 id="base-speed">— <small>m/s</small></h2><p id="base-detail">等待底盘反馈</p><div class="foot">CH3 <span>经典 CAN</span></div><div class="device-actions" data-device="base"><small class="service-state">读取服务状态…</small><div class="button-row"><button data-service-action="toggle" disabled>开启采集</button><button data-service-action="restart" disabled>重启 / 重连</button></div></div></article>
+ <article class="card"><div class="card-heading"><span>▣ RGB CAMERAS</span><span id="camera-badge" class="pill">未知</span></div><h2 id="camera-count">— <small>/ 3 在线</small></h2><p id="disk">磁盘剩余 —</p><div class="foot">头部 / 左腕 / 右腕 <span>RGB</span></div></article>
+ </section>
+diff --git a/Project/robot_bringup/config/lift.env b/Project/robot_bringup/config/lift.env
+index 4375733..ef9066c 100644
+--- a/Project/robot_bringup/config/lift.env
++++ b/Project/robot_bringup/config/lift.env
+@@ -3,8 +3,8 @@ LIFT_INTERFACE=luxi_lift
+ LIFT_TRANSPORT=uart
+ # CH340 has no unique serial; retain the identified USB socket instead of
+ # selecting an arbitrary ttyUSB number or a non-unique by-id alias.
+-# 2026-10-08: current identified serial USB socket is 1.1.
+-LIFT_SERIAL_PORT=/dev/serial/by-path/platform-xhci-hcd.2.auto-usb-0:1.1:1.0-port0
++# 2026-10-08: current identified serial USB socket is 1.2 (verified 2026-10-20).
++LIFT_SERIAL_PORT=/dev/serial/by-path/platform-xhci-hcd.2.auto-usb-0:1.2:1.0-port0
+ # Host bounds match UART firmware: -180..+180 mm; grip targets retain the margin.
+ LIFT_HOST_MIN_UM=-180000
+ LIFT_HOST_MAX_UM=180000

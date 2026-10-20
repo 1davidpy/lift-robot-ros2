@@ -1,0 +1,178 @@
+>>> Connecting to can2 (FD Mode)...
+>>> Querying all registers for 2 motors. Please wait...
+
+==================================================
+ MOTOR ID: 0x7 (Response ID: 0x17)
+==================================================
+Parameter                     R/W  Type      Range               Value
+--------------------------------------------------------------------------------
+Under-Voltage Threshold       RW   float     (10.0, fmax]        15.0000
+KT Value (Torque Const)       RW   float     [0.0, fmax]         0.0000
+Over-Temp Threshold           RW   float     [80.0, 200)         100.0000
+Over-Current Threshold        RW   float     (0.0, 1.0)          0.8000
+Acceleration                  RW   float     (0.0, fmax)         2.0000
+Deceleration                  RW   float     [-fmax, 0.0)        -2.0000
+Max Speed                     RW   float     (0.0, fmax]         600.0000
+Master ID                     RW   uint32    [0, 0x7FF]          23
+Motor (ESC) ID                RW   uint32    [0, 0x7FF]          7
+CAN Timeout                   RW   uint32    [0, 2^32-1]         0
+Control Mode                  RW   uint32    [0, 4]              1 (MIT)
+Damping Ratio                 RO   float     /                   2.835720e-04
+Inertia                       RO   float     /                   1.702820e-05
+Hardware Version              RO   uint32    /                   1445998643
+Software Version              RO   uint32    /                   959524917
+Serial Number                 RO   uint32    /                   1412444213
+Number of Pole Pairs          RO   uint32    /                   14
+Stator Resistance (Rs)        RO   float     /                   7.315990e-01
+Stator Inductance (Ls)        RO   float     /                   3.283520e-04
+Rotor Flux                    RO   float     /                   4.490280e-03
+Gear Ratio                    RO   float     /                   10.0000
+Position Limit (PMAX)         RW   float     (0.0, fmax]         12.5000
+Velocity Limit (VMAX)         RW   float     (0.0, fmax]         30.0000
+Torque Limit (TMAX)           RW   float     (0.0, fmax]         10.0000
+Current Loop Bandwidth        RW   float     [100.0, 1.0e4]      1000.0000
+Speed Loop KP                 RW   float     [0.0, fmax]         0.0037
+Speed Loop KI                 RW   float     [0.0, fmax]         0.0020
+Position Loop KP              RW   float     [0.0, fmax]         54.0000
+Position Loop KI              RW   float     [0.0, fmax]         0.0000
+Over-Voltage Threshold        RW   float     TBD                 32.0000
+Gear Torque Efficiency        RW   float     (0.0, 1.0]          1.0000
+Speed Loop Damping            RW   float     [1.0, 30.0]         4.0000
+Velocity Loop Bandwidth       RW   float     (0.0, 500.0)        40.0000
+Current Loop C1               RW   float     [100.0, 1.0e4]      2500.0000
+Velocity Loop C1              RW   float     (0.0, 1.0e4]        100.0000
+CAN Baudrate                  RW   uint32    [0, 9]              9 (5M)
+Sub Version                   RO   uint32    /                   53.0000
+Register 37                   ??   ??        ??                  0.0000
+Register 38                   ??   ??        ??                  3026892095488.0000
+Register 39                   ??   ??        ??                  0.0000
+Register 40                   ??   ??        ??                  0.0000
+Register 41                   ??   ??        ??                  0.0000
+Register 42                   ??   ??        ??                  0.0000
+Register 43                   ??   ??        ??                  0.0000
+Register 44                   ??   ??        ??                  0.0000
+Register 45                   ??   ??        ??                  0.0000
+Register 46                   ??   ??        ??                  0.0000
+Register 47                   ??   ??        ??                  0.0000
+Register 48                   ??   ??        ??                  0.0000
+Register 49                   ??   ??        ??                  0.0000
+I-Phase U Offset              RO   float     /                   2080.5000
+I-Phase V Offset              RO   float     /                   2056.5000
+Gain K1                       RO   float     /                   1.0310
+Gain K2                       RO   float     /                   1.5925
+Mechanical Offset             RO   float     /                   1.4416
+Motor Direction               RO   float     /                   1.0000
+Register 56                   ??   ??        ??                  1.6208
+Register 57                   ??   ??        ??                  0.0000
+Register 58                   ??   ??        ??                  0.0000
+Register 59                   ??   ??        ??                  10.2612
+Register 60                   ??   ??        ??                  23.9637
+Register 61                   ??   ??        ??                  28.5657
+Register 62                   ??   ??        ??                  26.7691
+Register 63                   ??   ??        ??                  2060.5100
+Register 64                   ??   ??        ??                  2087.0859
+Register 65                   ??   ??        ??                  2058.5640
+Register 66                   ??   ??        ??                  0.0000
+Register 67                   ??   ??        ??                  0.0000
+Register 68                   ??   ??        ??                  0.0000
+Register 69                   ??   ??        ??                  0.0000
+Register 70                   ??   ??        ??                  0.0000
+Register 71                   ??   ??        ??                  0.0000
+Register 72                   ??   ??        ??                  0.0000
+Register 73                   ??   ??        ??                  0.0000
+Register 74                   ??   ??        ??                  0.0000
+Register 75                   ??   ??        ??                  0.0000
+Register 76                   ??   ??        ??                  0.0000
+Register 77                   ??   ??        ??                  0.0000
+Register 78                   ??   ??        ??                  0.0000
+Register 79                   ??   ??        ??                  0.0000
+Motor Position                RO   float     /                   0.0000
+Output Shaft Position         RO   float     /                   -0.0002
+
+==================================================
+ MOTOR ID: 0x8 (Response ID: 0x18)
+==================================================
+Parameter                     R/W  Type      Range               Value
+--------------------------------------------------------------------------------
+Under-Voltage Threshold       RW   float     (10.0, fmax]        15.0000
+KT Value (Torque Const)       RW   float     [0.0, fmax]         0.0000
+Over-Temp Threshold           RW   float     [80.0, 200)         100.0000
+Over-Current Threshold        RW   float     (0.0, 1.0)          0.8000
+Acceleration                  RW   float     (0.0, fmax)         2.0000
+Deceleration                  RW   float     [-fmax, 0.0)        -2.0000
+Max Speed                     RW   float     (0.0, fmax]         600.0000
+Master ID                     RW   uint32    [0, 0x7FF]          24
+Motor (ESC) ID                RW   uint32    [0, 0x7FF]          8
+CAN Timeout                   RW   uint32    [0, 2^32-1]         0
+Control Mode                  RW   uint32    [0, 4]              1 (MIT)
+Damping Ratio                 RO   float     /                   4.720480e-04
+Inertia                       RO   float     /                   1.804920e-05
+Hardware Version              RO   uint32    /                   1445998643
+Software Version              RO   uint32    /                   959524917
+Serial Number                 RO   uint32    /                   1412444213
+Number of Pole Pairs          RO   uint32    /                   14
+Stator Resistance (Rs)        RO   float     /                   7.589990e-01
+Stator Inductance (Ls)        RO   float     /                   3.508220e-04
+Rotor Flux                    RO   float     /                   4.518910e-03
+Gear Ratio                    RO   float     /                   10.0000
+Position Limit (PMAX)         RW   float     (0.0, fmax]         12.5000
+Velocity Limit (VMAX)         RW   float     (0.0, fmax]         30.0000
+Torque Limit (TMAX)           RW   float     (0.0, fmax]         10.0000
+Current Loop Bandwidth        RW   float     [100.0, 1.0e4]      1000.0000
+Speed Loop KP                 RW   float     [0.0, fmax]         0.0037
+Speed Loop KI                 RW   float     [0.0, fmax]         0.0020
+Position Loop KP              RW   float     [0.0, fmax]         54.0000
+Position Loop KI              RW   float     [0.0, fmax]         0.0000
+Over-Voltage Threshold        RW   float     TBD                 32.0000
+Gear Torque Efficiency        RW   float     (0.0, 1.0]          1.0000
+Speed Loop Damping            RW   float     [1.0, 30.0]         4.0000
+Velocity Loop Bandwidth       RW   float     (0.0, 500.0)        40.0000
+Current Loop C1               RW   float     [100.0, 1.0e4]      2500.0000
+Velocity Loop C1              RW   float     (0.0, 1.0e4]        100.0000
+CAN Baudrate                  RW   uint32    [0, 9]              9 (5M)
+Sub Version                   RO   uint32    /                   53.0000
+Register 37                   ??   ??        ??                  0.0000
+Register 38                   ??   ??        ??                  3026892095488.0000
+Register 39                   ??   ??        ??                  0.0000
+Register 40                   ??   ??        ??                  0.0000
+Register 41                   ??   ??        ??                  0.0000
+Register 42                   ??   ??        ??                  0.0000
+Register 43                   ??   ??        ??                  0.0000
+Register 44                   ??   ??        ??                  0.0000
+Register 45                   ??   ??        ??                  0.0000
+Register 46                   ??   ??        ??                  0.0000
+Register 47                   ??   ??        ??                  0.0000
+Register 48                   ??   ??        ??                  0.0000
+Register 49                   ??   ??        ??                  0.0000
+I-Phase U Offset              RO   float     /                   2095.0000
+I-Phase V Offset              RO   float     /                   2107.5000
+Gain K1                       RO   float     /                   0.9940
+Gain K2                       RO   float     /                   1.5872
+Mechanical Offset             RO   float     /                   -1.9736
+Motor Direction               RO   float     /                   1.0000
+Register 56                   ??   ??        ??                  -1.8319
+Register 57                   ??   ??        ??                  0.0000
+Register 58                   ??   ??        ??                  0.0000
+Register 59                   ??   ??        ??                  10.2612
+Register 60                   ??   ??        ??                  24.0966
+Register 61                   ??   ??        ??                  28.2040
+Register 62                   ??   ??        ??                  26.4103
+Register 63                   ??   ??        ??                  1972.1030
+Register 64                   ??   ??        ??                  2049.1790
+Register 65                   ??   ??        ??                  1956.5060
+Register 66                   ??   ??        ??                  0.0000
+Register 67                   ??   ??        ??                  0.0000
+Register 68                   ??   ??        ??                  0.0000
+Register 69                   ??   ??        ??                  0.0000
+Register 70                   ??   ??        ??                  0.0000
+Register 71                   ??   ??        ??                  0.0000
+Register 72                   ??   ??        ??                  0.0000
+Register 73                   ??   ??        ??                  0.0000
+Register 74                   ??   ??        ??                  0.0000
+Register 75                   ??   ??        ??                  0.0000
+Register 76                   ??   ??        ??                  0.0000
+Register 77                   ??   ??        ??                  0.0000
+Register 78                   ??   ??        ??                  0.0000
+Register 79                   ??   ??        ??                  0.0000
+Motor Position                RO   float     /                   -0.0001
+Output Shaft Position         RO   float     /                   -0.0002

@@ -1,0 +1,20 @@
+>>> Connecting to can2 (FD Mode)...
+>>> Querying all registers for 2 motors. Please wait...
+
+==================================================
+ MOTOR ID: 0x7 (Response ID: 0x17)
+==================================================
+  [!] NO RESPONSE FROM MOTOR - possible causes:
+      - CAN cable not connected
+      - Motor power not on
+      - Baudrate mismatch (run 'discover' to find correct baudrate, 1Mbps is default)
+      - Wrong motor ID (Send: 0x7, Recv: 0x17)
+
+==================================================
+ MOTOR ID: 0x8 (Response ID: 0x18)
+==================================================
+  [!] NO RESPONSE FROM MOTOR - possible causes:
+      - CAN cable not connected
+      - Motor power not on
+      - Baudrate mismatch (run 'discover' to find correct baudrate, 1Mbps is default)
+      - Wrong motor ID (Send: 0x8, Recv: 0x18)

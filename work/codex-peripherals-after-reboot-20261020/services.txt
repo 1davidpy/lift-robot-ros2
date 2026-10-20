@@ -1,0 +1,8 @@
+  luxi-depth-right_wrist_rgb.service     loaded    active   running LUXI RealSense RGBD depth right_wrist_rgb
+  luxi-quest.service                     loaded    active   running LUXI Quest UDP receiver independent of CAN
+  luxi-rgb-head_rgb.service              loaded    active   running LUXI RGB camera head_rgb
+  luxi-rgb-left_wrist_rgb.service        loaded    active   running LUXI RGB camera left_wrist_rgb
+  luxi-rgb-right_wrist_rgb.service       loaded    inactive dead    LUXI RGB camera right_wrist_rgb
+  luxi-rgbd-gateway.service              loaded    active   running LUXI aligned RGBD HTTP gateway
+  luxi-robot.service                     loaded    inactive dead    LUXI real OpenArm and R680 acquisition stack
+  luxi-web.service                       loaded    active   running LUXI LAN control dashboard

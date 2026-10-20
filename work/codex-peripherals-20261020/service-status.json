@@ -1,0 +1,12 @@
+{
+  "luxi-quest.service": "Result=success\nActiveState=active\nSubState=running",
+  "luxi-web.service": "Result=success\nActiveState=active\nSubState=running",
+  "luxi-rgbd-gateway.service": "Result=success\nActiveState=active\nSubState=running",
+  "luxi-depth-right_wrist_rgb.service": "Result=success\nActiveState=active\nSubState=running",
+  "luxi-rgb-head_rgb.service": "Result=success\nActiveState=active\nSubState=running",
+  "luxi-rgb-left_wrist_rgb.service": "Result=success\nActiveState=active\nSubState=running",
+  "luxi-robot.service": "Result=success\nActiveState=inactive\nSubState=dead",
+  "rpent-luxi-left-driver@arm.service": "Result=exit-code\nActiveState=failed\nSubState=failed",
+  "rpent-luxi-left-driver@base.service": "Result=success\nActiveState=active\nSubState=running",
+  "rpent-luxi-left-driver@lift.service": "Result=success\nActiveState=active\nSubState=running"
+}

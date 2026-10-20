@@ -4,11 +4,16 @@ ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)
 source /opt/ros/humble/setup.bash
 source "$ROOT/build/install/setup.bash"
 export ROS_LOG_DIR="$ROOT/log/ros"
+# Device cards collect feedback only by default. Motion uses an explicit launch.
+ACQUISITION_ONLY=${LUXI_ACQUISITION_ONLY:-true}
+SHARED_ENABLE=true
+if [[ "$ACQUISITION_ONLY" == true ]]; then SHARED_ENABLE=false; fi
 case "${1:-}" in
- arms) exec ros2 run luxi_device_adapters openarm_adapter --ros-args -p "config:=$ROOT/Project/robot_bringup/config/arms-kh.json" -p mock:=false -p allow_hardware:=true ;;
- base) exec ros2 run luxi_device_adapters r680_adapter --ros-args -p mock:=false -p allow_hardware:=true -p interface:=luxi_base -p require_left_grip:=false -p shared_enable:=true ;;
+ arms) exec ros2 run luxi_device_adapters openarm_adapter --ros-args -p "config:=$ROOT/Project/robot_bringup/config/arms-kh.json" -p mock:=false -p allow_hardware:=true -p "monitor_only:=$ACQUISITION_ONLY" ;;
+ base) exec ros2 run luxi_device_adapters r680_adapter --ros-args -p mock:=false -p allow_hardware:=true -p interface:=luxi_base -p require_left_grip:=false -p "receive_only:=$ACQUISITION_ONLY" -p "shared_enable:=$SHARED_ENABLE" ;;
  lift)
   source "$ROOT/Project/robot_bringup/config/lift.env"
+  if [[ "$ACQUISITION_ONLY" == true ]]; then LIFT_ALLOW_MOTION=false; fi
   exec ros2 run luxi_device_adapters lift_adapter --ros-args -p allow_hardware:=true -p shared_enable:=true \
    -p "allow_motion:=$LIFT_ALLOW_MOTION" -p "interface:=$LIFT_INTERFACE" \
    -p "transport:=${LIFT_TRANSPORT:-can}" -p "serial_port:=${LIFT_SERIAL_PORT:-}" \

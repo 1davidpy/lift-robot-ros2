@@ -1,0 +1,168 @@
+{
+  "arms": null,
+  "base": null,
+  "base_status": null,
+  "cameras": {
+    "head_rgb": {
+      "age_ms": 55,
+      "depth": {
+        "fresh": false
+      },
+      "driver": {
+        "backend": "realsense_v4l2",
+        "camera_id": "head_rgb",
+        "capture_height": 360,
+        "capture_width": 640,
+        "device": "/dev/video4",
+        "fps": 29.984025470718016,
+        "fresh": true,
+        "height": 360,
+        "mock": false,
+        "phase": "streaming",
+        "reason": "RealSense RGB 图像采集中",
+        "receive_mono_ns": "407867193754",
+        "serial": "261043062235",
+        "source_frame_gaps": 8,
+        "source_sequence": 11595,
+        "width": 640
+      },
+      "enabled": true,
+      "fresh": true,
+      "height": 360,
+      "rgbd": {
+        "fresh": false,
+        "url": "/api/cameras/head_rgb/rgbd"
+      },
+      "sequence": 11608,
+      "timestamp_quality": "v4l2_host_monotonic",
+      "width": 640
+    },
+    "left_wrist_rgb": {
+      "age_ms": 175,
+      "depth": {
+        "fresh": false
+      },
+      "driver": {
+        "backend": "realsense_v4l2",
+        "camera_id": "left_wrist_rgb",
+        "capture_height": 360,
+        "capture_width": 640,
+        "device": "/dev/video16",
+        "fps": 29.96072972253443,
+        "fresh": true,
+        "height": 360,
+        "mock": false,
+        "phase": "streaming",
+        "reason": "RealSense RGB 图像采集中",
+        "receive_mono_ns": "408152803360",
+        "serial": "254843065015",
+        "source_frame_gaps": 9,
+        "source_sequence": 11600,
+        "width": 640
+      },
+      "enabled": true,
+      "fresh": true,
+      "height": 360,
+      "rgbd": {
+        "fresh": false,
+        "url": "/api/cameras/left_wrist_rgb/rgbd"
+      },
+      "sequence": 11600,
+      "timestamp_quality": "v4l2_host_monotonic",
+      "width": 640
+    },
+    "right_wrist_rgb": {
+      "age_ms": 49,
+      "depth": {
+        "aligned_to_color": true,
+        "driver": {
+          "aligned_to_color": true,
+          "camera_id": "right_wrist_rgb",
+          "encoding": "32FC1",
+          "mock": false,
+          "phase": "streaming",
+          "reason": "Paired RGB and depth aligned to color; invalid pixels are NaN",
+          "receive_mono_ns": "407861563136",
+          "serial": "261443062039",
+          "unit": "metre"
+        },
+        "encoding": "32FC1",
+        "fresh": true,
+        "height": 480,
+        "mock": false,
+        "sequence": 5794,
+        "unit": "metre",
+        "url": "/api/cameras/right_wrist_rgb/depth",
+        "width": 640
+      },
+      "driver": {
+        "aligned_to_color": true,
+        "camera_id": "right_wrist_rgb",
+        "encoding": "jpeg",
+        "fresh": true,
+        "height": 480,
+        "mock": false,
+        "phase": "streaming",
+        "reason": "Paired RGB and depth aligned to color; invalid pixels are NaN",
+        "receive_mono_ns": "407862254468",
+        "serial": "261443062039",
+        "unit": "metre",
+        "width": 640
+      },
+      "enabled": true,
+      "fresh": true,
+      "height": 480,
+      "rgbd": {
+        "aligned_to_color": true,
+        "fresh": true,
+        "pair_id": "20275658330:5794",
+        "url": "/api/cameras/right_wrist_rgb/rgbd"
+      },
+      "sequence": 5794,
+      "timestamp_quality": "host_receive_device_unmapped:Global Time",
+      "width": 640
+    }
+  },
+  "control": null,
+  "lift": null,
+  "lift_status": null,
+  "quest": {
+    "fresh": false,
+    "grips": [
+      0.0,
+      0.0
+    ],
+    "left_tracking": 0,
+    "rate_hz": 0,
+    "right_tracking": 0,
+    "sticks": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "ram_staging": false,
+  "receiver": {
+    "last_verified": {},
+    "online": false,
+    "peer": {},
+    "release_supported": false
+  },
+  "recorder": null,
+  "server_mono_ns": "408552850493",
+  "system": {
+    "base_enabled": true,
+    "control_authorized": true,
+    "data_directory": "/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/data/interface_gateway",
+    "free_gib": 31.536441802978516,
+    "mock": false,
+    "no_cameras": false,
+    "services": {
+      "base": false,
+      "control": false,
+      "episode": false,
+      "lift": false
+    }
+  }
+}

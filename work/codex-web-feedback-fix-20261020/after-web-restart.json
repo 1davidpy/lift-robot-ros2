@@ -1,0 +1,98 @@
+[
+  {
+    "base_valid": true,
+    "base_age_ms": 35,
+    "base_accepted": 3580,
+    "arms_valid": 0,
+    "arms_fresh": null,
+    "lift": true
+  },
+  {
+    "base_valid": true,
+    "base_age_ms": 41,
+    "base_accepted": 3586,
+    "arms_valid": 0,
+    "arms_fresh": null,
+    "lift": true
+  },
+  {
+    "base_valid": true,
+    "base_age_ms": 45,
+    "base_accepted": 3590,
+    "arms_valid": 0,
+    "arms_fresh": null,
+    "lift": true
+  },
+  {
+    "base_valid": true,
+    "base_age_ms": 50,
+    "base_accepted": 3594,
+    "arms_valid": 0,
+    "arms_fresh": null,
+    "lift": true
+  },
+  {
+    "base_valid": true,
+    "base_age_ms": 55,
+    "base_accepted": 3598,
+    "arms_valid": 16,
+    "arms_fresh": true,
+    "lift": true
+  },
+  {
+    "base_valid": true,
+    "base_age_ms": 11,
+    "base_accepted": 3602,
+    "arms_valid": 16,
+    "arms_fresh": true,
+    "lift": true
+  },
+  {
+    "base_valid": true,
+    "base_age_ms": 17,
+    "base_accepted": 3606,
+    "arms_valid": 16,
+    "arms_fresh": true,
+    "lift": true
+  },
+  {
+    "base_valid": true,
+    "base_age_ms": 23,
+    "base_accepted": 3610,
+    "arms_valid": 16,
+    "arms_fresh": true,
+    "lift": true
+  },
+  {
+    "base_valid": true,
+    "base_age_ms": 30,
+    "base_accepted": 3614,
+    "arms_valid": 16,
+    "arms_fresh": true,
+    "lift": true
+  },
+  {
+    "base_valid": true,
+    "base_age_ms": 36,
+    "base_accepted": 3618,
+    "arms_valid": 16,
+    "arms_fresh": true,
+    "lift": true
+  },
+  {
+    "base_valid": true,
+    "base_age_ms": 43,
+    "base_accepted": 3622,
+    "arms_valid": 16,
+    "arms_fresh": true,
+    "lift": true
+  },
+  {
+    "base_valid": true,
+    "base_age_ms": 48,
+    "base_accepted": 3626,
+    "arms_valid": 16,
+    "arms_fresh": true,
+    "lift": true
+  }
+]

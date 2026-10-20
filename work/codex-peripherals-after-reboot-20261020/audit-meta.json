@@ -1,0 +1,34 @@
+{
+  "checked_at": "2026-10-20T15:10:29+0800",
+  "boot_time": "2026-10-20 15:03:41",
+  "kcan_loaded": true,
+  "automatic_motion_services_started": false,
+  "quest": {
+    "fresh": false,
+    "grips": [
+      0.0,
+      0.0
+    ],
+    "left_tracking": 0,
+    "rate_hz": 0,
+    "right_tracking": 0,
+    "sticks": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "control": null,
+  "system_services": {
+    "base": false,
+    "control": false,
+    "episode": false,
+    "lift": false
+  },
+  "runtime_changes": [
+    "temporarily loaded existing matching kcan module",
+    "configured left/right CAN FD 1M/5M and base classic CAN 1M for diagnostic access"
+  ],
+  "persistent_changes": false
+}

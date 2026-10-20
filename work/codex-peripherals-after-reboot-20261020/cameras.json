@@ -1,0 +1,49 @@
+{
+  "head_rgb": {
+    "rgb": {
+      "http": 200,
+      "bytes": 62965,
+      "decoded_shape": [
+        360,
+        640,
+        3
+      ]
+    },
+    "/depth": {
+      "http": 503
+    }
+  },
+  "left_wrist_rgb": {
+    "rgb": {
+      "http": 200,
+      "bytes": 43913,
+      "decoded_shape": [
+        360,
+        640,
+        3
+      ]
+    },
+    "/depth": {
+      "http": 503
+    }
+  },
+  "right_wrist_rgb": {
+    "rgb": {
+      "http": 200,
+      "bytes": 39782,
+      "decoded_shape": [
+        480,
+        640,
+        3
+      ]
+    },
+    "/depth": {
+      "http": 200,
+      "bytes": 1228800,
+      "width": "640",
+      "height": "480",
+      "mock": "false",
+      "valid_fraction": 0.0130859375
+    }
+  }
+}

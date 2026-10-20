@@ -10,6 +10,7 @@
 #include <luxi/core.hpp>
 #include <openarm/can/socket/openarm.hpp>
 #include <std_msgs/msg/string.hpp>
+#include "openarm_monitor.hpp"
 namespace oa = openarm::can::socket;
 namespace dm = openarm::damiao_motor;
 class Adapter : public rclcpp::Node {
@@ -20,6 +21,8 @@ class Adapter : public rclcpp::Node {
   std::array<unsigned int, 2> bus_indices_{};
   bool mock_, enabled_ = false;
   std::array<std::unique_ptr<oa::OpenArm>, 2> arms_;
+  std::array<std::unique_ptr<luxi::monitor::Bus>, 2> monitors_;
+  std::array<int64_t, 2> monitor_retry_{};
   std::array<int, 2> locks_{{-1, -1}};
   std::array<int64_t, 16> seen_{};
   luxi::State state_;
@@ -98,6 +101,7 @@ class Adapter : public rclcpp::Node {
           throw std::runtime_error("CAN owner already active");
         bus_names_[s] = iface;
         bus_indices_[s] = if_nametoindex(iface.c_str());
+        if (monitor_only_) continue;
         arms_[s] = std::make_unique<oa::OpenArm>(iface, json_.at("fd"));
         arms_[s]->init_arm_motors(
             {dm::MotorType::DM8009, dm::MotorType::DM8009, dm::MotorType::DM4340,
@@ -162,6 +166,32 @@ class Adapter : public rclcpp::Node {
           state_.position[i] += d;
           state_.velocity[i] = d / dt;
           seen_[i] = t;
+        }
+      } else if (monitor_only_) {
+        for (int s = 0; s < 2; ++s) {
+          try {
+            if (!monitors_[s] && t >= monitor_retry_[s])
+              monitors_[s] = std::make_unique<luxi::monitor::Bus>(bus_names_[s]);
+            if (!monitors_[s]) continue;
+            monitors_[s]->tick(t);
+            for (int i = 0; i < 8; ++i) {
+              const auto& m = monitors_[s]->motors[i];
+              const int k = s * 8 + i;
+              seen_[k] = m.calibrated() && m.healthy() ? m.seen : 0;
+              if (!seen_[k]) continue;
+              state_.position[k] = m.position() - cfg_.offset[k];
+              state_.velocity[k] = m.velocity();
+              state_.effort[k] = m.torque();
+              state_.mos_temperature[k] = m.data[6];
+              state_.rotor_temperature[k] = m.data[7];
+            }
+          } catch (const std::exception& e) {
+            // A disconnected arm must not suppress feedback from the other bus.
+            monitors_[s].reset();
+            monitor_retry_[s] = t + 2000000000;
+            for (int i = 0; i < 8; ++i) seen_[s * 8 + i] = 0;
+            error(e.what());
+          }
         }
       } else
         for (int s = 0; s < 2; s++) {

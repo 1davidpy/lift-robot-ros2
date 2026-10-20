@@ -1,0 +1,57 @@
+{
+  "head_rgb": {
+    "rgb": {
+      "http": 200,
+      "bytes": 63165,
+      "content_type": "image/jpeg",
+      "decoded_shape": [
+        360,
+        640,
+        3
+      ]
+    },
+    "/depth": {
+      "http": 503,
+      "detail": "{\"camera_id\":\"head_rgb\",\"error\":\"depth_unavailable_or_stale\"}"
+    }
+  },
+  "left_wrist_rgb": {
+    "rgb": {
+      "http": 200,
+      "bytes": 50208,
+      "content_type": "image/jpeg",
+      "decoded_shape": [
+        360,
+        640,
+        3
+      ]
+    },
+    "/depth": {
+      "http": 503,
+      "detail": "{\"camera_id\":\"left_wrist_rgb\",\"error\":\"depth_unavailable_or_stale\"}"
+    }
+  },
+  "right_wrist_rgb": {
+    "rgb": {
+      "http": 200,
+      "bytes": 63141,
+      "content_type": "image/jpeg",
+      "decoded_shape": [
+        480,
+        640,
+        3
+      ]
+    },
+    "/depth": {
+      "http": 200,
+      "bytes": 1228800,
+      "content_type": "application/octet-stream",
+      "valid_fraction": 0.453232421875,
+      "width": "640",
+      "height": "480",
+      "mock": "false",
+      "unit": "metre",
+      "median_m": 0.19700001180171967
+    }
+  }
+}
