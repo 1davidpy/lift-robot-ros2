@@ -9,7 +9,7 @@ assert(start >= 0 && end > start);
 function armLabel(a) {
   const out = {};
   vm.runInNewContext(source.slice(start, end), {
-    a, s:{system:{mock:false}}, phases:{},
+    a, s:{system:{mock:false}}, phases:{}, startup:null, startupNames:{},
     badge:(id,label)=>out[id]=label, text:(id,value)=>out[id]=value,
   });
   return out;

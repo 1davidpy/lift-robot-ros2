@@ -17,6 +17,169 @@ class Adapter : public rclcpp::Node {
   luxi::Json json_;
   luxi::ArmConfig cfg_;
   bool monitor_only_ = false;
+  bool startup_allowed_ = false, startup_owned_ = false, startup_pending_ = false;
+  bool startup_recover_ = false;
+  std::array<double, 16> startup_pose_{};
+  std::array<double, 16> startup_reference_{};
+  std::array<double, 16> startup_nominal_{}, startup_bias_{};
+  bool restore_hold_ = false;
+  std::array<double, 16> restore_target_{};
+  double startup_speed_ = .15, startup_tolerance_ = .02;
+  int64_t startup_since_ = 0, startup_arrived_ = 0;
+  std::string startup_phase_ = "idle", startup_reason_ = "waiting_for_web_button";
+  rclcpp::Service<luxi::Service>::SharedPtr startup_service_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr startup_status_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr control_status_sub_;
+  luxi::Json control_status_;
+  int64_t control_status_time_ = 0;
+  void initialize_arm(int s) {
+    arms_[s] = std::make_unique<oa::OpenArm>(bus_names_[s], json_.at("fd"));
+    arms_[s]->init_arm_motors(
+        {dm::MotorType::DM8009, dm::MotorType::DM8009, dm::MotorType::DM4340,
+         dm::MotorType::DM4340, dm::MotorType::DM4310, dm::MotorType::DM4310,
+         dm::MotorType::DM4310}, {1, 2, 3, 4, 5, 6, 7}, {17, 18, 19, 20, 21, 22, 23});
+    arms_[s]->init_gripper_motor(dm::MotorType::DM4310, 8, 24, dm::ControlMode::POS_FORCE);
+    arms_[s]->set_callback_mode_all(dm::CallbackMode::STATE);
+  }
+  void startup_hold(const std::string& reason) {
+    startup_pending_ = false;
+    startup_phase_ = "hold";
+    startup_reason_ = reason;
+    startup_arrived_ = 0;
+    // Retain the submitted target and its supporting torque. Replacing it
+    // with measured position would unload the proportional controller.
+  }
+  bool startup_command(const std::string& command, std::string& message, const std::string& detail = "") {
+    const auto t = luxi::mono();
+    if (!startup_allowed_) { message = "启动姿态功能未配置"; return false; }
+    if (command == "disable") {
+      if (enabled_ && !startup_owned_) { message = "请通过遥操作控制撤销使能"; return false; }
+      if (startup_owned_ && enabled_)
+        for (auto& a : arms_) if (a) a->disable_all();
+      enabled_ = startup_owned_ = startup_pending_ = false;
+      startup_phase_ = "idle"; startup_reason_ = "operator_disable";
+      message = "已撤销抬臂使能并移除转矩"; return true;
+    }
+    if (command == "stop") {
+      if (startup_owned_) startup_hold("operator_stop");
+      message = "已停止抬臂，保留当前位置转矩"; return true;
+    }
+    const bool restore = command == "restore_hold";
+    if (command != "start" && !restore) { message = "不支持的启动指令"; return false; }
+    if (startup_phase_ == "moving" || startup_pending_ || (enabled_ && !startup_owned_)) {
+      message = "双臂正在运动或已由遥操作控制"; return false;
+    }
+    if (control_status_.is_object() && luxi::fresh(control_status_time_, t, 500000000) &&
+        control_status_.value("phase", "disabled") != "disabled" &&
+        control_status_.value("system_phase", "disabled") != "stopped") {
+      message = "请先停止遥操作"; return false;
+    }
+    if (!luxi::valid_state(state_) || !luxi::fresh(state_.receive_mono_ns, t)) {
+      message = "需要全部 16 个关节的有效实时反馈"; return false;
+    }
+    for (int i = 0; i < 16; ++i) {
+      if (state_.position[i] < cfg_.lo[i] || state_.position[i] > cfg_.hi[i]) {
+        message = "当前关节超出配置限位，请先检查"; return false;
+      }
+    }
+    if (restore) {
+      const auto values = luxi::Json::parse(detail).get<std::vector<double>>();
+      if (values.size() != 16) { message = "保持恢复需要 16 轴目标"; return false; }
+      for (int i = 0; i < 16; ++i) {
+        if (!std::isfinite(values[i]) || values[i] < cfg_.lo[i] || values[i] > cfg_.hi[i] ||
+            std::abs(values[i] - state_.position[i]) > .2) {
+          message = "保持目标与当前位置不一致或超出限位"; return false;
+        }
+        restore_target_[i] = values[i];
+      }
+    }
+    // Mode writes happen only after the explicit button, never on read-only boot.
+    startup_reference_ = state_.position;
+    if (monitor_only_) {
+      if (!mock_) {
+        for (auto& m : monitors_) m.reset();
+        for (int side = 0; side < 2; ++side) initialize_arm(side);
+      }
+      monitor_only_ = false;
+      seen_.fill(0);
+    }
+    startup_owned_ = true; startup_pending_ = !enabled_;
+    restore_hold_ = restore;
+    if (!enabled_) { sent_ = state_.position; startup_bias_.fill(0); }
+    for (int i = 0; i < 16; ++i) startup_nominal_[i] = sent_[i] - startup_bias_[i];
+    startup_since_ = t; startup_arrived_ = 0; startup_recover_ = false;
+    startup_phase_ = startup_pending_ ? "preparing" : restore ? "hold" : "moving";
+    startup_reason_ = restore ? "calibration_hold_restored" : "operator_start";
+    if (restore && !startup_pending_) sent_ = restore_target_;
+    message = "开始缓慢抬臂，到达后保持（含图示夹爪位置）";
+    return true;
+  }
+  void update_startup(int64_t t, double dt, bool healthy) {
+    if (!startup_owned_) return;
+    if (startup_pending_) {
+      if (t - startup_since_ > 3000000000LL) {
+        startup_hold("enable_feedback_timeout"); return;
+      }
+      if (!healthy) return;
+      for (int i = 0; i < 16; ++i) {
+        if (std::abs(state_.position[i] - startup_reference_[i]) > .05) {
+          startup_hold("feedback_changed_before_enable"); return;
+        }
+      }
+      sent_ = state_.position;
+      startup_nominal_ = state_.position;
+      enabled_ = true; // Ensure unwinding disables even a partially enabled pair.
+      for (auto& a : arms_) if (a) a->enable_all();
+      startup_pending_ = false;
+      startup_phase_ = restore_hold_ ? "hold" : "moving"; startup_since_ = t;
+      if (restore_hold_) sent_ = restore_target_;
+    }
+    if (!enabled_) return;
+    if (!healthy) {
+      startup_phase_ = "hold"; startup_reason_ = "feedback_lost";
+      startup_recover_ = true; return;
+    }
+    if (startup_recover_) { sent_ = state_.position; startup_recover_ = false; }
+    if (startup_phase_ == "moving") {
+      double error = 0, lag = 0, speed = 0;
+      for (int i = 0; i < 16; ++i) {
+        error = std::max(error, std::abs(startup_pose_[i] - state_.position[i]));
+        lag = std::max(lag, std::abs(sent_[i] - state_.position[i]));
+        speed = std::max(speed, std::abs(state_.velocity[i]));
+      }
+      if (lag > .35 || t - startup_since_ > 45000000000LL) {
+        startup_hold(lag > .35 ? "following_error" : "startup_timeout");
+      } else {
+        bool nominal_arrived = true;
+        for (int i = 0; i < 16; ++i) {
+          const double step = std::min(cfg_.speed[i], startup_speed_) * dt;
+          startup_nominal_[i] += std::clamp(startup_pose_[i] - startup_nominal_[i], -step, step);
+          if (std::abs(startup_nominal_[i] - startup_pose_[i]) > .0001) nominal_arrived = false;
+        }
+        for (int i = 0; i < 16; ++i) {
+          // Slowly remove static load error after the nominal trajectory.
+          // Bias is bounded to 0.2 rad, its rate to 0.03 rad/s; grippers
+          // keep their position/force mode without integral compensation.
+          if (nominal_arrived && i % 8 != 7)
+            startup_bias_[i] = std::clamp(startup_bias_[i] +
+                std::clamp(.5 * (startup_pose_[i] - state_.position[i]) * dt,
+                           -.03 * dt, .03 * dt), -.2, .2);
+          const double desired = std::clamp(startup_nominal_[i] + startup_bias_[i], cfg_.lo[i], cfg_.hi[i]);
+          const double step = std::min(cfg_.speed[i], startup_speed_) * dt;
+          sent_[i] += std::clamp(desired - sent_[i], -step, step);
+        }
+        if (error <= startup_tolerance_ && speed < .08) {
+          if (!startup_arrived_) startup_arrived_ = t;
+          if (t - startup_arrived_ >= 500000000) {
+            startup_phase_ = "ready"; startup_reason_ = "measured_arrival";
+          }
+        } else startup_arrived_ = 0;
+      }
+    }
+    command_.position = sent_;
+    command_.phase = "startup_" + startup_phase_;
+    command_.source_mono_ns = t;
+  }
   std::array<std::string, 2> bus_names_;
   std::array<unsigned int, 2> bus_indices_{};
   bool mock_, enabled_ = false;
@@ -53,7 +216,10 @@ class Adapter : public rclcpp::Node {
         collection.dispatch_frame_callback(classic);
       } else
         collection.dispatch_frame_callback(frame);
-      seen_[side * 8 + id - 0x11] = luxi::mono();
+      if (frame.data[0] == id - 0x10 && frame.data[1] == 0 && frame.data[2] == 0x33)
+        continue; // Parameter acknowledgements are not fresh motor measurements.
+      if ((frame.data[0] & 15) != id - 0x10) continue;
+      seen_[side * 8 + id - 0x11] = (frame.data[0] >> 4) <= 1 ? luxi::mono() : 0;
     }
     auto motors = arms_[side]->get_arm().get_motors();
     motors.push_back(*arms_[side]->get_gripper().get_motor());
@@ -84,6 +250,23 @@ class Adapter : public rclcpp::Node {
       throw std::runtime_error(
           "Hardware requires allow_hardware:=true; default mock never opens CAN");
     monitor_only_ = declare_parameter("monitor_only", false);
+    startup_allowed_ = json_.contains("startup_pose");
+    if (startup_allowed_) {
+      const auto& pose = json_.at("startup_pose");
+      startup_speed_ = pose.at("speed_rad_s").get<double>();
+      if (!std::isfinite(startup_speed_) || startup_speed_ <= 0 || startup_speed_ > .2)
+        throw std::invalid_argument("startup speed must be in (0, 0.2]");
+      for (int side = 0; side < 2; ++side) {
+        const auto values = pose.at(side ? "left" : "right").get<std::vector<double>>();
+        if (values.size() != 8) throw std::invalid_argument("startup pose needs 8 joints per arm");
+        for (int i = 0; i < 8; ++i) {
+          const int k = side * 8 + i;
+          if (!std::isfinite(values[i]) || values[i] < cfg_.lo[k] || values[i] > cfg_.hi[k])
+            throw std::invalid_argument("startup pose outside joint limits");
+          startup_pose_[k] = values[i];
+        }
+      }
+    }
     state_.position = cfg_.home;
     for (int i = 0; i < 16; i++)
       state_.position[i] = std::clamp(state_.position[i], cfg_.lo[i], cfg_.hi[i]);
@@ -102,32 +285,44 @@ class Adapter : public rclcpp::Node {
         bus_names_[s] = iface;
         bus_indices_[s] = if_nametoindex(iface.c_str());
         if (monitor_only_) continue;
-        arms_[s] = std::make_unique<oa::OpenArm>(iface, json_.at("fd"));
-        arms_[s]->init_arm_motors(
-            {dm::MotorType::DM8009, dm::MotorType::DM8009, dm::MotorType::DM4340,
-             dm::MotorType::DM4340, dm::MotorType::DM4310, dm::MotorType::DM4310,
-             dm::MotorType::DM4310},
-            {1, 2, 3, 4, 5, 6, 7}, {17, 18, 19, 20, 21, 22, 23});
-        arms_[s]->init_gripper_motor(dm::MotorType::DM4310, 8, 24, dm::ControlMode::POS_FORCE);
-        arms_[s]->set_callback_mode_all(dm::CallbackMode::STATE);
+        initialize_arm(s);
       }
     }
     pub_ = create_publisher<luxi::State>("/luxi/arms/state", 5);
     applied_ = create_publisher<luxi::Command>("/luxi/applied", 10);
     errors_ = create_publisher<std_msgs::msg::String>("/luxi/faults", 20);
     sub_ = create_subscription<luxi::Command>(
-        "/luxi/command", 1, [this](luxi::Command::ConstSharedPtr c) { command_ = *c; });
+        "/luxi/command", 1, [this](luxi::Command::ConstSharedPtr c) { if (!startup_owned_) command_ = *c; });
+    startup_status_ = create_publisher<std_msgs::msg::String>("/luxi/arms/startup_status", 1);
+    control_status_sub_ = create_subscription<std_msgs::msg::String>("/luxi/control_status", 1,
+        [this](std_msgs::msg::String::ConstSharedPtr m) {
+          auto j = luxi::Json::parse(m->data, nullptr, false);
+          if (j.is_object()) { control_status_ = j; control_status_time_ = luxi::mono(); }
+        });
+    startup_service_ = create_service<luxi::Service>("/luxi/arms/startup",
+        [this](const std::shared_ptr<luxi::Service::Request> req,
+               std::shared_ptr<luxi::Service::Response> res) {
+          try { res->success = startup_command(req->command, res->message, req->detail); }
+          catch (const std::exception& e) {
+            startup_hold("initialization_failed"); res->success = false; res->message = e.what();
+          }
+        });
     life_ = create_subscription<std_msgs::msg::String>(
         "/luxi/driver_lifecycle", 10, [this](std_msgs::msg::String::ConstSharedPtr s) {
           if (monitor_only_) return;
           try {
             if (s->data == "enable" && luxi::valid_state(state_) &&
                 luxi::fresh(state_.receive_mono_ns, luxi::mono())) {
+              if (startup_pending_ || (startup_owned_ && startup_phase_ == "moving")) return;
+              startup_owned_ = false; startup_phase_ = "idle";
+              startup_reason_ = "teleop_handover";
               sent_ = state_.position;
               for (auto& a : arms_)
                 if (a) a->enable_all();
               enabled_ = true;
             } else if (s->data == "disable") {
+              startup_owned_ = startup_pending_ = false;
+              startup_phase_ = "idle"; startup_reason_ = "operator_disable";
               for (auto& a : arms_)
                 if (a) a->disable_all();
               enabled_ = false;
@@ -205,6 +400,7 @@ class Adapter : public rclcpp::Node {
         state_.age_ns[i] = seen_[i] ? feedback_now - seen_[i] : INT64_MAX;
         state_.valid[i] = luxi::fresh(seen_[i], feedback_now) && std::isfinite(state_.position[i]);
       }
+      update_startup(t, dt, luxi::valid_state(state_));
       state_.phase = monitor_only_ ? "monitor_only" : (enabled_ ? command_.phase : "disabled");
       if (enabled_ && luxi::valid_state(state_) && luxi::fresh(command_.source_mono_ns, t)) {
         auto target = cfg_.limit(command_.position, sent_, dt);
@@ -239,6 +435,16 @@ class Adapter : public rclcpp::Node {
     state_.header.frame_id = "arm_origin";
     state_.receive_mono_ns = luxi::mono();
     pub_->publish(state_);
+    double max_error = 0;
+    for (int i = 0; i < 16; ++i)
+      max_error = std::max(max_error, std::abs(startup_pose_[i] - state_.position[i]));
+    std_msgs::msg::String status;
+    status.data = luxi::Json{{"configured", startup_allowed_}, {"owned", startup_owned_},
+        {"phase", startup_phase_}, {"reason", startup_reason_}, {"target", startup_pose_},
+        {"speed_rad_s", startup_speed_}, {"tolerance_rad", startup_tolerance_},
+        {"static_compensation_rad", startup_bias_},
+        {"max_error_rad", max_error}, {"receive_mono_ns", std::to_string(luxi::mono())}}.dump();
+    startup_status_->publish(status);
   }
 };
 int main(int argc, char** argv) {

@@ -13,6 +13,11 @@
 <article class="card"><div class="card-heading"><span>⊞ R680 OMNI</span><span id="base-badge" class="pill">未知</span></div><h2 id="base-speed">— <small>m/s</small></h2><p id="base-detail">等待底盘反馈</p><div class="foot">CH3 <span>经典 CAN</span></div><div class="device-actions" data-device="base"><small class="service-state">读取服务状态…</small><div class="button-row"><button data-service-action="toggle" disabled>开启采集</button><button data-service-action="restart" disabled>重启 / 重连</button></div></div></article>
 <article class="card"><div class="card-heading"><span>▣ RGB CAMERAS</span><span id="camera-badge" class="pill">未知</span></div><h2 id="camera-count">— <small>/ 3 在线</small></h2><p id="disk">磁盘剩余 —</p><div class="foot">头部 / 左腕 / 右腕 <span>RGB</span></div></article>
 </section>
+<section class="panel" id="arm-startup-panel"><div class="section-heading"><h2>OpenArm 上电抬臂</h2><span id="arm-startup-badge" class="pill">等待状态</span></div>
+<p>上电后点击抬臂，双臂及夹爪以最高 0.15 rad/s 移至图示启动姿态，到位后保持。无需 Quest、底盘或升降使能。</p>
+<p id="arm-startup-status" role="status" aria-live="polite">等待关节反馈…</p>
+<div class="button-row"><button class="primary" data-kind="arm_startup" data-command="start" disabled>抬臂到启动姿态</button><button class="stop" data-kind="arm_startup" data-command="stop" disabled>停止抬臂并保持</button><button data-kind="arm_startup" data-command="disable" disabled>撤销抬臂使能（移除转矩）</button></div>
+<p class="hint">启动服务和刷新页面均不会自动抬臂。解除保持前请先支撑机械臂，再点击撤销使能；关闭或重启 OpenArm 服务也会移除转矩。</p></section>
 <section class="panel"><div class="section-heading"><h2>OpenArm 关节反馈</h2><span class="pill">角度 rad · 温度 °C</span></div><div class="arm-table-scroll"><table class="arm-table"><thead><tr><th>机械臂</th><th>关节</th><th>状态</th><th>位置</th><th>速度 rad/s</th><th>力矩 Nm</th><th>MOS / 转子温度</th></tr></thead><tbody id="arm-joints"></tbody></table></div></section>
 <section id="keyboard-panel" tabindex="-1" class="panel keyboard-panel" aria-labelledby="keyboard-title">
 <div class="section-heading"><div><div class="eyebrow">WASD / CH3</div><h2 id="keyboard-title">键盘测试控制</h2></div><span id="keyboard-badge" class="pill">等待状态</span></div>

@@ -1,0 +1,620 @@
+diff --git a/Project/device_adapters/src/openarm_adapter.cpp b/Project/device_adapters/src/openarm_adapter.cpp
+index 1cc4696..7b78edd 100644
+--- a/Project/device_adapters/src/openarm_adapter.cpp
++++ b/Project/device_adapters/src/openarm_adapter.cpp
+@@ -17,6 +17,152 @@ class Adapter : public rclcpp::Node {
+   luxi::Json json_;
+   luxi::ArmConfig cfg_;
+   bool monitor_only_ = false;
++  bool startup_allowed_ = false, startup_owned_ = false, startup_pending_ = false;
++  bool startup_recover_ = false;
++  std::array<double, 16> startup_pose_{};
++  std::array<double, 16> startup_reference_{};
++  std::array<double, 16> startup_nominal_{}, startup_bias_{};
++  double startup_speed_ = .15, startup_tolerance_ = .02;
++  int64_t startup_since_ = 0, startup_arrived_ = 0;
++  std::string startup_phase_ = "idle", startup_reason_ = "waiting_for_web_button";
++  rclcpp::Service<luxi::Service>::SharedPtr startup_service_;
++  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr startup_status_;
++  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr control_status_sub_;
++  luxi::Json control_status_;
++  int64_t control_status_time_ = 0;
++  void initialize_arm(int s) {
++    arms_[s] = std::make_unique<oa::OpenArm>(bus_names_[s], json_.at("fd"));
++    arms_[s]->init_arm_motors(
++        {dm::MotorType::DM8009, dm::MotorType::DM8009, dm::MotorType::DM4340,
++         dm::MotorType::DM4340, dm::MotorType::DM4310, dm::MotorType::DM4310,
++         dm::MotorType::DM4310}, {1, 2, 3, 4, 5, 6, 7}, {17, 18, 19, 20, 21, 22, 23});
++    arms_[s]->init_gripper_motor(dm::MotorType::DM4310, 8, 24, dm::ControlMode::POS_FORCE);
++    arms_[s]->set_callback_mode_all(dm::CallbackMode::STATE);
++  }
++  void startup_hold(const std::string& reason) {
++    startup_pending_ = false;
++    startup_phase_ = "hold";
++    startup_reason_ = reason;
++    startup_arrived_ = 0;
++    // Retain the submitted target and its supporting torque. Replacing it
++    // with measured position would unload the proportional controller.
++  }
++  bool startup_command(const std::string& command, std::string& message) {
++    const auto t = luxi::mono();
++    if (!startup_allowed_) { message = "启动姿态功能未配置"; return false; }
++    if (command == "disable") {
++      if (enabled_ && !startup_owned_) { message = "请通过遥操作控制撤销使能"; return false; }
++      if (startup_owned_ && enabled_)
++        for (auto& a : arms_) if (a) a->disable_all();
++      enabled_ = startup_owned_ = startup_pending_ = false;
++      startup_phase_ = "idle"; startup_reason_ = "operator_disable";
++      message = "已撤销抬臂使能并移除转矩"; return true;
++    }
++    if (command == "stop") {
++      if (startup_owned_) startup_hold("operator_stop");
++      message = "已停止抬臂，保留当前位置转矩"; return true;
++    }
++    if (command != "start") { message = "不支持的启动指令"; return false; }
++    if (startup_phase_ == "moving" || startup_pending_ || (enabled_ && !startup_owned_)) {
++      message = "双臂正在运动或已由遥操作控制"; return false;
++    }
++    if (control_status_.is_object() && luxi::fresh(control_status_time_, t, 500000000) &&
++        control_status_.value("phase", "disabled") != "disabled" &&
++        control_status_.value("system_phase", "disabled") != "stopped") {
++      message = "请先停止遥操作"; return false;
++    }
++    if (!luxi::valid_state(state_) || !luxi::fresh(state_.receive_mono_ns, t)) {
++      message = "需要全部 16 个关节的有效实时反馈"; return false;
++    }
++    for (int i = 0; i < 16; ++i) {
++      if (state_.position[i] < cfg_.lo[i] || state_.position[i] > cfg_.hi[i]) {
++        message = "当前关节超出配置限位，请先检查"; return false;
++      }
++    }
++    // Mode writes happen only after the explicit button, never on read-only boot.
++    startup_reference_ = state_.position;
++    if (monitor_only_) {
++      if (!mock_) {
++        for (auto& m : monitors_) m.reset();
++        for (int side = 0; side < 2; ++side) initialize_arm(side);
++      }
++      monitor_only_ = false;
++      seen_.fill(0);
++    }
++    startup_owned_ = true; startup_pending_ = !enabled_;
++    if (!enabled_) { sent_ = state_.position; startup_bias_.fill(0); }
++    for (int i = 0; i < 16; ++i) startup_nominal_[i] = sent_[i] - startup_bias_[i];
++    startup_since_ = t; startup_arrived_ = 0; startup_recover_ = false;
++    startup_phase_ = startup_pending_ ? "preparing" : "moving";
++    startup_reason_ = "operator_start";
++    message = "开始缓慢抬臂，到达后保持（含图示夹爪位置）";
++    return true;
++  }
++  void update_startup(int64_t t, double dt, bool healthy) {
++    if (!startup_owned_) return;
++    if (startup_pending_) {
++      if (t - startup_since_ > 3000000000LL) {
++        startup_hold("enable_feedback_timeout"); return;
++      }
++      if (!healthy) return;
++      for (int i = 0; i < 16; ++i) {
++        if (std::abs(state_.position[i] - startup_reference_[i]) > .05) {
++          startup_hold("feedback_changed_before_enable"); return;
++        }
++      }
++      sent_ = state_.position;
++      startup_nominal_ = state_.position;
++      enabled_ = true; // Ensure unwinding disables even a partially enabled pair.
++      for (auto& a : arms_) if (a) a->enable_all();
++      startup_pending_ = false;
++      startup_phase_ = "moving"; startup_since_ = t;
++    }
++    if (!enabled_) return;
++    if (!healthy) {
++      startup_phase_ = "hold"; startup_reason_ = "feedback_lost";
++      startup_recover_ = true; return;
++    }
++    if (startup_recover_) { sent_ = state_.position; startup_recover_ = false; }
++    if (startup_phase_ == "moving") {
++      double error = 0, lag = 0, speed = 0;
++      for (int i = 0; i < 16; ++i) {
++        error = std::max(error, std::abs(startup_pose_[i] - state_.position[i]));
++        lag = std::max(lag, std::abs(sent_[i] - state_.position[i]));
++        speed = std::max(speed, std::abs(state_.velocity[i]));
++      }
++      if (lag > .35 || t - startup_since_ > 45000000000LL) {
++        startup_hold(lag > .35 ? "following_error" : "startup_timeout");
++      } else {
++        bool nominal_arrived = true;
++        for (int i = 0; i < 16; ++i) {
++          const double step = std::min(cfg_.speed[i], startup_speed_) * dt;
++          startup_nominal_[i] += std::clamp(startup_pose_[i] - startup_nominal_[i], -step, step);
++          if (std::abs(startup_nominal_[i] - startup_pose_[i]) > .0001) nominal_arrived = false;
++        }
++        for (int i = 0; i < 16; ++i) {
++          // Slowly remove static load error after the nominal trajectory.
++          // Bias is bounded to 0.2 rad, its rate to 0.03 rad/s; grippers
++          // keep their position/force mode without integral compensation.
++          if (nominal_arrived && i % 8 != 7)
++            startup_bias_[i] = std::clamp(startup_bias_[i] +
++                std::clamp(.5 * (startup_pose_[i] - state_.position[i]) * dt,
++                           -.03 * dt, .03 * dt), -.2, .2);
++          const double desired = std::clamp(startup_nominal_[i] + startup_bias_[i], cfg_.lo[i], cfg_.hi[i]);
++          const double step = std::min(cfg_.speed[i], startup_speed_) * dt;
++          sent_[i] += std::clamp(desired - sent_[i], -step, step);
++        }
++        if (error <= startup_tolerance_ && speed < .08) {
++          if (!startup_arrived_) startup_arrived_ = t;
++          if (t - startup_arrived_ >= 500000000) {
++            startup_phase_ = "ready"; startup_reason_ = "measured_arrival";
++          }
++        } else startup_arrived_ = 0;
++      }
++    }
++    command_.position = sent_;
++    command_.phase = "startup_" + startup_phase_;
++    command_.source_mono_ns = t;
++  }
+   std::array<std::string, 2> bus_names_;
+   std::array<unsigned int, 2> bus_indices_{};
+   bool mock_, enabled_ = false;
+@@ -53,7 +199,10 @@ class Adapter : public rclcpp::Node {
+         collection.dispatch_frame_callback(classic);
+       } else
+         collection.dispatch_frame_callback(frame);
+-      seen_[side * 8 + id - 0x11] = luxi::mono();
++      if (frame.data[0] == id - 0x10 && frame.data[1] == 0 && frame.data[2] == 0x33)
++        continue; // Parameter acknowledgements are not fresh motor measurements.
++      if ((frame.data[0] & 15) != id - 0x10) continue;
++      seen_[side * 8 + id - 0x11] = (frame.data[0] >> 4) <= 1 ? luxi::mono() : 0;
+     }
+     auto motors = arms_[side]->get_arm().get_motors();
+     motors.push_back(*arms_[side]->get_gripper().get_motor());
+@@ -84,6 +233,23 @@ class Adapter : public rclcpp::Node {
+       throw std::runtime_error(
+           "Hardware requires allow_hardware:=true; default mock never opens CAN");
+     monitor_only_ = declare_parameter("monitor_only", false);
++    startup_allowed_ = json_.contains("startup_pose");
++    if (startup_allowed_) {
++      const auto& pose = json_.at("startup_pose");
++      startup_speed_ = pose.at("speed_rad_s").get<double>();
++      if (!std::isfinite(startup_speed_) || startup_speed_ <= 0 || startup_speed_ > .2)
++        throw std::invalid_argument("startup speed must be in (0, 0.2]");
++      for (int side = 0; side < 2; ++side) {
++        const auto values = pose.at(side ? "left" : "right").get<std::vector<double>>();
++        if (values.size() != 8) throw std::invalid_argument("startup pose needs 8 joints per arm");
++        for (int i = 0; i < 8; ++i) {
++          const int k = side * 8 + i;
++          if (!std::isfinite(values[i]) || values[i] < cfg_.lo[k] || values[i] > cfg_.hi[k])
++            throw std::invalid_argument("startup pose outside joint limits");
++          startup_pose_[k] = values[i];
++        }
++      }
++    }
+     state_.position = cfg_.home;
+     for (int i = 0; i < 16; i++)
+       state_.position[i] = std::clamp(state_.position[i], cfg_.lo[i], cfg_.hi[i]);
+@@ -102,32 +268,44 @@ class Adapter : public rclcpp::Node {
+         bus_names_[s] = iface;
+         bus_indices_[s] = if_nametoindex(iface.c_str());
+         if (monitor_only_) continue;
+-        arms_[s] = std::make_unique<oa::OpenArm>(iface, json_.at("fd"));
+-        arms_[s]->init_arm_motors(
+-            {dm::MotorType::DM8009, dm::MotorType::DM8009, dm::MotorType::DM4340,
+-             dm::MotorType::DM4340, dm::MotorType::DM4310, dm::MotorType::DM4310,
+-             dm::MotorType::DM4310},
+-            {1, 2, 3, 4, 5, 6, 7}, {17, 18, 19, 20, 21, 22, 23});
+-        arms_[s]->init_gripper_motor(dm::MotorType::DM4310, 8, 24, dm::ControlMode::POS_FORCE);
+-        arms_[s]->set_callback_mode_all(dm::CallbackMode::STATE);
++        initialize_arm(s);
+       }
+     }
+     pub_ = create_publisher<luxi::State>("/luxi/arms/state", 5);
+     applied_ = create_publisher<luxi::Command>("/luxi/applied", 10);
+     errors_ = create_publisher<std_msgs::msg::String>("/luxi/faults", 20);
+     sub_ = create_subscription<luxi::Command>(
+-        "/luxi/command", 1, [this](luxi::Command::ConstSharedPtr c) { command_ = *c; });
++        "/luxi/command", 1, [this](luxi::Command::ConstSharedPtr c) { if (!startup_owned_) command_ = *c; });
++    startup_status_ = create_publisher<std_msgs::msg::String>("/luxi/arms/startup_status", 1);
++    control_status_sub_ = create_subscription<std_msgs::msg::String>("/luxi/control_status", 1,
++        [this](std_msgs::msg::String::ConstSharedPtr m) {
++          auto j = luxi::Json::parse(m->data, nullptr, false);
++          if (j.is_object()) { control_status_ = j; control_status_time_ = luxi::mono(); }
++        });
++    startup_service_ = create_service<luxi::Service>("/luxi/arms/startup",
++        [this](const std::shared_ptr<luxi::Service::Request> req,
++               std::shared_ptr<luxi::Service::Response> res) {
++          try { res->success = startup_command(req->command, res->message); }
++          catch (const std::exception& e) {
++            startup_hold("initialization_failed"); res->success = false; res->message = e.what();
++          }
++        });
+     life_ = create_subscription<std_msgs::msg::String>(
+         "/luxi/driver_lifecycle", 10, [this](std_msgs::msg::String::ConstSharedPtr s) {
+           if (monitor_only_) return;
+           try {
+             if (s->data == "enable" && luxi::valid_state(state_) &&
+                 luxi::fresh(state_.receive_mono_ns, luxi::mono())) {
++              if (startup_pending_ || (startup_owned_ && startup_phase_ == "moving")) return;
++              startup_owned_ = false; startup_phase_ = "idle";
++              startup_reason_ = "teleop_handover";
+               sent_ = state_.position;
+               for (auto& a : arms_)
+                 if (a) a->enable_all();
+               enabled_ = true;
+             } else if (s->data == "disable") {
++              startup_owned_ = startup_pending_ = false;
++              startup_phase_ = "idle"; startup_reason_ = "operator_disable";
+               for (auto& a : arms_)
+                 if (a) a->disable_all();
+               enabled_ = false;
+@@ -205,6 +383,7 @@ class Adapter : public rclcpp::Node {
+         state_.age_ns[i] = seen_[i] ? feedback_now - seen_[i] : INT64_MAX;
+         state_.valid[i] = luxi::fresh(seen_[i], feedback_now) && std::isfinite(state_.position[i]);
+       }
++      update_startup(t, dt, luxi::valid_state(state_));
+       state_.phase = monitor_only_ ? "monitor_only" : (enabled_ ? command_.phase : "disabled");
+       if (enabled_ && luxi::valid_state(state_) && luxi::fresh(command_.source_mono_ns, t)) {
+         auto target = cfg_.limit(command_.position, sent_, dt);
+@@ -239,6 +418,16 @@ class Adapter : public rclcpp::Node {
+     state_.header.frame_id = "arm_origin";
+     state_.receive_mono_ns = luxi::mono();
+     pub_->publish(state_);
++    double max_error = 0;
++    for (int i = 0; i < 16; ++i)
++      max_error = std::max(max_error, std::abs(startup_pose_[i] - state_.position[i]));
++    std_msgs::msg::String status;
++    status.data = luxi::Json{{"configured", startup_allowed_}, {"owned", startup_owned_},
++        {"phase", startup_phase_}, {"reason", startup_reason_}, {"target", startup_pose_},
++        {"speed_rad_s", startup_speed_}, {"tolerance_rad", startup_tolerance_},
++        {"static_compensation_rad", startup_bias_},
++        {"max_error_rad", max_error}, {"receive_mono_ns", std::to_string(luxi::mono())}}.dump();
++    startup_status_->publish(status);
+   }
+ };
+ int main(int argc, char** argv) {
+diff --git a/Project/luxi_web_ctrl/src/web_ctrl.cpp b/Project/luxi_web_ctrl/src/web_ctrl.cpp
+index 54a210f..9226606 100644
+--- a/Project/luxi_web_ctrl/src/web_ctrl.cpp
++++ b/Project/luxi_web_ctrl/src/web_ctrl.cpp
+@@ -31,6 +31,10 @@ class Server : public rclcpp::Node {
+   bool mock_, base_enabled_, no_cameras_;
+   luxi::Quest quest_;
+   std::deque<int64_t> quest_arrivals_;
++  luxi::Json startup_;
++  int64_t startup_time_ = 0;
++  rclcpp::Client<luxi::Service>::SharedPtr startup_client_;
++  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr startup_sub_;
+   int64_t control_time_ = 0, recorder_time_ = 0, base_status_time_ = 0;
+   luxi::Json state_, control_, recorder_, base_, base_status_, lift_, lift_status_;
+   int64_t lift_status_time_ = 0;
+@@ -78,6 +82,15 @@ class Server : public rclcpp::Node {
+         while (!quest_arrivals_.empty() && now - quest_arrivals_.front() > 1000000000)
+           quest_arrivals_.pop_front();
+       }));
++    startup_client_ = create_client<luxi::Service>("/luxi/arms/startup");
++    startup_sub_ = create_subscription<std_msgs::msg::String>("/luxi/arms/startup_status", 1,
++        [this](std_msgs::msg::String::ConstSharedPtr m) {
++          auto j = luxi::Json::parse(m->data, nullptr, false);
++          if (j.is_object()) {
++            std::lock_guard<std::mutex> lock(mutex_);
++            startup_ = j; startup_time_ = luxi::mono();
++          }
++        });
+     arm_client_ = create_client<luxi::Service>("/luxi/control");
+     record_client_ = create_client<luxi::Service>("/luxi/episode");
+     base_client_ = create_client<luxi::Service>("/luxi/base/control");
+@@ -331,6 +344,8 @@ class Server : public rclcpp::Node {
+       const auto now = luxi::mono();
+       auto base = base_, arms = state_, control = control_, recorder = recorder_, base_status = base_status_;
+       auto lift = lift_, lift_status = lift_status_;
++      auto startup = startup_;
++      if (startup.is_object()) startup["fresh"] = luxi::fresh(startup_time_, now, 500000000);
+       const auto recent = [now](const luxi::Json& j, int64_t ttl) {
+         return j.is_object() && j.contains("receive_mono_ns") &&
+           luxi::fresh(std::stoll(j.at("receive_mono_ns").template get<std::string>()), now, ttl);
+@@ -393,7 +408,7 @@ class Server : public rclcpp::Node {
+       std::error_code ec;
+       auto disk = luxi::fs::space(root_, ec);
+       res.set_content(luxi::Json{
+-        {"arms", arms}, {"base", base}, {"base_status", base_status}, {"control", control}, {"recorder", recorder},
++        {"arm_startup", startup}, {"arms", arms}, {"base", base}, {"base_status", base_status}, {"control", control}, {"recorder", recorder},
+         {"lift", lift}, {"lift_status", lift_status},
+         {"quest", {{"fresh", luxi::fresh(quest_.receive_mono_ns, now, 200000000)}, {"rate_hz", rate},
+           {"left_tracking", quest_.left_tracking}, {"right_tracking", quest_.right_tracking},
+@@ -401,7 +416,7 @@ class Server : public rclcpp::Node {
+         {"system", {{"mock", mock_}, {"base_enabled", base_enabled_}, {"no_cameras", no_cameras_},
+           {"data_directory", root_.string()}, {"free_gib", ec ? -1.0 : disk.available / 1073741824.0},
+           {"control_authorized", true},
+-          {"services", {{"control", arm_client_->service_is_ready()}, {"base", base_client_->service_is_ready()}, {"lift", lift_client_->service_is_ready()}, {"episode", record_client_->service_is_ready()}}}}},
++          {"services", {{"arm_startup", startup_client_->service_is_ready()}, {"control", arm_client_->service_is_ready()}, {"base", base_client_->service_is_ready()}, {"lift", lift_client_->service_is_ready()}, {"episode", record_client_->service_is_ready()}}}}},
+         {"receiver", receiver_->status()}, {"ram_staging", ram_staging},
+         {"server_mono_ns", std::to_string(now)}}.dump(), "application/json");
+       res.set_header("Cache-Control", "no-store");
+@@ -484,7 +499,7 @@ class Server : public rclcpp::Node {
+                                  return true;
+                                });
+     });
+-    http_.Post("/api/(control|episode|base|keyboard|lift)", [this](const auto& req, auto& res) {
++    http_.Post("/api/(control|episode|base|keyboard|lift|arm_startup)", [this](const auto& req, auto& res) {
+       const bool keyboard = req.matches[1] == "keyboard";
+       auto j = luxi::Json::parse(req.body, nullptr, false);
+       if (j.is_discarded() || !j.is_object() || !j.contains("command") ||
+@@ -497,7 +512,7 @@ class Server : public rclcpp::Node {
+         res.status = 400;
+         return;
+       }
+-      auto client = req.matches[1] == "lift" ? lift_client_ : req.matches[1] == "control" ? arm_client_ : (req.matches[1] == "base" || keyboard) ? base_client_ : record_client_;
++      auto client = req.matches[1] == "arm_startup" ? startup_client_ : req.matches[1] == "lift" ? lift_client_ : req.matches[1] == "control" ? arm_client_ : (req.matches[1] == "base" || keyboard) ? base_client_ : record_client_;
+       if (!client->service_is_ready()) {
+         res.status = 503;
+         return;
+diff --git a/Project/luxi_web_ctrl/test/test_device_feedback.js b/Project/luxi_web_ctrl/test/test_device_feedback.js
+index 035c279..6d25d57 100644
+--- a/Project/luxi_web_ctrl/test/test_device_feedback.js
++++ b/Project/luxi_web_ctrl/test/test_device_feedback.js
+@@ -9,7 +9,7 @@ assert(start >= 0 && end > start);
+ function armLabel(a) {
+   const out = {};
+   vm.runInNewContext(source.slice(start, end), {
+-    a, s:{system:{mock:false}}, phases:{},
++    a, s:{system:{mock:false}}, phases:{}, startup:null, startupNames:{},
+     badge:(id,label)=>out[id]=label, text:(id,value)=>out[id]=value,
+   });
+   return out;
+diff --git a/Project/luxi_web_ctrl/web/app.js b/Project/luxi_web_ctrl/web/app.js
+index 67c099e..d3c6d34 100644
+--- a/Project/luxi_web_ctrl/web/app.js
++++ b/Project/luxi_web_ctrl/web/app.js
+@@ -24,6 +24,14 @@ function buttons() {
+   document.querySelectorAll('[data-command]').forEach(b => {
+     const kind = b.dataset.kind, cmd = b.dataset.command;
+     let allow = connected && services[kind] && !busy;
++    if (kind === 'arm_startup') {
++      const startup = s?.arm_startup;
++      allow &&= startup?.fresh && startup.configured;
++      if (cmd === 'start') allow &&= s.arms?.fresh && s.arms.valid.every(Boolean) &&
++        !['preparing','moving'].includes(startup.phase) && (!s.arms.enabled || startup.owned);
++      else allow &&= startup.owned;
++      b.disabled = !allow; return;
++    }
+     if (cmd === 'start') {
+       if (kind === 'control') {
+         allow &&= s.arms?.fresh && s.arms.phase !== 'monitor_only' && s.arms.valid.every(Boolean) && s.quest?.fresh && s.quest.rate_hz >= 50 && s.control?.fresh;
+@@ -58,6 +66,12 @@ function render(s) {
+   text('updated','更新于 ' + new Date().toLocaleTimeString());
+   badge('mode',s.system.mock ? 'MOCK · 模拟设备' : 'REAL · 实机模式',s.system.mock ? 'warn' : 'good');
+   const q = s.quest || {}, a = s.arms, b = s.base, bs = s.base_status, r = s.recorder;
++  const startup = s.arm_startup;
++  const startupNames = {idle:'等待手动抬臂',preparing:'准备使能',moving:'正在缓慢抬臂',ready:'已到位 · 转矩保持',hold:'已停止 · 转矩保持'};
++  const startupReasons = {waiting_for_web_button:'点击按钮开始',operator_start:'正在执行启动姿态',operator_stop:'操作员停止',measured_arrival:'已通过关节反馈确认到位',feedback_lost:'反馈中断，已停止轨迹，需要手动重新启动',following_error:'跟随误差过大，已停止轨迹',startup_timeout:'抬臂超时，已停止轨迹',enable_feedback_timeout:'使能前反馈未就绪',initialization_failed:'驱动初始化失败',teleop_handover:'已交给遥操作控制',operator_disable:'已撤销使能'};
++  badge('arm-startup-badge', startup?.fresh && startup.configured ? startupNames[startup.phase] || startup.phase : '启动功能未就绪', startup?.phase === 'ready' ? 'good' : 'warn');
++  text('arm-startup-status', startup?.fresh && startup.configured ?
++    (startupReasons[startup.reason] || startup.reason) + ' · 最大位置误差 ' + Number(startup.max_error_rad).toFixed(3) + ' rad' : '等待 OpenArm 服务及启动姿态配置');
+   const shared = !!s.control?.shared_enable;
+   text('shared-control-status', a?.phase === 'monitor_only' ? '当前为只读设备检查，运动控制未开启。' : shared ? (systemPhases[s.control.system_phase] || s.control.system_phase) + ' · ' + s.control.reason : '当前运行版本使用独立使能；统一控制尚未加载。');
+   document.querySelector('[data-kind="control"][data-command="start"]').textContent = shared ? '启用全部遥操作' : '使能双臂';
+@@ -72,7 +86,7 @@ function render(s) {
+   const armValid = a?.fresh && a.valid?.every(Boolean);
+   const armCount = a?.fresh ? a.valid.filter(Boolean).length : 0;
+   badge('arms-badge',armValid ? (s.system.mock ? '模拟反馈' : '反馈在线') : armCount ? '部分在线 · ' + armCount + '/16' : '未就绪',armValid ? 'good' : armCount ? 'warn' : 'bad');
+-  text('arm-phase',!a?.fresh ? '采集节点离线' : a.phase === 'fault' ? '驱动通信异常' : a?.fresh && a.phase === 'monitor_only' ? '状态采集 · 未使能' : s.control?.fresh ? (phases[s.control.phase] || s.control.phase) : a?.fresh ? (a.enabled ? '已使能' : '未使能') : '采集节点离线');
++  text('arm-phase',!a?.fresh ? '采集节点离线' : a.phase === 'fault' ? '驱动通信异常' : startup?.fresh && startup.owned ? startupNames[startup.phase] || startup.phase : a?.fresh && a.phase === 'monitor_only' ? '状态采集 · 未使能' : s.control?.fresh ? (phases[s.control.phase] || s.control.phase) : a?.fresh ? (a.enabled ? '已使能' : '未使能') : '采集节点离线');
+   text('arms-detail',a?.fresh ? '左臂 ' + a.valid.slice(8,16).filter(Boolean).length + '/8 · 右臂 ' + a.valid.slice(0,8).filter(Boolean).length + '/8 有效反馈' : '没有新鲜关节反馈');
+   const jointRows = [];
+   for (const [side, offset] of [['左臂',8],['右臂',0]]) {
+diff --git a/Project/luxi_web_ctrl/web/index.html b/Project/luxi_web_ctrl/web/index.html
+index bf5a024..e653230 100644
+--- a/Project/luxi_web_ctrl/web/index.html
++++ b/Project/luxi_web_ctrl/web/index.html
+@@ -13,6 +13,11 @@
+ <article class="card"><div class="card-heading"><span>⊞ R680 OMNI</span><span id="base-badge" class="pill">未知</span></div><h2 id="base-speed">— <small>m/s</small></h2><p id="base-detail">等待底盘反馈</p><div class="foot">CH3 <span>经典 CAN</span></div><div class="device-actions" data-device="base"><small class="service-state">读取服务状态…</small><div class="button-row"><button data-service-action="toggle" disabled>开启采集</button><button data-service-action="restart" disabled>重启 / 重连</button></div></div></article>
+ <article class="card"><div class="card-heading"><span>▣ RGB CAMERAS</span><span id="camera-badge" class="pill">未知</span></div><h2 id="camera-count">— <small>/ 3 在线</small></h2><p id="disk">磁盘剩余 —</p><div class="foot">头部 / 左腕 / 右腕 <span>RGB</span></div></article>
+ </section>
++<section class="panel" id="arm-startup-panel"><div class="section-heading"><h2>OpenArm 上电抬臂</h2><span id="arm-startup-badge" class="pill">等待状态</span></div>
++<p>上电后点击抬臂，双臂及夹爪以最高 0.15 rad/s 移至图示启动姿态，到位后保持。无需 Quest、底盘或升降使能。</p>
++<p id="arm-startup-status" role="status" aria-live="polite">等待关节反馈…</p>
++<div class="button-row"><button class="primary" data-kind="arm_startup" data-command="start" disabled>抬臂到启动姿态</button><button class="stop" data-kind="arm_startup" data-command="stop" disabled>停止抬臂并保持</button><button data-kind="arm_startup" data-command="disable" disabled>撤销抬臂使能（移除转矩）</button></div>
++<p class="hint">启动服务和刷新页面均不会自动抬臂。解除保持前请先支撑机械臂，再点击撤销使能；关闭或重启 OpenArm 服务也会移除转矩。</p></section>
+ <section class="panel"><div class="section-heading"><h2>OpenArm 关节反馈</h2><span class="pill">角度 rad · 温度 °C</span></div><div class="arm-table-scroll"><table class="arm-table"><thead><tr><th>机械臂</th><th>关节</th><th>状态</th><th>位置</th><th>速度 rad/s</th><th>力矩 Nm</th><th>MOS / 转子温度</th></tr></thead><tbody id="arm-joints"></tbody></table></div></section>
+ <section id="keyboard-panel" tabindex="-1" class="panel keyboard-panel" aria-labelledby="keyboard-title">
+ <div class="section-heading"><div><div class="eyebrow">WASD / CH3</div><h2 id="keyboard-title">键盘测试控制</h2></div><span id="keyboard-badge" class="pill">等待状态</span></div>
+diff --git a/Project/robot_bringup/config/arms-kh.json b/Project/robot_bringup/config/arms-kh.json
+index 64457eb..752215d 100644
+--- a/Project/robot_bringup/config/arms-kh.json
++++ b/Project/robot_bringup/config/arms-kh.json
+@@ -147,5 +147,28 @@
+     ],
+     "gripper_open": 1.532796,
+     "gripper_closed": 0
++  },
++  "startup_pose": {
++    "speed_rad_s": 0.15,
++    "right": [
++      0.0,
++      -0.003,
++      0.011,
++      1.583,
++      -0.001,
++      -0.068,
++      -0.598,
++      -0.373
++    ],
++    "left": [
++      -0.064,
++      0.0,
++      0.133,
++      1.409,
++      0.09,
++      0.162,
++      0.648,
++      -0.367
++    ]
+   }
+ }
+diff --git a/Project/device_adapters/test/test_openarm_startup.py b/Project/device_adapters/test/test_openarm_startup.py
+new file mode 100644
+index 0000000..1dce3ec
+--- /dev/null
++++ b/Project/device_adapters/test/test_openarm_startup.py
+@@ -0,0 +1,117 @@
++#!/usr/bin/env python3
++"""Real adapter + HTTP gateway, isolated ROS domain, mock motors only."""
++import json
++import os
++from pathlib import Path
++import signal
++import subprocess
++import sys
++import tempfile
++import time
++import urllib.request
++import urllib.error
++
++os.environ['ROS_DOMAIN_ID'] = '108'
++os.environ['ROS_LOCALHOST_ONLY'] = '1'
++import rclpy
++from rclpy.qos import QoSProfile, DurabilityPolicy
++from luxi_interfaces.msg import ArmCommand
++from std_msgs.msg import String
++
++root = Path(sys.argv[1]).resolve()
++config = json.loads((root/'Project/robot_bringup/config/arms-kh.json').read_text())
++rclpy.init()
++node = rclpy.create_node('startup_test')
++life = node.create_publisher(String, '/luxi/driver_lifecycle', 10)
++external = node.create_publisher(ArmCommand, '/luxi/command', 1)
++manager = node.create_publisher(String, '/luxi/control_status', QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL))
++processes = []
++logs = []
++url = 'http://127.0.0.1:18041'
++
++def wait(seconds):
++    end = time.monotonic()+seconds
++    while time.monotonic()<end:
++        rclpy.spin_once(node, timeout_sec=.01)
++
++def state():
++    return json.load(urllib.request.urlopen(url+'/api/state', timeout=3))
++
++def until(predicate, timeout=5):
++    end=time.monotonic()+timeout
++    while time.monotonic()<end:
++        try:
++            j=state()
++            if predicate(j): return j
++        except (urllib.error.URLError, TypeError, KeyError): pass
++        wait(.04)
++    raise AssertionError('state timeout: '+str(state()))
++
++def command(value, expected=200):
++    req=urllib.request.Request(url+'/api/arm_startup',data=json.dumps({'command':value}).encode(),headers={'Content-Type':'application/json'})
++    try:
++        res=urllib.request.urlopen(req,timeout=4)
++    except urllib.error.HTTPError as e: res=e
++    assert res.code==expected,(value,res.code,res.read())
++    return json.load(res)
++
++try:
++    with tempfile.TemporaryDirectory(prefix='luxi-startup-') as tmp:
++        for binary,args in [
++            ('luxi_device_adapters/lib/luxi_device_adapters/openarm_adapter',['-p','mock:=true','-p','monitor_only:=true','-p','config:='+str(root/'Project/robot_bringup/config/arms-kh.json')]),
++            ('luxi_web_ctrl/lib/luxi_web_ctrl/web_ctrl',['-p','port:=18041','-p','mock:=true','-p','no_cameras:=true','-p','directory:='+tmp])]:
++            log=open(Path(tmp)/(str(len(logs))+'.log'),'w+'); logs.append(log)
++            processes.append(subprocess.Popen([str(root/'build/install'/binary),'--ros-args',*args],stdout=log,stderr=subprocess.STDOUT))
++        j=until(lambda s:s['system']['services']['arm_startup'] and s['arms']['fresh'] and s['arm_startup']['fresh'])
++        assert j['arm_startup']['tolerance_rad']==.02 and len(j['arm_startup']['static_compensation_rad'])==16
++        assert not j['arms']['enabled'] and j['arms']['phase']=='monitor_only'
++        initial=j['arms']['position']
++        life.publish(String(data='enable')); wait(.3)
++        assert not state()['arms']['enabled'], 'monitor boot must reject lifecycle enable'
++        command('invalid',409)
++        manager.publish(String(data=json.dumps({'phase':'teleop','system_phase':'active'}))); wait(.1)
++        command('start',409)
++        manager.publish(String(data=json.dumps({'phase':'disabled','system_phase':'disabled'}))); wait(.1)
++        command('start')
++        until(lambda s:s['arm_startup']['phase']=='moving')
++        command('start',409)
++        # External targets cannot replace the local startup trajectory.
++        msg=ArmCommand(); msg.position=[0.]*16; msg.source_mono_ns=time.monotonic_ns(); msg.phase='external'
++        external.publish(msg)
++        life.publish(String(data='enable')); wait(.2)
++        assert state()['arm_startup']['owned']
++        command('stop')
++        held=until(lambda s:s['arm_startup']['phase']=='hold')
++        assert held['arms']['enabled']
++        wait(.4)
++        assert max(abs(a-b) for a,b in zip(held['arms']['position'],state()['arms']['position']))<.005
++        command('start')
++        previous=state(); maximum=0
++        deadline=time.monotonic()+22
++        while time.monotonic()<deadline:
++            wait(.04); j=state()
++            dt=(int(j['arms']['receive_mono_ns'])-int(previous['arms']['receive_mono_ns']))/1e9
++            if dt>0:
++                rate=max(abs(a-b)/dt for a,b in zip(j['arms']['position'],previous['arms']['position']))
++                maximum=max(maximum,rate)
++                # Feedback follows the previous tick's submitted target; allow
++                # one 10 ms timer interval for the HTTP sampling boundary.
++                assert max(abs(a-b) for a,b in zip(j['arms']['position'],previous['arms']['position']))<=.15*dt+.0016,rate
++            previous=j
++            if j['arm_startup']['phase']=='ready': break
++        assert j['arm_startup']['phase']=='ready',j['arm_startup']
++        assert j['arms']['enabled'] and j['arm_startup']['max_error_rad']<=j['arm_startup']['tolerance_rad']
++        assert j['arm_startup']['target']==config['startup_pose']['right']+config['startup_pose']['left']
++        wait(.6)
++        assert state()['arm_startup']['phase']=='ready'
++        command('disable')
++        until(lambda s:not s['arms']['enabled'] and not s['arm_startup']['owned'])
++        wait(.3)
++        assert not state()['arms']['enabled']
++        print('PASS: no automatic enable; manager interlock; HTTP rejection; stop/hold/resume; target ordering; measured arrival; disable; sampled feedback peak %.4f rad/s (one timer interval tolerance)'%maximum)
++finally:
++    for p in processes: p.send_signal(signal.SIGINT)
++    for p in processes:
++        try:p.wait(timeout=5)
++        except subprocess.TimeoutExpired:p.kill();p.wait()
++    node.destroy_node();rclpy.shutdown()
+diff --git "a/docs/OpenArm\344\270\212\347\224\265\346\212\254\350\207\202.md" "b/docs/OpenArm\344\270\212\347\224\265\346\212\254\350\207\202.md"
+new file mode 100644
+index 0000000..36a6a33
+--- /dev/null
++++ "b/docs/OpenArm\344\270\212\347\224\265\346\212\254\350\207\202.md"
+@@ -0,0 +1,40 @@
++# OpenArm 上电抬臂（网页手动触发）
++
++网页：`http://192.168.0.245:8000`，设备总览下方 **OpenArm 上电抬臂**。
++
++1. 确认 OpenArm 采集开启，左右各 8/8 关节反馈在线。
++2. 点击 **抬臂到启动姿态**。不需要 Quest、底盘、升降或录制程序。
++3. 双臂及夹爪从当前反馈位置以最高 0.15 rad/s 移动，到位后持续保持转矩。
++4. **停止抬臂并保持** 可中止轨迹；再次点击抬臂才继续。
++5. 如需解除保持，请先支撑机械臂，再点击 **撤销抬臂使能（移除转矩）**。
++
++开机、采集服务启动、页面刷新不会自动抬臂。当前实现为手动验证阶段，未加入无人触发的开机运动。
++
++目标来自 2026-10-21 用户截图，单位 rad：
++
++| 机械臂 | J1 | J2 | J3 | J4 | J5 | J6 | J7 | 夹爪 |
++|---|---:|---:|---:|---:|---:|---:|---:|---:|
++| 左 | -0.064 | 0.000 | 0.133 | 1.409 | 0.090 | 0.162 | 0.648 | -0.367 |
++| 右 | 0.000 | -0.003 | 0.011 | 1.583 | -0.001 | -0.068 | -0.598 | -0.373 |
++
++配置位置：`Project/robot_bringup/config/arms-kh.json` 的 `startup_pose`。ROS 消息始终为右 8 + 左 8 顺序。原 `home`、零点、关节限位与遥操作配置不变。
++
++接口：`POST /api/arm_startup`，JSON `{"command":"start"}`、`{"command":"stop"}` 或 `{"command":"disable"}`；ROS 服务 `/luxi/arms/startup`，状态 `/luxi/arms/startup_status`，网页 `/api/state` 的 `arm_startup` 字段。
++
++到位需全部 16 轴位置误差 ≤ 0.02 rad、反馈速度 < 0.08 rad/s，并稳定 0.5 s。轨迹使用单调时钟，单次步长按最多 50 ms 限制；45 s 未到位或跟随误差 > 0.35 rad 时停止并保持。丢反馈时停止轨迹，反馈恢复也不自动继续。只读切换到 SDK 后重新核验读数；相对切换前变化 > 0.05 rad 不使能。
++
++实机初测发现原比例位置控制在负载下有约 0.10 rad 的静态偏差。现在在名义轨迹完成后使用受限积分补偿：补偿系数 0.5/s，幅度限制 ±0.2 rad，变化率限制 0.03 rad/s，最终发送目标仍遵守关节限位与 0.15 rad/s 速度上限。夹爪不参与积分补偿。停止和再次启动保留已有支撑目标及补偿，避免因把目标直接改成测量值而卸掉支撑转矩。状态中的 `static_compensation_rad` 可用于检查各轴补偿量。
++
++保持期间关闭/重启 OpenArm 服务会执行驱动原有退出失能流程、移除转矩。先由现场人员支撑机械臂。网页关闭不会终止板端已提交的有限轨迹，也不会移除保持转矩。
++
++启动轨迹执行中拒绝遥操作接管；到位或停止后可以由原有显式使能接管，原系统的 Quest/底盘/升降门禁仍生效。独立抬臂不会发布底盘或升降指令。
++
++模拟回归（ROS domain 108，仅模拟电机）：
++
++```bash
++source /opt/ros/humble/setup.bash
++source build/install/setup.bash
++python3 Project/device_adapters/test/test_openarm_startup.py "$PWD"
++```
++
++修改前源文件备份：`work/startup-pose-backup-20261021/before.tgz`。

@@ -31,6 +31,10 @@ class Server : public rclcpp::Node {
   bool mock_, base_enabled_, no_cameras_;
   luxi::Quest quest_;
   std::deque<int64_t> quest_arrivals_;
+  luxi::Json startup_;
+  int64_t startup_time_ = 0;
+  rclcpp::Client<luxi::Service>::SharedPtr startup_client_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr startup_sub_;
   int64_t control_time_ = 0, recorder_time_ = 0, base_status_time_ = 0;
   luxi::Json state_, control_, recorder_, base_, base_status_, lift_, lift_status_;
   int64_t lift_status_time_ = 0;
@@ -78,6 +82,15 @@ class Server : public rclcpp::Node {
         while (!quest_arrivals_.empty() && now - quest_arrivals_.front() > 1000000000)
           quest_arrivals_.pop_front();
       }));
+    startup_client_ = create_client<luxi::Service>("/luxi/arms/startup");
+    startup_sub_ = create_subscription<std_msgs::msg::String>("/luxi/arms/startup_status", 1,
+        [this](std_msgs::msg::String::ConstSharedPtr m) {
+          auto j = luxi::Json::parse(m->data, nullptr, false);
+          if (j.is_object()) {
+            std::lock_guard<std::mutex> lock(mutex_);
+            startup_ = j; startup_time_ = luxi::mono();
+          }
+        });
     arm_client_ = create_client<luxi::Service>("/luxi/control");
     record_client_ = create_client<luxi::Service>("/luxi/episode");
     base_client_ = create_client<luxi::Service>("/luxi/base/control");
@@ -331,6 +344,8 @@ class Server : public rclcpp::Node {
       const auto now = luxi::mono();
       auto base = base_, arms = state_, control = control_, recorder = recorder_, base_status = base_status_;
       auto lift = lift_, lift_status = lift_status_;
+      auto startup = startup_;
+      if (startup.is_object()) startup["fresh"] = luxi::fresh(startup_time_, now, 500000000);
       const auto recent = [now](const luxi::Json& j, int64_t ttl) {
         return j.is_object() && j.contains("receive_mono_ns") &&
           luxi::fresh(std::stoll(j.at("receive_mono_ns").template get<std::string>()), now, ttl);
@@ -393,7 +408,7 @@ class Server : public rclcpp::Node {
       std::error_code ec;
       auto disk = luxi::fs::space(root_, ec);
       res.set_content(luxi::Json{
-        {"arms", arms}, {"base", base}, {"base_status", base_status}, {"control", control}, {"recorder", recorder},
+        {"arm_startup", startup}, {"arms", arms}, {"base", base}, {"base_status", base_status}, {"control", control}, {"recorder", recorder},
         {"lift", lift}, {"lift_status", lift_status},
         {"quest", {{"fresh", luxi::fresh(quest_.receive_mono_ns, now, 200000000)}, {"rate_hz", rate},
           {"left_tracking", quest_.left_tracking}, {"right_tracking", quest_.right_tracking},
@@ -401,7 +416,7 @@ class Server : public rclcpp::Node {
         {"system", {{"mock", mock_}, {"base_enabled", base_enabled_}, {"no_cameras", no_cameras_},
           {"data_directory", root_.string()}, {"free_gib", ec ? -1.0 : disk.available / 1073741824.0},
           {"control_authorized", true},
-          {"services", {{"control", arm_client_->service_is_ready()}, {"base", base_client_->service_is_ready()}, {"lift", lift_client_->service_is_ready()}, {"episode", record_client_->service_is_ready()}}}}},
+          {"services", {{"arm_startup", startup_client_->service_is_ready()}, {"control", arm_client_->service_is_ready()}, {"base", base_client_->service_is_ready()}, {"lift", lift_client_->service_is_ready()}, {"episode", record_client_->service_is_ready()}}}}},
         {"receiver", receiver_->status()}, {"ram_staging", ram_staging},
         {"server_mono_ns", std::to_string(now)}}.dump(), "application/json");
       res.set_header("Cache-Control", "no-store");
@@ -484,7 +499,7 @@ class Server : public rclcpp::Node {
                                  return true;
                                });
     });
-    http_.Post("/api/(control|episode|base|keyboard|lift)", [this](const auto& req, auto& res) {
+    http_.Post("/api/(control|episode|base|keyboard|lift|arm_startup)", [this](const auto& req, auto& res) {
       const bool keyboard = req.matches[1] == "keyboard";
       auto j = luxi::Json::parse(req.body, nullptr, false);
       if (j.is_discarded() || !j.is_object() || !j.contains("command") ||
@@ -497,7 +512,7 @@ class Server : public rclcpp::Node {
         res.status = 400;
         return;
       }
-      auto client = req.matches[1] == "lift" ? lift_client_ : req.matches[1] == "control" ? arm_client_ : (req.matches[1] == "base" || keyboard) ? base_client_ : record_client_;
+      auto client = req.matches[1] == "arm_startup" ? startup_client_ : req.matches[1] == "lift" ? lift_client_ : req.matches[1] == "control" ? arm_client_ : (req.matches[1] == "base" || keyboard) ? base_client_ : record_client_;
       if (!client->service_is_ready()) {
         res.status = 503;
         return;

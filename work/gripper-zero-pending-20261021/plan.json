@@ -1,0 +1,542 @@
+{
+  "method": "software coordinate origin; do not reset motor encoder or move targets",
+  "raw_zero_rad": {
+    "right": -0.3732738231479363,
+    "left": -0.36717021438925773
+  },
+  "changes": {
+    "arms-kh.json": {
+      "right": {
+        "before_offset": 0.0,
+        "after_offset": -0.3732738231479363
+      },
+      "left": {
+        "before_offset": 0.0,
+        "after_offset": -0.36717021438925773
+      }
+    },
+    "arms-teleop.json": {
+      "right": {
+        "before_offset": 0.0,
+        "after_offset": -0.3732738231479363
+      },
+      "left": {
+        "before_offset": 0.0,
+        "after_offset": -0.36717021438925773
+      }
+    },
+    "arms.json": {
+      "right": {
+        "before_offset": 0.0,
+        "after_offset": -0.3732738231479363
+      },
+      "left": {
+        "before_offset": 0.0,
+        "after_offset": -0.36717021438925773
+      }
+    }
+  },
+  "before_state": {
+    "arm_startup": {
+      "configured": true,
+      "fresh": true,
+      "max_error_rad": 0.08962668802929752,
+      "owned": true,
+      "phase": "ready",
+      "reason": "measured_arrival",
+      "receive_mono_ns": "4905565358102",
+      "speed_rad_s": 0.15,
+      "static_compensation_rad": [
+        0.07473401143606447,
+        0.008313962957076837,
+        0.00039024303489299813,
+        0.10355261885786984,
+        -0.001646307020716493,
+        -0.08817985710965975,
+        0.0012490698037299869,
+        0.0,
+        -0.07534536212989167,
+        -0.00015067647211413718,
+        -0.00681098592026074,
+        0.10618230027216226,
+        0.021207887121217774,
+        0.09890162998107065,
+        0.011317902842875522,
+        0.0
+      ],
+      "target": [
+        0.0,
+        -0.003,
+        0.011,
+        1.583,
+        -0.001,
+        -0.068,
+        -0.598,
+        -0.373,
+        -0.064,
+        0.0,
+        0.133,
+        1.409,
+        0.09,
+        0.162,
+        0.648,
+        -0.367
+      ],
+      "tolerance_rad": 0.02
+    },
+    "arms": {
+      "age_ns": [
+        221084,
+        218167,
+        215459,
+        212667,
+        209584,
+        206000,
+        202375,
+        196209,
+        29500,
+        26584,
+        23875,
+        20917,
+        17792,
+        14959,
+        12250,
+        5750
+      ],
+      "effort": [
+        1.120879120879117,
+        -0.0659340659340657,
+        0.4581196581196565,
+        1.8119658119658117,
+        0.10500610500610463,
+        -0.2124542124542128,
+        -0.32478632478632474,
+        -0.0366300366300365,
+        0.4879120879120862,
+        -0.27692307692307594,
+        -0.7452991452991458,
+        0.9504273504273533,
+        -0.12942612942612897,
+        0.19291819291819223,
+        0.5885225885225887,
+        -0.012210012210012167
+      ],
+      "enabled": true,
+      "fresh": true,
+      "joint_order": "right_then_left",
+      "mos_temperature": [
+        30,
+        30,
+        32,
+        33,
+        29,
+        32,
+        30,
+        30,
+        32,
+        33,
+        32,
+        31,
+        29,
+        30,
+        30,
+        30
+      ],
+      "phase": "startup_ready",
+      "position": [
+        0.05779354543373749,
+        0.005149919890135024,
+        0.004386968795300206,
+        1.6557946135652701,
+        -0.03376058594644071,
+        -0.13561455710688897,
+        -0.5647745479514756,
+        -0.3732738231479363,
+        -0.14705882352941124,
+        0.0024795910582131597,
+        0.13599603265430638,
+        1.4986266880292975,
+        0.14705882352941124,
+        0.24013885709925908,
+        0.5983443961242091,
+        -0.36717021438925773
+      ],
+      "receive_mono_ns": "4905565212227",
+      "rotor_temperature": [
+        30,
+        28,
+        30,
+        34,
+        28,
+        32,
+        28,
+        27,
+        30,
+        28,
+        30,
+        31,
+        28,
+        31,
+        28,
+        27
+      ],
+      "schema": "luxi_arms_v1",
+      "valid": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "velocity": [
+        -0.03296703296703285,
+        -0.01098901098901095,
+        -0.0024420024420024333,
+        -0.0024420024420024333,
+        -0.0073260073260073,
+        -0.0073260073260073,
+        -0.0073260073260073,
+        -0.0219780219780219,
+        -0.01098901098901095,
+        -0.01098901098901095,
+        -0.0024420024420024333,
+        -0.0024420024420024333,
+        0.0219780219780219,
+        -0.0073260073260073,
+        -0.0219780219780219,
+        -0.0073260073260073
+      ]
+    },
+    "base": {
+      "acceleration": [
+        -0.08972150445018663,
+        0.059814336300124414,
+        9.70607235142119
+      ],
+      "flag_stop": 0,
+      "frame_mono_ns": [
+        "4905541898639",
+        "4905541998556",
+        "4905542089015"
+      ],
+      "gyro": [
+        -0.014381208554155903,
+        0.0,
+        0.000532637353857626
+      ],
+      "mock": false,
+      "receive_mono_ns": "4905542089015",
+      "ros_time_ns": "1792576528813622421",
+      "schema": "r680_v1",
+      "valid": true,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "voltage": 24.132
+    },
+    "base_status": {
+      "accepted_groups": 97691,
+      "enabled": false,
+      "external_control": false,
+      "external_owner": "",
+      "feedback_fresh": true,
+      "feedback_mono_ns": "4905442094620",
+      "flag_stop": 0,
+      "fresh": true,
+      "input_recovery": false,
+      "input_source": "quest",
+      "interface": "luxi_base",
+      "mock": false,
+      "reason": "can_error",
+      "receive_mono_ns": "4905476313627",
+      "receive_only": true,
+      "rejected_groups": 1,
+      "require_left_grip": false,
+      "shared_enable": false,
+      "shared_epoch": "",
+      "shared_failed": true,
+      "shared_phase": "",
+      "shared_ready": false,
+      "stationary": true
+    },
+    "cameras": {
+      "head_rgb": {
+        "age_ms": 51,
+        "depth": {
+          "fresh": false
+        },
+        "driver": {
+          "backend": "realsense_v4l2",
+          "camera_id": "head_rgb",
+          "capture_height": 360,
+          "capture_width": 640,
+          "device": "/dev/video4",
+          "fps": 29.98714984657345,
+          "fresh": true,
+          "height": 360,
+          "mock": false,
+          "phase": "streaming",
+          "reason": "RealSense RGB \u56fe\u50cf\u91c7\u96c6\u4e2d",
+          "receive_mono_ns": "4905226565372",
+          "serial": "261043062235",
+          "source_frame_gaps": 7,
+          "source_sequence": 146406,
+          "width": 640
+        },
+        "enabled": true,
+        "fresh": true,
+        "height": 360,
+        "rgbd": {
+          "fresh": false,
+          "url": "/api/cameras/head_rgb/rgbd"
+        },
+        "sequence": 146410,
+        "timestamp_quality": "v4l2_host_monotonic",
+        "width": 640
+      },
+      "left_wrist_rgb": {
+        "age_ms": 71,
+        "depth": {
+          "fresh": false
+        },
+        "driver": {
+          "backend": "realsense_v4l2",
+          "camera_id": "left_wrist_rgb",
+          "capture_height": 360,
+          "capture_width": 640,
+          "device": "/dev/video16",
+          "fps": 29.978535937860673,
+          "fresh": true,
+          "height": 360,
+          "mock": false,
+          "phase": "streaming",
+          "reason": "RealSense RGB \u56fe\u50cf\u91c7\u96c6\u4e2d",
+          "receive_mono_ns": "4905080202261",
+          "serial": "254843065015",
+          "source_frame_gaps": 4,
+          "source_sequence": 146359,
+          "width": 640
+        },
+        "enabled": true,
+        "fresh": true,
+        "height": 360,
+        "rgbd": {
+          "fresh": false,
+          "url": "/api/cameras/left_wrist_rgb/rgbd"
+        },
+        "sequence": 146370,
+        "timestamp_quality": "v4l2_host_monotonic",
+        "width": 640
+      },
+      "right_wrist_rgb": {
+        "age_ms": 19,
+        "depth": {
+          "aligned_to_color": true,
+          "driver": {
+            "aligned_to_color": true,
+            "camera_id": "right_wrist_rgb",
+            "encoding": "32FC1",
+            "mock": false,
+            "phase": "streaming",
+            "reason": "Paired RGB and depth aligned to color; invalid pixels are NaN",
+            "receive_mono_ns": "4904643006970",
+            "serial": "261443062039",
+            "unit": "metre"
+          },
+          "encoding": "32FC1",
+          "fresh": true,
+          "height": 480,
+          "mock": false,
+          "sequence": 73149,
+          "unit": "metre",
+          "url": "/api/cameras/right_wrist_rgb/depth",
+          "width": 640
+        },
+        "driver": {
+          "aligned_to_color": true,
+          "camera_id": "right_wrist_rgb",
+          "encoding": "jpeg",
+          "fresh": true,
+          "height": 480,
+          "mock": false,
+          "phase": "streaming",
+          "reason": "Paired RGB and depth aligned to color; invalid pixels are NaN",
+          "receive_mono_ns": "4904647417805",
+          "serial": "261443062039",
+          "unit": "metre",
+          "width": 640
+        },
+        "enabled": true,
+        "fresh": true,
+        "height": 480,
+        "rgbd": {
+          "aligned_to_color": true,
+          "fresh": true,
+          "pair_id": "22013844044:73152",
+          "url": "/api/cameras/right_wrist_rgb/rgbd"
+        },
+        "sequence": 73152,
+        "timestamp_quality": "host_receive_device_unmapped:Global Time",
+        "width": 640
+      }
+    },
+    "control": null,
+    "lift": {
+      "current_um": 86077,
+      "effective_age_ms": 203.339417,
+      "fault": 0,
+      "feedback_age_ms": 203,
+      "flags": 49,
+      "guard": 0,
+      "host_wall_ns": "1792576528825149631",
+      "kernel_wall_ns": [
+        "0",
+        "0",
+        "0",
+        "0"
+      ],
+      "mock": false,
+      "node": 1,
+      "page_mono_ns": [
+        "4905557976100",
+        "4905557976100",
+        "4905557976100",
+        "4905557976100"
+      ],
+      "position_m": 0.086077,
+      "process_started_mono_ns": "23266856016",
+      "raw_mask": 0,
+      "receive_first_mono_ns": "4905557976100",
+      "receive_mono_ns": "4905557976100",
+      "result": 0,
+      "ros_time_ns": "1792576528825500798",
+      "run_segment": 0,
+      "schema": "lift_state_v1",
+      "sequence": 49121,
+      "speed_rpm": 0,
+      "stable_mask": 0,
+      "target_status": 0,
+      "target_um": 180000,
+      "timestamp_quality": "host_read_first_byte",
+      "transport": "uart",
+      "uptime_ms": 4912100,
+      "valid": true
+    },
+    "lift_status": {
+      "allow_motion": false,
+      "can_error_frames": 0,
+      "can_frame_diagnostics": 0,
+      "conflicting_pages": 0,
+      "control_mode": "hold_to_limit",
+      "current_um": 86077,
+      "duplicate_pages": 0,
+      "enabled": false,
+      "external_control": false,
+      "external_owner": "",
+      "external_result": "idle",
+      "external_target_um": 0,
+      "external_task_id": 0,
+      "fault": 0,
+      "feedback_age_ms": 203,
+      "feedback_first_mono_ns": "4905557976100",
+      "feedback_fresh": true,
+      "feedback_healthy": true,
+      "firmware_version": 0,
+      "flags": 49,
+      "fresh": true,
+      "health": "ok",
+      "home_complete": false,
+      "host_max_um": 180000,
+      "host_min_um": -180000,
+      "input_recovery": false,
+      "interface": "/dev/serial/by-path/platform-xhci-hcd.2.auto-usb-0:1.2:1.0-port0",
+      "margin_um": 5000,
+      "max_um": 0,
+      "min_um": 0,
+      "missing_groups": 0,
+      "mock": false,
+      "motion_started_mono_ns": "0",
+      "node": 1,
+      "phase": "disabled",
+      "process_started_mono_ns": "23266856016",
+      "ready_for_command": false,
+      "reason": "operator_enable_required",
+      "receive_mono_ns": "4905558679975",
+      "run_segment": 0,
+      "session": false,
+      "session_present": false,
+      "shared_enable": true,
+      "shared_epoch": "",
+      "shared_failed": true,
+      "shared_phase": "",
+      "shared_ready": false,
+      "speed_rpm": 0,
+      "startup_feedback_grace": false,
+      "startup_origin_um": 0,
+      "stationary": true,
+      "transport": "uart",
+      "uart_parser_errors": 0
+    },
+    "quest": {
+      "fresh": false,
+      "grips": [
+        0.0,
+        0.0
+      ],
+      "left_tracking": 0,
+      "rate_hz": 0,
+      "right_tracking": 0,
+      "sticks": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "ram_staging": true,
+    "receiver": {
+      "last_verified": {},
+      "online": true,
+      "peer": {
+        "address": "192.168.2.181",
+        "directory": "/home/robot/datasets/luxi/.incoming",
+        "episode": "",
+        "message": "receiver lease unavailable; retrying",
+        "name": "robot-System-Product-Name"
+      },
+      "release_supported": true
+    },
+    "recorder": null,
+    "server_mono_ns": "4905576708312",
+    "system": {
+      "base_enabled": true,
+      "control_authorized": true,
+      "data_directory": "/run/luxi_dataset/episodes",
+      "free_gib": 2.0,
+      "mock": false,
+      "no_cameras": false,
+      "services": {
+        "arm_startup": true,
+        "base": true,
+        "control": false,
+        "episode": false,
+        "lift": true
+      }
+    }
+  },
+  "activated": true,
+  "result": "log/gripper-zero-result.json"
+}

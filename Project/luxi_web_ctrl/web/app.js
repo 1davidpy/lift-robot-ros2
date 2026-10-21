@@ -24,6 +24,14 @@ function buttons() {
   document.querySelectorAll('[data-command]').forEach(b => {
     const kind = b.dataset.kind, cmd = b.dataset.command;
     let allow = connected && services[kind] && !busy;
+    if (kind === 'arm_startup') {
+      const startup = s?.arm_startup;
+      allow &&= startup?.fresh && startup.configured;
+      if (cmd === 'start') allow &&= s.arms?.fresh && s.arms.valid.every(Boolean) &&
+        !['preparing','moving'].includes(startup.phase) && (!s.arms.enabled || startup.owned);
+      else allow &&= startup.owned;
+      b.disabled = !allow; return;
+    }
     if (cmd === 'start') {
       if (kind === 'control') {
         allow &&= s.arms?.fresh && s.arms.phase !== 'monitor_only' && s.arms.valid.every(Boolean) && s.quest?.fresh && s.quest.rate_hz >= 50 && s.control?.fresh;
@@ -58,6 +66,12 @@ function render(s) {
   text('updated','更新于 ' + new Date().toLocaleTimeString());
   badge('mode',s.system.mock ? 'MOCK · 模拟设备' : 'REAL · 实机模式',s.system.mock ? 'warn' : 'good');
   const q = s.quest || {}, a = s.arms, b = s.base, bs = s.base_status, r = s.recorder;
+  const startup = s.arm_startup;
+  const startupNames = {idle:'等待手动抬臂',preparing:'准备使能',moving:'正在缓慢抬臂',ready:'已到位 · 转矩保持',hold:'已停止 · 转矩保持'};
+  const startupReasons = {calibration_hold_restored:'零位已更新 · 原姿态保持中',waiting_for_web_button:'点击按钮开始',operator_start:'正在执行启动姿态',operator_stop:'操作员停止',measured_arrival:'已通过关节反馈确认到位',feedback_lost:'反馈中断，已停止轨迹，需要手动重新启动',following_error:'跟随误差过大，已停止轨迹',startup_timeout:'抬臂超时，已停止轨迹',enable_feedback_timeout:'使能前反馈未就绪',initialization_failed:'驱动初始化失败',teleop_handover:'已交给遥操作控制',operator_disable:'已撤销使能'};
+  badge('arm-startup-badge', startup?.fresh && startup.configured ? startupNames[startup.phase] || startup.phase : '启动功能未就绪', startup?.phase === 'ready' ? 'good' : 'warn');
+  text('arm-startup-status', startup?.fresh && startup.configured ?
+    (startupReasons[startup.reason] || startup.reason) + ' · 最大位置误差 ' + Number(startup.max_error_rad).toFixed(3) + ' rad' : '等待 OpenArm 服务及启动姿态配置');
   const shared = !!s.control?.shared_enable;
   text('shared-control-status', a?.phase === 'monitor_only' ? '当前为只读设备检查，运动控制未开启。' : shared ? (systemPhases[s.control.system_phase] || s.control.system_phase) + ' · ' + s.control.reason : '当前运行版本使用独立使能；统一控制尚未加载。');
   document.querySelector('[data-kind="control"][data-command="start"]').textContent = shared ? '启用全部遥操作' : '使能双臂';
@@ -72,7 +86,7 @@ function render(s) {
   const armValid = a?.fresh && a.valid?.every(Boolean);
   const armCount = a?.fresh ? a.valid.filter(Boolean).length : 0;
   badge('arms-badge',armValid ? (s.system.mock ? '模拟反馈' : '反馈在线') : armCount ? '部分在线 · ' + armCount + '/16' : '未就绪',armValid ? 'good' : armCount ? 'warn' : 'bad');
-  text('arm-phase',!a?.fresh ? '采集节点离线' : a.phase === 'fault' ? '驱动通信异常' : a?.fresh && a.phase === 'monitor_only' ? '状态采集 · 未使能' : s.control?.fresh ? (phases[s.control.phase] || s.control.phase) : a?.fresh ? (a.enabled ? '已使能' : '未使能') : '采集节点离线');
+  text('arm-phase',!a?.fresh ? '采集节点离线' : a.phase === 'fault' ? '驱动通信异常' : startup?.fresh && startup.owned ? startupNames[startup.phase] || startup.phase : a?.fresh && a.phase === 'monitor_only' ? '状态采集 · 未使能' : s.control?.fresh ? (phases[s.control.phase] || s.control.phase) : a?.fresh ? (a.enabled ? '已使能' : '未使能') : '采集节点离线');
   text('arms-detail',a?.fresh ? '左臂 ' + a.valid.slice(8,16).filter(Boolean).length + '/8 · 右臂 ' + a.valid.slice(0,8).filter(Boolean).length + '/8 有效反馈' : '没有新鲜关节反馈');
   const jointRows = [];
   for (const [side, offset] of [['左臂',8],['右臂',0]]) {
