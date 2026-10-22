@@ -1,0 +1,6 @@
+/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/.local/atlas-navigation-20261022/relay-build/CMakeFiles/uninstall.dir
+/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/.local/atlas-navigation-20261022/relay-build/CMakeFiles/luxi_sdk_relay_uninstall.dir
+/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/.local/atlas-navigation-20261022/relay-build/CMakeFiles/carrier_relay.dir
+/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/.local/atlas-navigation-20261022/relay-build/CMakeFiles/test.dir
+/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/.local/atlas-navigation-20261022/relay-build/CMakeFiles/edit_cache.dir
+/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/.local/atlas-navigation-20261022/relay-build/CMakeFiles/rebuild_cache.dir

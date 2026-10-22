@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <geometry_msgs/msg/twist_stamped.hpp>
+#include <geometry_msgs/msg/twist.hpp>
 #include <luxi/core.hpp>
 #include <luxi/external_control.hpp>
 #include <luxi/coordinated_control.hpp>
@@ -47,6 +48,8 @@ class R680 : public rclcpp::Node {
   }
   bool receive_only_ = false;
   bool keyboard_ = false;
+  bool navigation_ = false;
+  rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_sub_;
   bool y_released_ = false;
   bool coordinated_mode_ = false;
   luxi::CoordinatedControl coordination_;
@@ -63,6 +66,7 @@ class R680 : public rclcpp::Node {
   uint64_t command_seq_ = 0;
   int64_t last_tick_ = 0;
   double linear_accel_, angular_accel_;
+  double manual_linear_accel_, manual_angular_accel_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr state_, raw_, command_, status_;
   rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr velocity_;
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_;
@@ -229,11 +233,16 @@ class R680 : public rclcpp::Node {
           wanted[0] *= gate_.mapping.linear / norm;
           wanted[1] *= gate_.mapping.linear / norm;
         }
+        // Manual buttons use a shorter, bounded ramp; Quest and navigation
+        // retain their independently configured acceleration profile.
+        const bool manual = keyboard_ && !navigation_;
+        const double accel_linear = manual ? manual_linear_accel_ : linear_accel_;
+        const double accel_angular = manual ? manual_angular_accel_ : angular_accel_;
         if (gate_.reason == "teleop")
           for (int i = 0; i < 3; ++i)
             wanted[i] = sent_[i] + std::clamp(wanted[i] - sent_[i],
-                                              -(i == 2 ? angular_accel_ : linear_accel_) * dt * 2,
-                                              (i == 2 ? angular_accel_ : linear_accel_) * dt * 2);
+                                              -(i == 2 ? accel_angular : accel_linear) * dt * 2,
+                                              (i == 2 ? accel_angular : accel_linear) * dt * 2);
         auto frame = rb::encode(wanted);
         if (socket_ && !receive_only_) socket_->send(frame);
         for (int i = 0; i < 3; ++i) sent_[i] = rb::be16(frame.data + 2 * i) / 1000.0;
@@ -266,6 +275,13 @@ class R680 : public rclcpp::Node {
                      {"interface", interface_},
                      {"receive_only", receive_only_},
                      {"input_source", external_mode_ ? "external" : (keyboard_ ? "keyboard" : "quest")},
+                     {"navigation_cmd_vel", !external_mode_ && !coordinated_mode_ && !receive_only_},
+                     {"navigation_active", navigation_ && gate_.enabled},
+                     {"manual_twist", true},
+                     {"manual_linear_limit", std::min(.50, gate_.mapping.linear)},
+                     {"manual_angular_limit", .30},
+                     {"manual_linear_acceleration", manual_linear_accel_},
+                     {"manual_angular_acceleration", manual_angular_accel_},
                      {"require_left_grip", gate_.require_left_grip},
                      {"reason", gate_.reason},
                      {"input_recovery", gate_.input_recovery},
@@ -296,7 +312,9 @@ class R680 : public rclcpp::Node {
     gate_.require_left_grip = declare_parameter("require_left_grip", true);
     linear_accel_ = declare_parameter("linear_acceleration", .3);
     angular_accel_ = declare_parameter("angular_acceleration", .6);
-    for (double x : {gate_.mapping.linear, gate_.mapping.angular, linear_accel_, angular_accel_})
+    manual_linear_accel_ = declare_parameter("manual_linear_acceleration", 1.0);
+    manual_angular_accel_ = declare_parameter("manual_angular_acceleration", 1.5);
+    for (double x : {gate_.mapping.linear, gate_.mapping.angular, linear_accel_, angular_accel_, manual_linear_accel_, manual_angular_accel_})
       if (!std::isfinite(x) || x <= 0 || x > 5)
         throw std::invalid_argument("R680 speed/acceleration configuration");
     if (!std::isfinite(gate_.mapping.deadzone) || gate_.mapping.deadzone < 0 ||
@@ -385,10 +403,11 @@ class R680 : public rclcpp::Node {
           if (receive_only_ && req->command != "stop" && req->command != "disable") {
             res->success = false; res->message = "CAN receive-only diagnostics; motion disabled"; return;
           }
-          if (req->command == "keyboard_start") {
+          if (req->command == "keyboard_start" || req->command == "navigation_start") {
             if (!gate_.enabled && !gate_.menu && !gate_.stop &&
                 rb::fresh(gate_.feedback_time, luxi::mono(), 100000000)) {
               keyboard_ = true;
+              navigation_ = req->command == "navigation_start";
               keyboard_velocity_ = {};
               keyboard_time_ = luxi::mono();
               gate_.enabled = true;
@@ -397,12 +416,15 @@ class R680 : public rclcpp::Node {
             }
           } else if (req->command == "keyboard") {
             auto j = luxi::Json::parse(req->detail, nullptr, false);
-            if (keyboard_ && gate_.enabled && rb::fresh(keyboard_time_, luxi::mono(), 200000000) &&
-                j.is_array() && j.size() == 2 && j[0].is_number() && j[1].is_number()) {
+            if (keyboard_ && !navigation_ && gate_.enabled && rb::fresh(keyboard_time_, luxi::mono(), 200000000) &&
+                j.is_array() && (j.size() == 2 || j.size() == 3) && j[0].is_number() && j[1].is_number() &&
+                (j.size() == 2 || j[2].is_number())) {
               double x = j[0].get<double>(), y = j[1].get<double>();
-              if (std::isfinite(x) && std::isfinite(y) && std::abs(x) <= 1 && std::abs(y) <= 1) {
-                double scale = .05 / std::max(1.0, std::hypot(x, y));
-                keyboard_velocity_ = {x * scale, y * scale, 0};
+              const double yaw = j.size() == 3 ? j[2].get<double>() : 0.0;
+              if (std::isfinite(x) && std::isfinite(y) && std::isfinite(yaw) &&
+                  std::abs(x) <= 1 && std::abs(y) <= 1 && std::abs(yaw) <= 1) {
+                double scale = .50 / std::max(1.0, std::hypot(x, y));
+                keyboard_velocity_ = {x * scale, y * scale, yaw * .30};
                 keyboard_time_ = luxi::mono();
                 res->success = true;
               }
@@ -424,6 +446,23 @@ class R680 : public rclcpp::Node {
                   : (gate_.require_left_grip
                          ? "Need fresh feedback/Quest, valid tracking, no menu, centered sticks and released left grip"
                          : "Need fresh feedback/Quest, valid tracking, no menu and centered sticks");
+        });
+    // Atlas supplies base-frame Twist only after an explicit navigation_start.
+    // Fresh feedback, the physical stop and the existing 200 ms input watchdog
+    // remain enforced by tick(); reconnecting a publisher never arms the base.
+    cmd_vel_sub_ = create_subscription<geometry_msgs::msg::Twist>(
+        "/cmd_vel", rclcpp::SensorDataQoS().keep_last(1),
+        [this](geometry_msgs::msg::Twist::ConstSharedPtr msg) {
+          if (!navigation_ || !keyboard_ || !gate_.enabled || external_mode_ || coordinated_mode_ || receive_only_) return;
+          const double x=msg->linear.x, y=msg->linear.y, yaw=msg->angular.z;
+          if (!rb::fresh(keyboard_time_, luxi::mono(), 200000000) ||
+              !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(yaw) ||
+              std::hypot(x,y) > .100001 || std::abs(yaw) > .100001 ||
+              msg->linear.z != 0 || msg->angular.x != 0 || msg->angular.y != 0) {
+            gate_.halt("invalid_or_expired_cmd_vel"); return;
+          }
+          keyboard_velocity_ = {x,y,yaw};
+          keyboard_time_ = luxi::mono();
         });
     timer_ = create_wall_timer(std::chrono::milliseconds(10), [this] { tick(); });
   }

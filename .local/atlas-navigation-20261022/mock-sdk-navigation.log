@@ -1,0 +1,2 @@
+[carrier] control revoked: 控制权心跳超时
+[INFO] [1792662269.378148597] [rclcpp]: signal_handler(signum=2)

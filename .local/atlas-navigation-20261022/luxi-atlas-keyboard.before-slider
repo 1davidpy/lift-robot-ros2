@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -eo pipefail
+source /opt/ros/humble/setup.bash
+source /home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/build/install/setup.bash
+exec /home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/build/install/luxi_device_adapters/lib/luxi_device_adapters/r680_adapter --ros-args -p mock:=false -p allow_hardware:=true -p interface:=luxi_base -p require_left_grip:=false -p receive_only:=false -p shared_enable:=false

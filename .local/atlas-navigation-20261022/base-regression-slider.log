@@ -1,0 +1,16 @@
+test_direct_sticks_ignore_grips_center_stops_and_loss_disarms (__main__.BaseQuest) ... ok
+test_shared_b_during_input_recovery_still_disables (__main__.BaseQuest) ... ok
+test_shared_long_gap_requires_explicit_enable (__main__.BaseQuest) ... ok
+test_shared_short_gap_stops_and_requires_center_before_recovery (__main__.BaseQuest) ... ok
+test_stale_pose_flags_allow_sticks_but_invalid_tracking_stops (__main__.BaseQuest) ... ok
+test_stop_buttons_and_recording_menu_disarm_direct_mode (__main__.BaseQuest) ... ok
+test_x_does_not_change_base_permission_or_joystick_commands (__main__.BaseQuest) ... ok
+test_y_cannot_enable_receive_only_adapter (__main__.BaseQuest) ... ok
+test_y_rejected_enable_needs_release_and_new_press (__main__.BaseQuest) ... ok
+test_y_startup_hold_stop_priority_and_keyboard_handoff (__main__.BaseQuest) ... ok
+test_y_toggles_once_per_press_and_stops_while_moving (__main__.BaseQuest) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 30.617s
+
+OK

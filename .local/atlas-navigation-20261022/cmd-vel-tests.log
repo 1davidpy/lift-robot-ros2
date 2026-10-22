@@ -1,0 +1,14 @@
+{
+  "disarmed_twist_ignored": true,
+  "three_axis_cmd_vel": true,
+  "sdk_input_timeout_ms": 159.6,
+  "no_automatic_rearm": true,
+  "overspeed_disarms": true,
+  "legacy_two_axis_keyboard": true,
+  "manual_in_place_turn": true,
+  "manual_half_metre_per_second_mock_only": true,
+  "relay_preserves_full_twist": true,
+  "relay_to_sdk_feedback": true,
+  "replay_does_not_refresh_motion": true,
+  "relay_owner_timeout_disarms": true
+}

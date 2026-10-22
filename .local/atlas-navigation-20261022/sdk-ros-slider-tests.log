@@ -1,0 +1,7 @@
+test_commands_bypass_http_and_stale_feedback_blocks_acquire (__main__.SdkRosTests) ... [carrier] control revoked: 控制权心跳超时
+ok
+
+----------------------------------------------------------------------
+Ran 1 test in 3.423s
+
+OK
