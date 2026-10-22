@@ -3,6 +3,9 @@ const $ = id => document.getElementById(id);
 const cameraIds = ['head_rgb', 'left_wrist_rgb', 'right_wrist_rgb'];
 const phases = {disabled:'未使能',homing:'回起始姿态',aligning:'等待手柄对齐',teleop:'遥操作中',hold:'保持',returning:'返回中',idle:'空闲',recording:'录制中'};
 const systemPhases = {disabled:'已失能',preparing:'检查底盘与升降',starting:'双臂归位 / 对齐',arming:'等待统一使能确认',active:'全部遥操作已启用',stopping_base:'底盘 / 升降停车，双臂保持',homing_lift:'旧版流程：升降返回零点',returning_arms:'双臂返回 home，升降原位停止',disabling:'等待双臂失能反馈',stopped:'已停止 · 双臂保持'};
+let liftPositionArmedAt = 0, liftPositionTask = 0, liftPositionMoving = false;
+let liftPositionOwner = '', liftPositionSequence = 0, liftPositionPending = false, liftPositionBusy = false, liftPositionError = '';
+let liftPositionHeartbeatAckAt = 0;
 let keyboardActive = false, keyboardPending = false, keyboardStarting = false;
 let keyboardError = "";
 const heldKeys = new Set();
@@ -12,15 +15,17 @@ function text(id, value) { $(id).textContent = value; }
 function badge(id, label, tone = '') { text(id, label); $(id).className = 'pill ' + tone; }
 function log(message) { text('result', new Date().toLocaleTimeString() + '  ' + message + '\n' + $('result').textContent.slice(0, 2500)); }
 async function request(path, options = {}) {
-  const r = await fetch(path, {...options, signal:AbortSignal.timeout(options.method ? 12000 : 2500), cache:'no-store'});
+  const {timeoutMs,...fetchOptions} = options;
+  const r = await fetch(path, {...fetchOptions, signal:AbortSignal.timeout(timeoutMs ?? (options.method ? 12000 : 2500)), cache:'no-store'});
   const body = await r.text();
   let data; try { data = JSON.parse(body); } catch { data = null; }
-  if (!r.ok) throw new Error(data?.message || ({409:'设备当前状态不允许此操作',503:'对应节点未就绪',504:'指令响应超时，请检查状态后再操作'}[r.status] || 'HTTP ' + r.status));
+  if (!r.ok) { const error = new Error(data?.message || ({409:'设备当前状态不允许此操作',503:'对应节点未就绪',504:'指令响应超时，请检查状态后再操作'}[r.status] || 'HTTP ' + r.status)); error.status = r.status; throw error; }
   return data;
 }
 function buttons() {
   const s = state, services = s?.system?.services || {};
   keyboardUI();
+  liftPositionUI();
   document.querySelectorAll('[data-command]').forEach(b => {
     const kind = b.dataset.kind, cmd = b.dataset.command;
     let allow = connected && services[kind] && !busy;
@@ -71,7 +76,7 @@ function render(s) {
   const startupReasons = {calibration_hold_restored:'零位已更新 · 原姿态保持中',waiting_for_web_button:'点击按钮开始',operator_start:'正在执行启动姿态',operator_stop:'操作员停止',measured_arrival:'已通过关节反馈确认到位',feedback_lost:'反馈中断，已停止轨迹，需要手动重新启动',following_error:'跟随误差过大，已停止轨迹',startup_timeout:'抬臂超时，已停止轨迹',enable_feedback_timeout:'使能前反馈未就绪',initialization_failed:'驱动初始化失败',teleop_handover:'已交给遥操作控制',operator_disable:'已撤销使能'};
   badge('arm-startup-badge', startup?.fresh && startup.configured ? startupNames[startup.phase] || startup.phase : '启动功能未就绪', startup?.phase === 'ready' ? 'good' : 'warn');
   text('arm-startup-status', startup?.fresh && startup.configured ?
-    (startupReasons[startup.reason] || startup.reason) + ' · 最大位置误差 ' + Number(startup.max_error_rad).toFixed(3) + ' rad' : '等待 OpenArm 服务及启动姿态配置');
+    (startupReasons[startup.reason] || startup.reason) + ' · 最大位置误差 ' + Number(startup.max_error_rad).toFixed(3) + ' rad' + (startup.last_rejection ? ' · ' + startup.last_rejection : '') : '等待 OpenArm 服务及启动姿态配置');
   const shared = !!s.control?.shared_enable;
   text('shared-control-status', a?.phase === 'monitor_only' ? '当前为只读设备检查，运动控制未开启。' : shared ? (systemPhases[s.control.system_phase] || s.control.system_phase) + ' · ' + s.control.reason : '当前运行版本使用独立使能；统一控制尚未加载。');
   document.querySelector('[data-kind="control"][data-command="start"]').textContent = shared ? '启用全部遥操作' : '使能双臂';
@@ -303,3 +308,83 @@ document.querySelectorAll('[data-device] button').forEach(b => b.addEventListene
   finally { deviceBusy = false; await pollDevices(); }
 }));
 pollDevices(); setInterval(pollDevices, 3000); setInterval(deviceButtons, 500);
+
+function liftPositionUI() {
+  const ls = state?.lift_status;
+  let reason = !connected ? '网页未连接' : !state?.system?.services?.lift ? '升降服务未就绪' :
+    !ls?.fresh ? '升降状态已过期' : !ls.dashboard_position_available || !ls.allow_motion ? '升降位置控制未开启' :
+    !ls.feedback_healthy ? '升降反馈异常' : state?.recorder?.failure_menu ? '请先关闭录制失败菜单' :
+    state?.control?.fresh && !['disabled','stopped'].includes(state.control.system_phase) ? '请先停止统一遥操作' : '';
+  const ours = !!liftPositionOwner && ls?.dashboard_position && ls.external_owner === liftPositionOwner;
+  if (liftPositionOwner && ls?.fresh && !ours && !liftPositionBusy && Date.now()-liftPositionArmedAt>750) { liftPositionOwner = ''; liftPositionError = '位置控制已停止，需要重新开启'; }
+  if (!reason && !liftPositionOwner && ls?.enabled) reason = '已有其他控制会话，请先停止';
+  if (!reason && !ls?.stationary && !liftPositionOwner) reason = '平台未停稳';
+  if (ours && ls.external_task_id === liftPositionTask && ls.external_result === 'reached') liftPositionMoving = false;
+  const ready = !liftPositionMoving && ours && ls.enabled && ls.stationary && ls.phase === 'idle' && ls.ready_for_command && !ls.session_present && !['running','accepted','settling'].includes(ls.external_result);
+  $('lift-position-enable').disabled = !!reason || !!liftPositionOwner || liftPositionBusy;
+  $('lift-position-move').disabled = !!reason || !ready || liftPositionBusy;
+  $('lift-position-range').disabled = !!reason || !liftPositionOwner || liftPositionBusy;
+  $('lift-position-number').disabled = $('lift-position-range').disabled;
+  $('lift-position-stop').disabled = !connected || !state?.system?.services?.lift;
+  text('lift-position-current', ls?.fresh && ls.feedback_healthy ? (ls.current_um/1000).toFixed(3) : '—');
+  badge('lift-position-badge', ours ? ready ? '位置控制就绪' : '位置控制中' : reason ? '暂不可开启' : '等待开启', ours ? 'good' : 'warn');
+  const detail = {configuring:'读取设备配置',waiting_for_settle:'等待停稳',connecting:'准备运动',session_ready:'等待设备就绪',move_ack:'运动准备中',moving:'正在移动',stopping:'正在停车',idle:ls?.external_result === 'reached' ? '已到位并锁定，可选择下一个位置' : '可选择目标位置'};
+  text('lift-position-state', liftPositionError || reason || (ours ? detail[ls.phase] || ls.phase : '开启后可独立控制升降位置，无需 Quest。'));
+}
+function liftPositionPayload(extra = {}) { return JSON.stringify({owner:liftPositionOwner,sequence:++liftPositionSequence,...extra}); }
+async function liftPositionRequest(command, extra = {}) {
+  return request('/api/lift',{method:'POST',timeoutMs:command==='heartbeat'?350:undefined,headers:{'Content-Type':'application/json'},body:JSON.stringify({command:'position_'+command,detail:liftPositionPayload(extra)})});
+}
+function liftPositionStop(beacon = false) {
+  if (!liftPositionOwner) return;
+  const body = JSON.stringify({command:'position_stop',detail:liftPositionPayload()});
+  liftPositionOwner = '';
+  if (beacon) navigator.sendBeacon('/api/lift',new Blob([body],{type:'application/json'}));
+  else request('/api/lift',{method:'POST',headers:{'Content-Type':'application/json'},body}).catch(e=>log('升降停车未确认：'+e.message));
+  liftPositionUI();
+}
+function liftPositionTarget(value) {
+  const raw = Number(value), um = Math.round(raw*1000);
+  if (!String(value).trim() || !Number.isFinite(raw) || raw < -180 || raw > 180 || Math.abs(raw*1000-um)>1e-6) return false;
+  const n=um/1000;
+  liftPositionError='';
+  $('lift-position-range').value = String(n); $('lift-position-number').value = String(n);
+  text('lift-position-move','移动到目标 '+(n>0?'+':'')+n+' mm'); return true;
+}
+$('lift-position-range').addEventListener('input',e=>liftPositionTarget(e.target.value));
+$('lift-position-number').addEventListener('input',e=>liftPositionTarget(e.target.value));
+$('lift-position-number').addEventListener('change',e=>{if(!liftPositionTarget(e.target.value)){liftPositionError='目标须在 −180 至 +180 mm 内，最多三位小数';liftPositionUI();}});
+$('lift-position-enable').addEventListener('click',async()=>{
+  if(liftPositionBusy||liftPositionOwner)return;
+  liftPositionBusy=true;liftPositionError='';liftPositionOwner='web-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);liftPositionSequence=0;liftPositionArmedAt=Date.now();liftPositionHeartbeatAckAt=Date.now();liftPositionMoving=false;liftPositionUI();
+  try { await liftPositionRequest('arm'); liftPositionHeartbeatAckAt=Date.now(); $('lift-position-panel').focus(); log('升降位置控制已开启'); }
+  catch(e){liftPositionError=e.message;liftPositionOwner='';log('升降位置控制开启失败：'+e.message);}
+  finally{liftPositionBusy=false;liftPositionUI();}
+});
+$('lift-position-move').addEventListener('click',async()=>{
+  if(!liftPositionOwner||liftPositionBusy||!liftPositionTarget($('lift-position-number').value))return;
+  liftPositionBusy=true;liftPositionError='';liftPositionUI();
+  try {liftPositionTask=Date.now();liftPositionMoving=true;await liftPositionRequest('move',{task_id:liftPositionTask,target_um:Math.round(Number($('lift-position-number').value)*1000)});log('已提交升降目标 '+$('lift-position-number').value+' mm');}
+  catch(e){liftPositionMoving=false;liftPositionError=e.message;log('升降目标未接受：'+e.message);}
+  finally{liftPositionBusy=false;liftPositionUI();}
+});
+$('lift-position-stop').addEventListener('click',async()=>{
+  liftPositionStop();liftPositionError='';
+  try{await request('/api/lift',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({command:'stop'})});log('升降已停车并退出位置控制');}
+  catch(e){liftPositionError=e.message;}liftPositionUI();
+});
+async function liftPositionHeartbeat(){
+  if(!liftPositionOwner||liftPositionPending)return;
+  liftPositionPending=true;const owner=liftPositionOwner;
+  try{await liftPositionRequest('heartbeat');if(owner===liftPositionOwner){liftPositionHeartbeatAckAt=Date.now();if(liftPositionError.startsWith('续租响应延迟')){liftPositionError='';liftPositionUI();}}}
+  catch(e){if(owner===liftPositionOwner){
+    const leaseMs=Number(state?.lift_status?.external_lease_ms)||1000;
+    if((e.status && e.status<500)||Date.now()-liftPositionHeartbeatAckAt>=leaseMs){liftPositionError='位置控制已撤销：'+e.message;liftPositionStop();}
+    else {liftPositionError='续租响应延迟，正在重试；超时将停车';liftPositionUI();}
+  }}
+  finally{liftPositionPending=false;}
+}
+setInterval(liftPositionHeartbeat,75);
+window.addEventListener('blur',()=>liftPositionStop(true));
+window.addEventListener('pagehide',()=>liftPositionStop(true));
+document.addEventListener('visibilitychange',()=>{if(document.hidden)liftPositionStop(true);});

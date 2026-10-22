@@ -13,9 +13,9 @@ case "${1:-}" in
  base) exec "$ROOT/build/install/luxi_device_adapters/lib/luxi_device_adapters/r680_adapter" --ros-args -p mock:=false -p allow_hardware:=true -p interface:=luxi_base -p require_left_grip:=false -p "receive_only:=$ACQUISITION_ONLY" -p "shared_enable:=$SHARED_ENABLE" ;;
  lift)
   source "$ROOT/Project/robot_bringup/config/lift.env"
-  if [[ "$ACQUISITION_ONLY" == true ]]; then LIFT_ALLOW_MOTION=false; fi
+  if [[ "$ACQUISITION_ONLY" == true && "${LIFT_DASHBOARD_POSITION:-false}" != true ]]; then LIFT_ALLOW_MOTION=false; fi
   exec ros2 run luxi_device_adapters lift_adapter --ros-args -p allow_hardware:=true -p shared_enable:=true \
-   -p "allow_motion:=$LIFT_ALLOW_MOTION" -p "interface:=$LIFT_INTERFACE" \
+   -p "allow_motion:=$LIFT_ALLOW_MOTION" -p "dashboard_position_control:=${LIFT_DASHBOARD_POSITION:-false}" -p "external_lease_ms:=${LIFT_EXTERNAL_LEASE_MS:-1000}" -p "interface:=$LIFT_INTERFACE" \
    -p "transport:=${LIFT_TRANSPORT:-can}" -p "serial_port:=${LIFT_SERIAL_PORT:-}" \
    -p "host_min_um:=${LIFT_HOST_MIN_UM:--100000}" -p "host_max_um:=${LIFT_HOST_MAX_UM:-200000}" \
    -p "node_id:=$LIFT_NODE_ID" -p "margin_um:=$LIFT_MARGIN_UM" ;;

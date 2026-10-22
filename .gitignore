@@ -21,3 +21,12 @@
 /device/HIK-EB435I/*.7z
 /device/HIK-EB435I/sdk/
 /device/HIK-EB435I/sdk-1.4/
+
+# Generated local test, build, and scratch artifacts
+/work/
+/install/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/

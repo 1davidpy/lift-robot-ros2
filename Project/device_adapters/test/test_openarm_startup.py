@@ -20,6 +20,16 @@ from std_msgs.msg import String
 
 root = Path(sys.argv[1]).resolve()
 config = json.loads((root/'Project/robot_bringup/config/arms-kh.json').read_text())
+case=os.environ.get('LUXI_REBOOT_CASE','normal')
+extra=[]
+if case!='normal':
+    initial=config['right']['home']+config['left']['home']
+    if case in ('recover_gripper','reject_gripper'):
+        initial[15]=config['left']['limits'][7][0]-(.0132 if case=='recover_gripper' else .021)
+    else:
+        assert case in ('recover','reject'), case
+        initial[13]=config['left']['limits'][5][1]+(.091 if case=='recover' else .151)
+    extra=['-p','mock_initial_positions:='+json.dumps(initial)]
 rclpy.init()
 node = rclpy.create_node('startup_test')
 life = node.create_publisher(String, '/luxi/driver_lifecycle', 10)
@@ -58,7 +68,7 @@ def command(value, expected=200, detail=''):
 try:
     with tempfile.TemporaryDirectory(prefix='luxi-startup-') as tmp:
         for binary,args in [
-            ('luxi_device_adapters/lib/luxi_device_adapters/openarm_adapter',['-p','mock:=true','-p','monitor_only:=true','-p','config:='+str(root/'Project/robot_bringup/config/arms-kh.json')]),
+            ('luxi_device_adapters/lib/luxi_device_adapters/openarm_adapter',['-p','mock:=true','-p','monitor_only:=true','-p','config:='+str(root/'Project/robot_bringup/config/arms-kh.json'),*extra]),
             ('luxi_web_ctrl/lib/luxi_web_ctrl/web_ctrl',['-p','port:=18041','-p','mock:=true','-p','no_cameras:=true','-p','directory:='+tmp])]:
             log=open(Path(tmp)/(str(len(logs))+'.log'),'w+'); logs.append(log)
             processes.append(subprocess.Popen([str(root/'build/install'/binary),'--ros-args',*args],stdout=log,stderr=subprocess.STDOUT))
@@ -66,6 +76,12 @@ try:
         assert j['arm_startup']['tolerance_rad']==.02 and len(j['arm_startup']['static_compensation_rad'])==16
         assert not j['arms']['enabled'] and j['arms']['phase']=='monitor_only'
         initial=j['arms']['position']
+        if case in ('reject','reject_gripper'):
+            command('start',409)
+            assert not state()['arms']['enabled']
+            until(lambda s:s['arm_startup']['last_rejection'])
+            print('PASS: outside recovery margin rejected without enabling motors')
+            sys.exit(0)
         life.publish(String(data='enable')); wait(.3)
         assert not state()['arms']['enabled'], 'monitor boot must reject lifecycle enable'
         command('invalid',409)

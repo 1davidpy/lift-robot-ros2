@@ -18,6 +18,7 @@ class Lift : public rclcpp::Node {
     bool queued = false;
   };
   int node_, margin_;
+  bool dashboard_available_ = false, dashboard_position_ = false;
   bool external_mode_ = false, external_active_ = false, external_finishing_ = false;
   luxi::ExternalControl external_;
   uint64_t external_task_ = 0;
@@ -55,8 +56,8 @@ class Lift : public rclcpp::Node {
         if (j["target_um"].is_number_unsigned() && j["target_um"].get<uint64_t>() > 180000)
           throw std::runtime_error("external target integer overflow/range");
         const auto target = j["target_um"].get<int64_t>();
-        const int64_t lower = int64_t(std::max(configuration_[2], soft_min_)) + margin_;
-        const int64_t upper = int64_t(std::min(configuration_[3], soft_max_)) - margin_;
+        const int64_t lower = int64_t(std::max(configuration_[2], soft_min_)) + (dashboard_position_ ? 0 : margin_);
+        const int64_t upper = int64_t(std::min(configuration_[3], soft_max_)) - (dashboard_position_ ? 0 : margin_);
         if (!id || id <= external_task_ || target < lower || target > upper)
           throw std::runtime_error("external lift target/id out of range; no clipping/replay");
         external_task_ = id; external_target_ = static_cast<int32_t>(target);
@@ -209,6 +210,14 @@ class Lift : public rclcpp::Node {
   void coordinate(const std::string& data) {
     if (!coordinated_mode_) return;
     const auto t = luxi::mono();
+    if (dashboard_position_) {
+      const bool changed = coordination_.accept(data, t);
+      if (luxi::fresh(coordination_.sent_ns, t, 250000000) && coordination_.phase != "disabled" &&
+          (coordination_.phase != "halt" || changed)) {
+        cancel("shared_control_requested_during_dashboard_position"); coordination_.blocked = true;
+      }
+      return;
+    }
     const auto old_epoch = coordination_.epoch;
     const bool changed = coordination_.accept(data, t);
     if (!coordination_.live(t)) {
@@ -228,6 +237,10 @@ class Lift : public rclcpp::Node {
     } catch (const std::exception& e) { coordination_.blocked = true; cancel(e.what()); }
   }
   void cancel(const std::string& why, bool keep_permission = false) {
+    const auto lease_age = external_.received_ns ? (luxi::mono() - external_.received_ns) / 1000000 : -1;
+    RCLCPP_WARN(get_logger(), "lift cancel: %s; phase=%s; position_um=%d; target_um=%d; external_age_ms=%lld; lease_ms=%lld",
+                why.c_str(), phase_.c_str(), sample_ ? sample_->current_um : 0, target_,
+                static_cast<long long>(lease_age), static_cast<long long>(external_.lease_ns / 1000000));
     const bool owned = nonce_ != 0; // Includes uncertain HELLO/MOVE outcomes.
     pending_.reset(); heartbeat_.reset(); session_ = false;
     enabled_ = keep_permission && enabled_;
@@ -235,6 +248,7 @@ class Lift : public rclcpp::Node {
       external_.revoke(); external_active_ = external_finishing_ = false;
       if (external_task_) external_result_ = "stopped";
     }
+    if (dashboard_position_ && !enabled_) { dashboard_position_ = false; external_mode_ = false; }
     input_recovery_ = false; recovery_neutral_since_ = 0;
     want_home_ = false;
     direction_ = 0; neutral_ = false; previous_reached_.reset(); reached_count_ = 0;
@@ -311,8 +325,8 @@ class Lift : public rclcpp::Node {
     // Releasing closes our session; heartbeats sustain only this current hold.
     // Do not stream 1 mm targets: arrival precedes firmware command readiness,
     // causing BUSY and repeated motor startup/settling pauses.
-    const int64_t proposed = direction_ > 0 ? int64_t(std::min(configuration_[3], soft_max_)) - margin_ :
-                                            int64_t(std::max(configuration_[2], soft_min_)) + margin_;
+    const int64_t proposed = direction_ > 0 ? int64_t(std::min(configuration_[3], soft_max_)) - (dashboard_position_ ? 0 : margin_) :
+                                            int64_t(std::max(configuration_[2], soft_min_)) + (dashboard_position_ ? 0 : margin_);
     if ((direction_ > 0 && sample_->current_um >= proposed - 10) ||
         (direction_ < 0 && sample_->current_um <= proposed + 10)) {
       cancel("interior_target_boundary_release_grips", true); return;
@@ -485,12 +499,12 @@ class Lift : public rclcpp::Node {
         consume(f, t - age, wall);
       }
       const auto t = luxi::mono();
-      if (coordinated_mode_ && !coordination_.live(t)) {
+      if (coordinated_mode_ && !dashboard_position_ && !coordination_.live(t)) {
         if (!coordination_.epoch.empty()) coordination_.blocked = true;
         if (enabled_ || nonce_) cancel("coordinator_lost_or_stopped");
       }
       if (external_mode_ && enabled_ && (!external_.live(t) || menu_ || !link_healthy(t)))
-        cancel(!link_healthy(t) ? health_reason(t) : "external_lease_lost_or_menu");
+        cancel(!link_healthy(t) ? health_reason(t) : menu_ ? "recorder_failure_menu" : "external_lease_expired");
       if (!external_mode_ && enabled_ && (!input_ok_ || menu_ || !link_healthy(t) ||
           !luxi::fresh(quest_time_, t, coordinated_mode_ ? 500000000 : 200000000))) {
         if (coordinated_mode_) coordination_.blocked = true;
@@ -558,10 +572,14 @@ class Lift : public rclcpp::Node {
     // any feedback-age, heartbeat or controller-fault limits.
     if (++ticks_ % 10 == 0 || (sample_ ? sample_->first_ns : 0) != previous_feedback) {
       publish(status_pub_, {{"enabled", enabled_}, {"phase", phase_}, {"reason", reason_},
+                           {"dashboard_position_available", dashboard_available_}, {"dashboard_position", dashboard_position_},
                            {"external_control", external_mode_}, {"external_owner", external_.owner},
                            {"external_task_id", external_task_}, {"external_target_um", external_target_},
                            {"external_result", external_result_},
-                           {"shared_enable", coordinated_mode_}, {"shared_epoch", coordination_.epoch},
+                           {"external_lease_ms", external_.lease_ns / 1000000},
+                           {"external_heartbeat_age_ms", external_.received_ns ? (luxi::mono() - external_.received_ns) / 1000000 : -1},
+                           {"external_max_gap_ms", external_.max_gap_ns / 1000000},
+                           {"shared_enable", coordinated_mode_ && !dashboard_position_}, {"shared_epoch", coordination_.epoch},
                            {"shared_phase", coordination_.phase}, {"shared_failed", coordination_.blocked},
                            {"shared_ready", coordination_.live(luxi::mono()) && enabled_ && phase_ == "idle" &&
                                             page_ == 10 && command_ready(luxi::mono()) && link_healthy(luxi::mono()) && sample_->stationary() && !(sample_->flags & 64)},
@@ -661,8 +679,13 @@ class Lift : public rclcpp::Node {
     soft_min_ = declare_parameter("host_min_um", uart_mode_ ? -97000 : -100000);
     soft_max_ = declare_parameter("host_max_um", uart_mode_ ? 180000 : 200000);
     allow_motion_ = declare_parameter("allow_motion", false);
+    dashboard_available_ = declare_parameter("dashboard_position_control", false);
     coordinated_mode_ = declare_parameter("shared_enable", false);
     external_mode_ = declare_parameter("external_control", false);
+    const auto external_lease_ms = declare_parameter("external_lease_ms", 1000);
+    if (external_lease_ms < 200 || external_lease_ms > 2000)
+      throw std::invalid_argument("external_lease_ms must be between 200 and 2000");
+    external_.lease_ns = int64_t(external_lease_ms) * 1000000;
     if (external_mode_ && (coordinated_mode_ || !uart_mode_))
       throw std::runtime_error("external lift control requires UART and excludes shared X");
     // Accept old launch overrides during upgrades; held travel no longer uses steps.
@@ -693,6 +716,32 @@ class Lift : public rclcpp::Node {
     control_ = create_service<luxi::Service>("/luxi/lift/control",
         [this](std::shared_ptr<luxi::Service::Request> req, std::shared_ptr<luxi::Service::Response> res) {
           res->success = false;
+          if (req->command.rfind("position_", 0) == 0) {
+            try {
+              const auto t = luxi::mono();
+              if (!dashboard_available_ || !allow_motion_ || !uart_mode_)
+                throw std::runtime_error("网页位置控制未开启或没有运动许可");
+              const auto op = req->command.substr(9);
+              if (op != "arm" && op != "heartbeat" && op != "move" && op != "stop")
+                throw std::runtime_error("未知网页位置指令");
+              auto j = luxi::Json::parse(req->detail);
+              if (!j.is_object() || !j.contains("owner") || !j["owner"].is_string() ||
+                  !j.contains("sequence") || !j["sequence"].is_number_unsigned())
+                throw std::runtime_error("网页控制会话格式错误");
+              if (op == "arm") {
+                if (enabled_ || external_mode_ || (coordination_.live(t) && coordination_.phase != "halt" && coordination_.phase != "disabled") || !link_healthy(t) ||
+                    !sample_->stationary() || (sample_->flags & 64) || menu_)
+                  throw std::runtime_error("需要设备健康、停稳且无其他控制会话");
+                dashboard_position_ = true; external_mode_ = true;
+              } else if (!dashboard_position_ || j["owner"] != external_.owner)
+                throw std::runtime_error("网页控制会话已失效，请重新开启");
+              j["op"] = op; j["source_mono_ns"] = std::to_string(t);
+              external_command(j.dump());
+              res->success = op == "stop" || (dashboard_position_ && enabled_ && !external_.revoked);
+              res->message = res->success ? "网页位置指令已接收" : reason_;
+            } catch (const std::exception& e) { res->message = e.what(); }
+            return;
+          }
           if (external_mode_ && req->command != "stop" && req->command != "disable") {
             res->message = "external_control: explicit bridge ARM/leased commands only"; return;
           }

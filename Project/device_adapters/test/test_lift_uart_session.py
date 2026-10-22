@@ -69,6 +69,7 @@ class UartSession(unittest.TestCase):
         command = [str(args.binary.resolve()), '--ros-args', '-p', 'allow_hardware:=true',
                    '-p', 'allow_motion:=true', '-p', 'shared_enable:=false',
                    '-p', 'transport:=uart', '-p', 'serial_port:=' + self.port]
+        command += self.extra_arguments()
         for topic in ('quest', 'recorder/status', 'coordinated_control', 'lift/state',
                       'lift/uart_rx', 'lift/events', 'lift/status', 'lift/control'):
             command += ['-r', '/luxi/' + topic + ':=' + self.prefix + '/' + topic]
@@ -77,12 +78,19 @@ class UartSession(unittest.TestCase):
         self.addCleanup(self.cleanup)
         self.wait(lambda: self.client.service_is_ready() and self.status.get('feedback_healthy'), 5, 'discovery')
         self.run_for(.15)
-        request = Command.Request(); request.command = 'start'
+        self.enable_driver()
+        self.wait(lambda: self.status.get('phase') == 'idle', 4, 'INFO and READY')
+        self.run_for(.2)
+
+    def enable_driver(self):
+        request = Command.Request(); request.command,request.detail = self.enable_request()
         future = self.client.call_async(request)
         self.wait(future.done, 2, 'enable response')
         self.assertTrue(future.result().success, future.result().message)
-        self.wait(lambda: self.status.get('phase') == 'idle', 4, 'INFO and READY')
-        self.run_for(.2)
+
+    def extra_arguments(self): return []
+    def enable_request(self): return 'start',''
+    def extra_step(self,now): pass
 
     def cleanup(self):
         if self.process.poll() is None:
@@ -153,6 +161,7 @@ class UartSession(unittest.TestCase):
 
     def step(self):
         now = time.monotonic()
+        self.extra_step(now)
         self.quest.receive_mono_ns = time.monotonic_ns()
         self.publisher.publish(self.quest)
         if self.coordinator is not None:

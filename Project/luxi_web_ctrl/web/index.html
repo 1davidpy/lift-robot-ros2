@@ -14,10 +14,18 @@
 <article class="card"><div class="card-heading"><span>▣ RGB CAMERAS</span><span id="camera-badge" class="pill">未知</span></div><h2 id="camera-count">— <small>/ 3 在线</small></h2><p id="disk">磁盘剩余 —</p><div class="foot">头部 / 左腕 / 右腕 <span>RGB</span></div></article>
 </section>
 <section class="panel" id="arm-startup-panel"><div class="section-heading"><h2>OpenArm 上电抬臂</h2><span id="arm-startup-badge" class="pill">等待状态</span></div>
-<p>上电后点击抬臂，双臂及夹爪以最高 0.15 rad/s 移至图示启动姿态，到位后保持。无需 Quest、底盘或升降使能。</p>
+<p>上电后点击抬臂，双臂及夹爪移至图示启动姿态，到位后保持。目标指令限速 0.15 rad/s，实际速度以反馈为准。无需 Quest、底盘或升降使能。</p>
 <p id="arm-startup-status" role="status" aria-live="polite">等待关节反馈…</p>
 <div class="button-row"><button class="primary" data-kind="arm_startup" data-command="start" disabled>抬臂到启动姿态</button><button class="stop" data-kind="arm_startup" data-command="stop" disabled>停止抬臂并保持</button><button data-kind="arm_startup" data-command="disable" disabled>撤销抬臂使能（移除转矩）</button></div>
 <p class="hint">启动服务和刷新页面均不会自动抬臂。解除保持前请先支撑机械臂，再点击撤销使能；关闭或重启 OpenArm 服务也会移除转矩。</p></section>
+<section class="panel lift-position-panel" id="lift-position-panel" tabindex="-1"><div class="section-heading"><h2>升降行程位置控制</h2><span id="lift-position-badge" class="pill">等待反馈</span></div>
+<p>范围 −180 mm 至 +180 mm。开启位置控制后，拖动滑条选择位置，再点击“移动到目标”。每次只执行一个目标。</p>
+<p id="lift-position-state" role="status" aria-live="polite">等待升降服务…</p>
+<div class="lift-position-values"><strong>当前位置 <span id="lift-position-current">—</span> mm</strong><label>目标位置 <input id="lift-position-number" type="number" min="-180" max="180" step="0.001" value="0" aria-label="升降目标位置毫米"> mm</label></div>
+<input id="lift-position-range" type="range" min="-180" max="180" step="0.001" value="0" aria-label="升降目标行程滑条" disabled>
+<div class="lift-position-scale"><span>−180 mm</span><span>0 mm</span><span>+180 mm</span></div>
+<div class="button-row"><button id="lift-position-enable" class="primary" disabled>开启位置控制</button><button id="lift-position-move" disabled>移动到目标 0 mm</button><button id="lift-position-stop" class="stop" disabled>停止并退出位置控制</button></div>
+<p class="hint">到位后自动锁定。关闭页面、切换窗口、断网或反馈异常会停止当前运动；恢复后需重新开启，不会自动重发目标。</p></section>
 <section class="panel"><div class="section-heading"><h2>OpenArm 关节反馈</h2><span class="pill">角度 rad · 温度 °C</span></div><div class="arm-table-scroll"><table class="arm-table"><thead><tr><th>机械臂</th><th>关节</th><th>状态</th><th>位置</th><th>速度 rad/s</th><th>力矩 Nm</th><th>MOS / 转子温度</th></tr></thead><tbody id="arm-joints"></tbody></table></div></section>
 <section id="keyboard-panel" tabindex="-1" class="panel keyboard-panel" aria-labelledby="keyboard-title">
 <div class="section-heading"><div><div class="eyebrow">WASD / CH3</div><h2 id="keyboard-title">键盘测试控制</h2></div><span id="keyboard-badge" class="pill">等待状态</span></div>

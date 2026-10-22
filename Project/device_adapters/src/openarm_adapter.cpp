@@ -22,6 +22,9 @@ class Adapter : public rclcpp::Node {
   std::array<double, 16> startup_pose_{};
   std::array<double, 16> startup_reference_{};
   std::array<double, 16> startup_nominal_{}, startup_bias_{};
+  std::string startup_rejection_;
+  static constexpr double recovery_margin_ = .15;
+  static constexpr double gripper_recovery_margin_ = .02;
   bool restore_hold_ = false;
   std::array<double, 16> restore_target_{};
   double startup_speed_ = .15, startup_tolerance_ = .02;
@@ -78,8 +81,13 @@ class Adapter : public rclcpp::Node {
       message = "需要全部 16 个关节的有效实时反馈"; return false;
     }
     for (int i = 0; i < 16; ++i) {
-      if (state_.position[i] < cfg_.lo[i] || state_.position[i] > cfg_.hi[i]) {
-        message = "当前关节超出配置限位，请先检查"; return false;
+      // A small passive overshoot may occur while the motors are disabled.
+      // Recovery still moves towards the unchanged, in-range startup target.
+      const double margin = restore ? 0. : i % 8 == 7 ? gripper_recovery_margin_ : recovery_margin_;
+      if (state_.position[i] < cfg_.lo[i] - margin || state_.position[i] > cfg_.hi[i] + margin) {
+        message = std::string(i < 8 ? "右臂" : "左臂") + " J" + std::to_string(i % 8 + 1) +
+            " 当前位置 " + std::to_string(state_.position[i]) + " rad 超出可恢复范围；关节限位 [" +
+            std::to_string(cfg_.lo[i]) + ", " + std::to_string(cfg_.hi[i]) + "] rad"; return false;
       }
     }
     if (restore) {
@@ -270,6 +278,14 @@ class Adapter : public rclcpp::Node {
     state_.position = cfg_.home;
     for (int i = 0; i < 16; i++)
       state_.position[i] = std::clamp(state_.position[i], cfg_.lo[i], cfg_.hi[i]);
+    if (mock_) {
+      const auto initial = declare_parameter<std::vector<double>>("mock_initial_positions", std::vector<double>{});
+      if (!initial.empty()) {
+        if (initial.size() != 16 || !std::all_of(initial.begin(), initial.end(), [](double v) { return std::isfinite(v); }))
+          throw std::invalid_argument("mock_initial_positions needs 16 finite values");
+        std::copy(initial.begin(), initial.end(), state_.position.begin());
+      }
+    }
     sent_ = state_.position;
     if (!mock_) {
       for (int s = 0; s < 2; s++) {
@@ -302,7 +318,8 @@ class Adapter : public rclcpp::Node {
     startup_service_ = create_service<luxi::Service>("/luxi/arms/startup",
         [this](const std::shared_ptr<luxi::Service::Request> req,
                std::shared_ptr<luxi::Service::Response> res) {
-          try { res->success = startup_command(req->command, res->message, req->detail); }
+          try { res->success = startup_command(req->command, res->message, req->detail);
+            startup_rejection_ = res->success ? "" : res->message; }
           catch (const std::exception& e) {
             startup_hold("initialization_failed"); res->success = false; res->message = e.what();
           }
@@ -400,10 +417,21 @@ class Adapter : public rclcpp::Node {
         state_.age_ns[i] = seen_[i] ? feedback_now - seen_[i] : INT64_MAX;
         state_.valid[i] = luxi::fresh(seen_[i], feedback_now) && std::isfinite(state_.position[i]);
       }
+      const auto previous_sent = sent_;
       update_startup(t, dt, luxi::valid_state(state_));
       state_.phase = monitor_only_ ? "monitor_only" : (enabled_ ? command_.phase : "disabled");
       if (enabled_ && luxi::valid_state(state_) && luxi::fresh(command_.source_mono_ns, t)) {
         auto target = cfg_.limit(command_.position, sent_, dt);
+        if (startup_owned_) {
+          // A stopped out-of-limit recovery must hold, never jump to the limit.
+          target = command_.position;
+          if (startup_phase_ == "moving")
+            for (int i = 0; i < 16; ++i) {
+              const double desired = std::clamp(command_.position[i], cfg_.lo[i], cfg_.hi[i]);
+              const double step = std::min(cfg_.speed[i], startup_speed_) * dt;
+              target[i] = previous_sent[i] + std::clamp(desired - previous_sent[i], -step, step);
+            }
+        }
         if (!mock_)
           for (int s = 0; s < 2; s++) {
             std::vector<dm::MITParam> params;
@@ -440,6 +468,8 @@ class Adapter : public rclcpp::Node {
       max_error = std::max(max_error, std::abs(startup_pose_[i] - state_.position[i]));
     std_msgs::msg::String status;
     status.data = luxi::Json{{"configured", startup_allowed_}, {"owned", startup_owned_},
+        {"last_rejection", startup_rejection_}, {"recovery_margin_rad", recovery_margin_},
+        {"gripper_recovery_margin_rad", gripper_recovery_margin_},
         {"phase", startup_phase_}, {"reason", startup_reason_}, {"target", startup_pose_},
         {"speed_rad_s", startup_speed_}, {"tolerance_rad", startup_tolerance_},
         {"static_compensation_rad", startup_bias_},

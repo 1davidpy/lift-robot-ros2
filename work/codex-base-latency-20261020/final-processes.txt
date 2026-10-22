@@ -1,4 +1,0 @@
-    PID    PPID COMMAND
-   8440       1 /home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/build/install/luxi_web_ctrl/lib/luxi_web_ctrl/web_ctrl --ros-args -p host:=0.0.0.0 -p directory:=/run/luxi_dataset/episodes -p ram_staging:=true -p mock:=false -p base_enabled:=true -p no_cameras:=false
-   9442       1 /home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/build/install/luxi_device_adapters/lib/luxi_device_adapters/r680_adapter --ros-args -p mock:=false -p allow_hardware:=true -p interface:=luxi_base -p require_left_grip:=false -p receive_only:=true -p shared_enable:=false
-   9788       1 /home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/build/install/luxi_web_ctrl/lib/luxi_web_ctrl/web_ctrl --ros-args -r __node:=rgbd_gateway -p host:=0.0.0.0 -p port:=18030 -p mock:=false -p base_enabled:=true -p directory:=/home/sunrise/Desktop/LUXI_Lift_Robot/luxi_lift_ros2/lift_robot_ros2/data/interface_gateway
