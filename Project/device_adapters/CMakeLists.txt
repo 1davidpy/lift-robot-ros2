@@ -56,6 +56,11 @@ if(BUILD_TESTING)
  add_executable(test_openarm_monitor_readonly test/test_openarm_monitor_readonly.cpp)
  add_test(NAME openarm_monitor_readonly COMMAND test_openarm_monitor_readonly)
  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+ add_test(NAME openarm_manual_pose
+   COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_openarm_manual_pose.py
+     $<TARGET_FILE:openarm_adapter>
+     ${LUXI_ROOT}/Project/robot_bringup/config/arms-kh.json)
+ set_tests_properties(openarm_manual_pose PROPERTIES TIMEOUT 40)
  add_test(NAME depth_output
    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_depth_output.py
      $<TARGET_FILE:realsense_depth>)

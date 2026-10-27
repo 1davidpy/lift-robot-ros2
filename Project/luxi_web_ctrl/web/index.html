@@ -18,6 +18,14 @@
 <p id="arm-startup-status" role="status" aria-live="polite">等待关节反馈…</p>
 <div class="button-row"><button class="primary" data-kind="arm_startup" data-command="start" disabled>抬臂到启动姿态</button><button class="stop" data-kind="arm_startup" data-command="stop" disabled>停止抬臂并保持</button><button data-kind="arm_startup" data-command="disable" disabled>撤销抬臂使能（移除转矩）</button></div>
 <p class="hint">启动服务和刷新页面均不会自动抬臂。解除保持前请先支撑机械臂，再点击撤销使能；关闭或重启 OpenArm 服务也会移除转矩。</p></section>
+<section class="panel manual-pose-panel" id="manual-pose-panel" aria-labelledby="manual-pose-title">
+<div class="section-heading"><div><div class="eyebrow">OPENARM / MANUAL POSE</div><h2 id="manual-pose-title">动作设置</h2></div><span id="manual-pose-badge" class="pill">等待状态</span></div>
+<p>手动摆放双臂及夹爪后，保持当前姿态。此功能只保持本次姿态，不保存动作。</p>
+<div class="safety">进入设置会移除双臂和夹爪的电机转矩。请先支撑双臂及夹爪，防止下落或夹伤，再点击进入；摆放完成并停稳后，点击“保持当前姿态”。</div>
+<p id="manual-pose-status" role="status" aria-live="polite">等待 OpenArm 状态…</p>
+<div class="button-row"><button class="stop" data-kind="arm_startup" data-command="pose_enter" disabled>进入动作设置（失能）</button><button class="primary" data-kind="arm_startup" data-command="pose_hold" disabled>保持当前姿态</button><button data-kind="arm_startup" data-command="pose_cancel" disabled>退出设置（保持失能）</button></div>
+<p class="hint">保持后可直接由抬臂、遥操作等正常控制方式接管，无需另行解锁。刷新页面、关闭页面或切换窗口不会撤销姿态保持。退出设置只在手动摆姿和准备保持期间可用，请继续支撑机械臂。</p>
+</section>
 <section class="panel lift-position-panel" id="lift-position-panel" tabindex="-1"><div class="section-heading"><h2>升降行程位置控制</h2><span id="lift-position-badge" class="pill">等待反馈</span></div>
 <p>范围 −180 mm 至 +180 mm。开启位置控制后，拖动滑条选择位置，再点击“移动到目标”。每次只执行一个目标。</p>
 <p id="lift-position-state" role="status" aria-live="polite">等待升降服务…</p>

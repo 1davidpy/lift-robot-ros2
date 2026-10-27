@@ -9,7 +9,7 @@ let liftPositionHeartbeatAckAt = 0;
 let keyboardActive = false, keyboardPending = false, keyboardStarting = false;
 let keyboardError = "";
 const heldKeys = new Set();
-let state = null, connected = false, busy = false, lastUpdate = 0;
+let state = null, connected = false, busy = false, pendingCommands = 0, manualPoseCancelPending = false, lastUpdate = 0;
 const frames = {};
 function text(id, value) { $(id).textContent = value; }
 function badge(id, label, tone = '') { text(id, label); $(id).className = 'pill ' + tone; }
@@ -24,23 +24,36 @@ async function request(path, options = {}) {
 }
 function buttons() {
   const s = state, services = s?.system?.services || {};
+  const poseEditing = ['editing','preparing'].includes(s?.arm_startup?.manual_pose?.phase);
   keyboardUI();
   liftPositionUI();
+  manualPoseUI();
   document.querySelectorAll('[data-command]').forEach(b => {
     const kind = b.dataset.kind, cmd = b.dataset.command;
     let allow = connected && services[kind] && !busy;
     if (kind === 'arm_startup') {
       const startup = s?.arm_startup;
+      if (cmd.startsWith('pose_')) {
+        const pose = startup?.manual_pose, armValid = s?.arms?.fresh && s.arms.valid?.length === 16 && s.arms.valid.every(Boolean);
+        allow = connected && services[kind] && startup?.fresh && !!pose;
+        if (cmd === 'pose_enter') allow &&= !busy && armValid && ['inactive','holding'].includes(pose.phase);
+        else if (cmd === 'pose_hold') allow &&= !busy && armValid && !s.arms.enabled && pose.phase === 'editing' && pose.can_hold;
+        else if (cmd === 'pose_cancel') allow &&= !manualPoseCancelPending && poseEditing;
+        else allow = false;
+        b.disabled = !allow; return;
+      }
       allow &&= startup?.fresh && startup.configured;
+      const poseHolding = startup?.manual_pose?.phase === 'holding';
       if (cmd === 'start') allow &&= s.arms?.fresh && s.arms.valid.every(Boolean) &&
-        !['preparing','moving'].includes(startup.phase) && (!s.arms.enabled || startup.owned);
-      else allow &&= startup.owned;
+        !poseEditing && !['preparing','moving'].includes(startup.phase) && (!s.arms.enabled || startup.owned || poseHolding);
+      else allow &&= startup.owned || poseHolding;
       b.disabled = !allow; return;
     }
     if (cmd === 'start') {
+      if (kind === 'control' || kind === 'episode') allow &&= !poseEditing;
       if (kind === 'control') {
         allow &&= s.arms?.fresh && s.arms.phase !== 'monitor_only' && s.arms.valid.every(Boolean) && s.quest?.fresh && s.quest.rate_hz >= 50 && s.control?.fresh;
-        if (s.control?.shared_enable) allow &&= ['disabled','stopped'].includes(s.control.system_phase) && s.base_status?.fresh && s.base?.valid && s.lift_status?.fresh && s.lift_status.feedback_healthy && s.lift_status.stationary && s.lift_status.allow_motion && (s.control.parking_policy === 'arms_home_lift_stopped' || s.control.supported_home_confirmed) && s.quest.grips.every(v => v < 0.35) && s.quest.sticks.every(v => Math.abs(v) < 0.16);
+        if (s.control?.shared_enable) allow &&= ['disabled','stopped'].includes(s.control.system_phase) && s.base_status?.fresh && s.base?.valid && s.lift_status?.fresh && s.lift_status.feedback_healthy && s.lift_status.stationary && s.lift_status.allow_motion && (['arms_home_lift_stopped','legacy_timed_return_lift_stopped'].includes(s.control.parking_policy) || s.control.supported_home_confirmed) && s.quest.grips.every(v => v < 0.35) && s.quest.sticks.every(v => Math.abs(v) < 0.16);
         else allow &&= s.control?.phase === 'disabled';
       }
       if (kind === 'lift') allow &&= s.lift_status?.feedback_healthy && s.lift_status?.stationary && s.lift_status?.fresh && !s.lift_status.enabled && s.lift_status.allow_motion && s.quest?.fresh && s.quest.grips.every(v => v < 0.35);
@@ -50,6 +63,34 @@ function buttons() {
     } else if (kind === 'episode') allow &&= s.recorder?.fresh && s.recorder.state === 'recording';
     b.disabled = !allow;
   });
+  deviceButtons();
+}
+function manualPoseUI() {
+  const startup = state?.arm_startup, pose = startup?.manual_pose, arms = state?.arms;
+  let label = '等待状态', detail = '', tone = 'warn';
+  if (!connected) { label = '状态待确认'; detail = '网页服务未连接，无法确认电机状态。恢复连接后查看反馈；页面不会撤销姿态保持。'; }
+  else if (!state?.system?.services?.arm_startup || !startup?.fresh) { label = '服务未就绪'; detail = '等待 OpenArm 服务及新鲜状态。'; }
+  else if (!pose) { label = '驱动待更新'; detail = '当前 OpenArm 驱动尚不支持动作设置，请更新驱动后使用。'; }
+  else if (pose.phase === 'editing') {
+    label = '手动摆姿 · 已请求失能';
+    detail = pose.reason === 'disable_or_enable_failed' ? '失能或使能操作未完成，请继续支撑并检查设备，暂勿手动摆动。' :
+      arms?.fresh && !arms.enabled ? '双臂及夹爪已发送失能指令，请继续支撑并手动摆放。' : '正在确认双臂及夹爪失能，请继续支撑并等待反馈。';
+    detail += pose.can_hold ? '摆放完成并停稳后，可点击“保持当前姿态”。' : '尚不能保持，请等待全部关节反馈有效且停稳。';
+  } else if (pose.phase === 'preparing') {
+    label = '准备保持';
+    detail = '请继续支撑双臂及夹爪，等待反馈稳定（至少 300 ms）并确认使能。需要中止时可退出设置，继续保持失能。';
+  } else if (pose.phase === 'holding') {
+    const confirmed = !pose.fault_latched && arms?.fresh && arms.enabled && arms.valid?.length === 16 && arms.valid.every(Boolean);
+    label = pose.fault_latched ? '保持已暂停 · 需重新确认' : confirmed ? '当前姿态已保持' : '姿态保持待确认'; tone = confirmed ? 'good' : 'warn';
+    detail = pose.fault_latched ? '保持期间反馈或控制循环曾中断，已停止发送旧目标。请继续支撑；恢复反馈后可重新设置姿态，或明确启动正常控制接管，不会自动重发。' :
+      confirmed ? '已保持双臂及夹爪的当前姿态。可由抬臂、遥操作等正常控制直接接管，无需另行解锁。' : '保持指令已接受，但使能或关节反馈尚未确认，请继续支撑并检查设备状态。';
+  } else if (pose.phase === 'inactive') {
+    label = '未进入设置';
+    detail = '先支撑双臂及夹爪，再进入动作设置。进入后移除电机转矩，可手动摆姿。';
+  } else { label = '状态未知'; detail = '动作设置状态无法识别，请检查驱动版本及原始状态。'; }
+  const reasons = {feedback_lost:'关节反馈中断',feedback_invalid_or_stale:'全部关节反馈尚未新鲜有效',joint_outside_limits:'姿态超出关节限位，请手动移回限位内',arms_still_moving:'关节尚未停稳',stable_feedback_timeout:'等待稳定反馈超时，请重新保持',disable_or_enable_failed:'操作失败，请检查服务日志和设备连接',enable_feedback_timeout:'使能反馈超时',following_error:'保持跟随误差过大',operator_cancel:'已退出设置并保持失能',lifecycle_handover:'已交给正常控制',startup_handover:'已交给抬臂控制'};
+  if (connected && startup?.fresh && pose?.reason && reasons[pose.reason]) detail += ' · ' + reasons[pose.reason];
+  badge('manual-pose-badge', label, tone); text('manual-pose-status', detail);
 }
 function hideFrame(id, message) {
   $(id).hidden = true; $(id+'-empty').hidden = false;
@@ -91,7 +132,8 @@ function render(s) {
   const armValid = a?.fresh && a.valid?.every(Boolean);
   const armCount = a?.fresh ? a.valid.filter(Boolean).length : 0;
   badge('arms-badge',armValid ? (s.system.mock ? '模拟反馈' : '反馈在线') : armCount ? '部分在线 · ' + armCount + '/16' : '未就绪',armValid ? 'good' : armCount ? 'warn' : 'bad');
-  text('arm-phase',!a?.fresh ? '采集节点离线' : a.phase === 'fault' ? '驱动通信异常' : startup?.fresh && startup.owned ? startupNames[startup.phase] || startup.phase : a?.fresh && a.phase === 'monitor_only' ? '状态采集 · 未使能' : s.control?.fresh ? (phases[s.control.phase] || s.control.phase) : a?.fresh ? (a.enabled ? '已使能' : '未使能') : '采集节点离线');
+  const manualArmPhases = {editing:'动作设置 · 手动摆姿',preparing:'动作设置 · 准备保持',holding:startup?.manual_pose?.fault_latched ? '动作保持已暂停' : a?.enabled ? '动作设置 · 姿态保持' : '动作保持待确认'};
+  text('arm-phase',!a?.fresh ? '采集节点离线' : a.phase === 'fault' ? '驱动通信异常' : startup?.fresh && manualArmPhases[startup.manual_pose?.phase] ? manualArmPhases[startup.manual_pose.phase] : startup?.fresh && startup.owned ? startupNames[startup.phase] || startup.phase : a?.fresh && a.phase === 'monitor_only' ? '状态采集 · 未使能' : s.control?.fresh ? (phases[s.control.phase] || s.control.phase) : a?.fresh ? (a.enabled ? '已使能' : '未使能') : '采集节点离线');
   text('arms-detail',a?.fresh ? '左臂 ' + a.valid.slice(8,16).filter(Boolean).length + '/8 · 右臂 ' + a.valid.slice(0,8).filter(Boolean).length + '/8 有效反馈' : '没有新鲜关节反馈');
   const jointRows = [];
   for (const [side, offset] of [['左臂',8],['右臂',0]]) {
@@ -188,17 +230,19 @@ async function episodes() {
   } catch { text('episodes','列表读取失败，请刷新重试'); }
 }
 document.querySelectorAll('[data-command]').forEach(b => b.addEventListener('click', async () => {
-  if (busy || b.disabled) return;
-  busy = true; buttons();
+  const kind = b.dataset.kind, command = b.dataset.command;
+  const poseCancel = kind === 'arm_startup' && command === 'pose_cancel';
+  if ((busy && !poseCancel) || b.disabled) return;
+  if (poseCancel) manualPoseCancelPending = true;
+  pendingCommands++; busy = true; buttons();
   try {
-    const kind = b.dataset.kind, command = b.dataset.command;
-    const detail = command === 'start' ? $('task').value.trim() : $('reason').value.trim();
+    const detail = command.startsWith('pose_') ? '' : command === 'start' ? $('task').value.trim() : $('reason').value.trim();
     const result = await request('/api/' + kind,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({command,detail})});
     log(b.textContent + '：' + result.message);
     render(await request('/api/state'));
     if (kind === 'episode') await episodes();
   } catch (e) { log('操作未确认：' + e.message + '。请查看设备状态，超时指令不会自动重发。'); }
-  finally { busy = false; buttons(); }
+  finally { if (poseCancel) manualPoseCancelPending = false; pendingCommands--; busy = pendingCommands > 0; buttons(); }
 }));
 $('task').addEventListener('input',buttons);
 $('preview').addEventListener('change',() => { if (!$('preview').checked) cameraIds.forEach(id => hideFrame(id,'预览已暂停')); });
@@ -282,10 +326,12 @@ function deviceButtons() {
   document.querySelectorAll('[data-device]').forEach(box => {
     const id = box.dataset.device, d = deviceStates[id];
     const running = d && ['active', 'activating', 'reloading'].includes(d.ActiveState);
+    const poseProtected = id === 'arms' && ['editing','preparing','holding'].includes(state?.arm_startup?.manual_pose?.phase);
     const labels = {active:'服务运行中', activating:'正在启动 / 自动重试', deactivating:'正在停止', inactive:'已关闭', failed:'启动失败，可重试'};
-    box.querySelector('.service-state').textContent = d ? (d.LoadState === 'not-found' ? '服务未安装' : labels[d.ActiveState] || d.ActiveState) : '服务状态不可用';
+    box.querySelector('.service-state').textContent = (d ? (d.LoadState === 'not-found' ? '服务未安装' : labels[d.ActiveState] || d.ActiveState) : '服务状态不可用') + (poseProtected ? ' · 动作设置中，服务开关与重启已暂停' : '');
     box.querySelectorAll('button').forEach(b => {
-      b.disabled = deviceBusy || !connected || !d || d.LoadState !== 'loaded' || d.ActiveState === 'deactivating';
+      b.disabled = deviceBusy || !connected || !d || d.LoadState !== 'loaded' || d.ActiveState === 'deactivating' || poseProtected;
+      b.title = poseProtected ? '重启或关闭服务会影响电机转矩。请先退出动作设置或由正常控制接管。' : '';
       if (b.dataset.serviceAction === 'toggle') {
         b.textContent = (running ? '关闭' : '开启') + (id === 'program' ? '控制与录制程序' : '采集');
         b.setAttribute('role', 'switch'); b.setAttribute('aria-checked', String(!!running));
@@ -299,6 +345,7 @@ async function pollDevices() {
   deviceButtons();
 }
 document.querySelectorAll('[data-device] button').forEach(b => b.addEventListener('click', async () => {
+  if (b.disabled || deviceBusy) return;
   const id = b.closest('[data-device]').dataset.device;
   const running = ['active', 'activating', 'reloading'].includes(deviceStates[id]?.ActiveState);
   const action = b.dataset.serviceAction === 'toggle' ? (running ? 'stop' : 'start') : 'restart';

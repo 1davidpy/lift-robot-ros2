@@ -12,3 +12,4 @@
 .camera,.camera.head{aspect-ratio:auto;display:flex;flex-direction:column}.camera-label,.camera figcaption{position:static}.camera img,.camera .empty{width:100%;height:auto;aspect-ratio:16/9}.camera .device-actions{margin-top:auto}.camera .button-row{flex-wrap:wrap}
 
 .lift-position-panel{border-color:#397c70}.lift-position-values{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-top:16px}.lift-position-values input{width:110px}#lift-position-range{accent-color:var(--mint);padding:0;margin:14px 0;height:28px}.lift-position-scale{display:flex;justify-content:space-between;color:var(--muted);font-size:12px}.lift-position-panel .button-row{flex-wrap:wrap}
+.manual-pose-panel{border-color:#615239}.manual-pose-panel .safety{font-size:12px;margin-bottom:14px}.manual-pose-panel .button-row{flex-wrap:wrap}.manual-pose-panel .button-row button{min-width:190px}#manual-pose-status{min-height:1.6em;color:var(--text)}

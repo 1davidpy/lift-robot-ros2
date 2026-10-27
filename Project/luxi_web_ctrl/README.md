@@ -113,3 +113,15 @@ sudo journalctl -u luxi-quest.service -n 30 --no-pager
 ```
 
 常驻接收运行时，不再手动运行第二个 `quest_receiver`。独立 ROS launch 默认 `quest_enabled:=true`，复用常驻节点时需设为 false。域 76 的 mock 快捷启动仍自行监听 15006，不占用实际 Quest 的 5006。
+
+## 手动动作设置与当前姿态保持
+
+“动作设置”面板只保持本次双臂及夹爪姿态，不保存或重放动作，也不改电机零点、软件 offset 或关节限位。先支撑双臂和夹爪，再点击“进入动作设置（失能）”；手动摆放并停稳后点击“保持当前姿态”。驱动等待全部 16 轴的新鲜、限位内且稳定至少 300 ms 的反馈，然后以采样姿态预装目标、使能并立即保持，不返回 home 或启动姿态。编辑期间可以退出，退出仍保持失能；已保持时退出按钮不可用，避免误卸力。
+
+接口复用 `POST /api/arm_startup`（ROS `/luxi/arms/startup`），请求 `{"command":"pose_enter|pose_hold|pose_cancel","detail":""}`。状态位于 `/api/state` 的 `arm_startup.manual_pose`，包含 `phase`（inactive/editing/preparing/holding）、`reason`、`generation`、`target[16]` 和 `can_hold`。保持是异步操作，HTTP 成功后应继续检查状态和实时关节反馈。
+
+动作编辑/准备期间控制器停发旧目标，忽略 Quest 启动键和原生命周期使能；保持后可使用抬臂、网页/Quest 遥操作或原返回停车入口正常接管。控制器以本轮 `enable:<generation>` 交接，收到驱动确认后才推进运动目标；驱动拒绝旧使能和交接前的缓存目标。交接超时或被其他入口接管时，控制器停止本次启动/返回，不自动卸力。内部控制客户端若直接使用生命周期话题，也应先读取当前 generation，再发本轮带标识的 enable，确认驱动交接后再发新目标；不在手摆保持中时原 `enable` 字符串保持兼容。
+
+刷新、关闭网页、失焦或断网不自动撤销双臂保持。重启或关闭双臂驱动仍会移除转矩，部署和维护前必须先可靠支撑机械臂。
+
+保持中关节反馈失效或控制循环断档超过 150 ms 会锁存暂停状态（`manual_pose.fault_latched`），停止发送原保持目标，不自动卸力，也不在反馈恢复后自动重发。恢复新鲜反馈后需重新设置或明确启动正常控制接管，故障后的接管起点使用当前实测姿态。

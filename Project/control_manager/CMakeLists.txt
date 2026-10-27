@@ -16,6 +16,12 @@ install(TARGETS control_manager DESTINATION lib/${PROJECT_NAME})
 if(BUILD_TESTING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   enable_testing()
+  add_test(NAME manual_pose_handover
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_manual_pose_handover.py
+      $<TARGET_FILE:control_manager>
+      ${LUXI_ROOT}/build/packages/luxi_device_adapters/openarm_adapter
+      ${CMAKE_CURRENT_SOURCE_DIR}/../robot_bringup/config/arms-kh.json)
+  set_tests_properties(manual_pose_handover PROPERTIES TIMEOUT 90)
   add_test(NAME homing_tolerance
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_homing_tolerance.py
       $<TARGET_FILE:control_manager>

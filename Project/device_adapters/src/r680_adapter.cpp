@@ -457,7 +457,7 @@ class R680 : public rclcpp::Node {
           const double x=msg->linear.x, y=msg->linear.y, yaw=msg->angular.z;
           if (!rb::fresh(keyboard_time_, luxi::mono(), 200000000) ||
               !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(yaw) ||
-              std::hypot(x,y) > .100001 || std::abs(yaw) > .100001 ||
+              std::hypot(x,y) > .150001 || std::abs(yaw) > .300001 ||
               msg->linear.z != 0 || msg->angular.x != 0 || msg->angular.y != 0) {
             gate_.halt("invalid_or_expired_cmd_vel"); return;
           }

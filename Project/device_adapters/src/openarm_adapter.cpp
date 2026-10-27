@@ -35,6 +35,176 @@ class Adapter : public rclcpp::Node {
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr control_status_sub_;
   luxi::Json control_status_;
   int64_t control_status_time_ = 0;
+  std::string manual_phase_ = "inactive", manual_reason_ = "not_requested";
+  std::string manual_generation_;
+  std::array<double, 16> manual_target_{}, manual_reference_{};
+  int64_t manual_since_ = 0, manual_stable_since_ = 0, command_after_ = 0;
+  bool manual_disabled_ = false, manual_fault_latched_ = false;
+  static constexpr double manual_velocity_limit_ = .08, manual_stability_rad_ = .01;
+  static constexpr int64_t manual_settle_ns_ = 300000000, manual_timeout_ns_ = 3000000000LL;
+  bool manual_editing() const { return manual_phase_ == "editing" || manual_phase_ == "preparing"; }
+  void clear_command() {
+    command_ = luxi::Command{};
+    command_after_ = luxi::mono();
+  }
+  void leave_manual(const std::string& reason) {
+    manual_phase_ = "inactive"; manual_reason_ = reason;
+    manual_disabled_ = manual_fault_latched_ = false; manual_stable_since_ = 0;
+  }
+  void latch_manual_fault(const std::string& reason) {
+    if (manual_fault_latched_) return;
+    manual_fault_latched_ = true; manual_reason_ = reason;
+    manual_generation_ = std::to_string(luxi::mono());
+    clear_command();
+  }
+  void writable_buses() {
+    if (!monitor_only_) return;
+    if (!mock_) {
+      for (auto& m : monitors_) m.reset();
+      for (int side = 0; side < 2; ++side) initialize_arm(side);
+    }
+    monitor_only_ = false;
+    seen_.fill(0);
+  }
+  void disable_outputs() {
+    // Try both buses even if the first bus fails. An explicit pose-enter must
+    // transmit DISABLE even when this process did not originally enable them.
+    std::string failure;
+    for (auto& a : arms_) if (a) {
+      try { a->disable_all(); }
+      catch (const std::exception& e) { if (failure.empty()) failure = e.what(); }
+    }
+    enabled_ = false;
+    if (!failure.empty()) throw std::runtime_error(failure);
+  }
+  bool manual_feedback_fresh(int64_t t) const {
+    if (!luxi::valid_state(state_) || !luxi::fresh(state_.receive_mono_ns, t))
+      return false;
+    return std::all_of(seen_.begin(), seen_.end(), [t](int64_t seen) { return luxi::fresh(seen, t); }) &&
+        std::all_of(state_.velocity.begin(), state_.velocity.end(), [](double v) { return std::isfinite(v); });
+  }
+  std::string manual_feedback_rejection(int64_t t) const {
+    if (!manual_feedback_fresh(t)) return "feedback_invalid_or_stale";
+    for (int i = 0; i < 16; ++i) {
+      if (state_.position[i] < cfg_.lo[i] || state_.position[i] > cfg_.hi[i])
+        return "joint_outside_limits";
+      if (std::abs(state_.velocity[i]) > manual_velocity_limit_)
+        return "arms_still_moving";
+    }
+    return "";
+  }
+  bool manual_command(const std::string& command, std::string& message) {
+    const auto t = luxi::mono();
+    if (command == "pose_cancel" && !manual_editing()) {
+      message = "仅可取消正在编辑或准备保持的动作设置";
+      return false;
+    }
+    if (command == "pose_enter" || command == "pose_cancel") {
+      startup_owned_ = startup_pending_ = restore_hold_ = false;
+      startup_phase_ = "idle"; startup_reason_ = "manual_pose";
+      startup_bias_.fill(0); clear_command();
+      manual_phase_ = "editing"; manual_reason_ = "disabling";
+      manual_fault_latched_ = false;
+      if (command == "pose_enter") manual_generation_ = std::to_string(t);
+      manual_disabled_ = false; manual_stable_since_ = 0;
+      writable_buses();
+      disable_outputs();
+      sent_ = state_.position;
+      manual_disabled_ = true;
+      if (command == "pose_cancel") {
+        leave_manual("operator_cancel");
+        message = "已退出动作设置，双臂保持失能";
+      } else {
+        manual_reason_ = "motors_disabled";
+        message = "双臂及夹爪已失能，请托住机械臂后手动摆姿";
+      }
+      return true;
+    }
+    if (manual_phase_ != "editing" || !manual_disabled_) {
+      message = "请先进入动作设置模式并确认双臂已失能"; return false;
+    }
+    const auto rejection = manual_feedback_rejection(t);
+    if (!rejection.empty()) {
+      manual_reason_ = rejection;
+      message = rejection == "joint_outside_limits" ? "当前姿态超出关节限位，保持前请手动移回限位内" :
+          rejection == "arms_still_moving" ? "机械臂仍在移动，请稳定托住后再保持" : "需要全部 16 轴的有效实时反馈";
+      return false;
+    }
+    manual_phase_ = "preparing"; manual_reason_ = "waiting_for_stable_feedback";
+    manual_since_ = t; manual_stable_since_ = 0; manual_reference_ = state_.position;
+    clear_command();
+    message = "正在确认姿态稳定，将原地使能保持当前姿态";
+    return true;
+  }
+  void update_manual(int64_t t) {
+    if (manual_phase_ == "editing") {
+      if (manual_disabled_) {
+        const auto rejection = manual_feedback_rejection(t);
+        manual_reason_ = rejection.empty() ? "ready_to_hold" : rejection;
+      }
+      return;
+    }
+    if (manual_phase_ == "preparing") {
+      const auto rejection = manual_feedback_rejection(t);
+      if (t - manual_since_ > manual_timeout_ns_) {
+        manual_phase_ = "editing"; manual_reason_ = "stable_feedback_timeout";
+        return;
+      }
+      if (!rejection.empty()) {
+        manual_stable_since_ = 0; manual_reason_ = rejection;
+        if (rejection != "feedback_invalid_or_stale") manual_phase_ = "editing";
+        return;
+      }
+      // All 16 samples must have arrived after the hold button. A cached
+      // pre-disable/pre-click position must never become an enable target.
+      for (const auto seen : seen_) if (seen <= manual_since_) return;
+      bool moved = false;
+      for (int i = 0; i < 16; ++i)
+        moved = moved || std::abs(state_.position[i] - manual_reference_[i]) > manual_stability_rad_;
+      if (!manual_stable_since_ || moved) {
+        manual_reference_ = state_.position; manual_stable_since_ = t;
+      }
+      manual_reason_ = "waiting_for_stable_feedback";
+      if (t - manual_stable_since_ < manual_settle_ns_) return;
+      manual_target_ = state_.position;
+      sent_ = manual_target_;
+      clear_command();
+      command_.position = manual_target_; command_.phase = "manual_pose_hold";
+      command_.source_mono_ns = t;
+      // Preload the measured target while disabled, then resend immediately
+      // after enable rather than leaving the motor's previous target in force.
+      send_target(manual_target_);
+      enabled_ = true; // A partial enable must also be disabled on unwind.
+      for (auto& a : arms_) if (a) a->enable_all();
+      send_target(manual_target_);
+      manual_phase_ = "holding"; manual_reason_ = "current_pose_held";
+      manual_disabled_ = false;
+    }
+    if (manual_phase_ == "holding") {
+      if (!manual_fault_latched_ && !manual_feedback_fresh(t))
+        latch_manual_fault("feedback_lost_latched");
+      if (manual_fault_latched_) {
+        command_.source_mono_ns = 0;
+        return;
+      }
+      command_.position = manual_target_;
+      command_.phase = "manual_pose_hold";
+      command_.source_mono_ns = t;
+      manual_reason_ = "current_pose_held";
+    }
+  }
+  void send_target(const std::array<double, 16>& target) {
+    if (mock_) return;
+    for (int s = 0; s < 2; ++s) {
+      std::vector<dm::MITParam> params;
+      for (int i = 0; i < 7; ++i) {
+        const int k = s * 8 + i;
+        params.push_back(dm::MITParam{cfg_.kp[k], cfg_.kd[k], target[k] + cfg_.offset[k], 0, 0});
+      }
+      arms_[s]->get_arm().mit_control_all(params);
+      arms_[s]->get_gripper().set_position(target[s * 8 + 7] + cfg_.offset[s * 8 + 7], 50., 1. / 4.5);
+    }
+  }
   void initialize_arm(int s) {
     arms_[s] = std::make_unique<oa::OpenArm>(bus_names_[s], json_.at("fd"));
     arms_[s]->init_arm_motors(
@@ -54,6 +224,27 @@ class Adapter : public rclcpp::Node {
   }
   bool startup_command(const std::string& command, std::string& message, const std::string& detail = "") {
     const auto t = luxi::mono();
+    if (command == "pose_enter" || command == "pose_hold" || command == "pose_cancel")
+      return manual_command(command, message);
+    if (command == "disable" && manual_phase_ != "inactive") {
+      startup_owned_ = startup_pending_ = false;
+      startup_phase_ = "idle"; startup_reason_ = "operator_disable";
+      clear_command(); disable_outputs(); leave_manual("operator_disable");
+      message = "已撤销双臂使能并移除转矩"; return true;
+    }
+    if (command == "stop" && manual_phase_ != "inactive") {
+      if (manual_phase_ == "holding" && manual_fault_latched_) {
+        message = "已停止目标发送，反馈故障仍锁存；请重新设置姿态或显式启动控制";
+        return true;
+      }
+      if (manual_phase_ == "holding") {
+        startup_owned_ = true; startup_hold("operator_stop");
+      } else {
+        disable_outputs(); clear_command();
+      }
+      leave_manual("operator_stop");
+      message = enabled_ ? "已停止，保留当前姿态转矩" : "已停止动作设置，双臂保持失能"; return true;
+    }
     if (!startup_allowed_) { message = "启动姿态功能未配置"; return false; }
     if (command == "disable") {
       if (enabled_ && !startup_owned_) { message = "请通过遥操作控制撤销使能"; return false; }
@@ -69,7 +260,9 @@ class Adapter : public rclcpp::Node {
     }
     const bool restore = command == "restore_hold";
     if (command != "start" && !restore) { message = "不支持的启动指令"; return false; }
-    if (startup_phase_ == "moving" || startup_pending_ || (enabled_ && !startup_owned_)) {
+    if (manual_editing()) { message = "请先保持当前姿态或退出动作设置"; return false; }
+    if (startup_phase_ == "moving" || startup_pending_ ||
+        (enabled_ && !startup_owned_ && manual_phase_ != "holding")) {
       message = "双臂正在运动或已由遥操作控制"; return false;
     }
     if (control_status_.is_object() && luxi::fresh(control_status_time_, t, 500000000) &&
@@ -77,7 +270,8 @@ class Adapter : public rclcpp::Node {
         control_status_.value("system_phase", "disabled") != "stopped") {
       message = "请先停止遥操作"; return false;
     }
-    if (!luxi::valid_state(state_) || !luxi::fresh(state_.receive_mono_ns, t)) {
+    if (!luxi::valid_state(state_) || !luxi::fresh(state_.receive_mono_ns, t) ||
+        (manual_fault_latched_ && !manual_feedback_fresh(t))) {
       message = "需要全部 16 个关节的有效实时反馈"; return false;
     }
     for (int i = 0; i < 16; ++i) {
@@ -103,13 +297,16 @@ class Adapter : public rclcpp::Node {
     }
     // Mode writes happen only after the explicit button, never on read-only boot.
     startup_reference_ = state_.position;
-    if (monitor_only_) {
-      if (!mock_) {
-        for (auto& m : monitors_) m.reset();
-        for (int side = 0; side < 2; ++side) initialize_arm(side);
-      }
-      monitor_only_ = false;
-      seen_.fill(0);
+    writable_buses();
+    const bool manual_fault_handover = manual_phase_ == "holding" && manual_fault_latched_;
+    if (manual_fault_handover) {
+      sent_ = state_.position; startup_bias_.fill(0);
+    }
+    leave_manual("startup_handover"); clear_command();
+    if (manual_fault_handover) {
+      command_.position = sent_; command_.phase = "startup_handover_hold";
+      command_.source_mono_ns = command_after_;
+      send_target(sent_);
     }
     startup_owned_ = true; startup_pending_ = !enabled_;
     restore_hold_ = restore;
@@ -308,7 +505,11 @@ class Adapter : public rclcpp::Node {
     applied_ = create_publisher<luxi::Command>("/luxi/applied", 10);
     errors_ = create_publisher<std_msgs::msg::String>("/luxi/faults", 20);
     sub_ = create_subscription<luxi::Command>(
-        "/luxi/command", 1, [this](luxi::Command::ConstSharedPtr c) { if (!startup_owned_) command_ = *c; });
+        "/luxi/command", 1, [this](luxi::Command::ConstSharedPtr c) {
+          if (!startup_owned_ && manual_phase_ == "inactive" &&
+              c->source_mono_ns > command_after_ && luxi::fresh(c->source_mono_ns, luxi::mono()))
+            command_ = *c;
+        });
     startup_status_ = create_publisher<std_msgs::msg::String>("/luxi/arms/startup_status", 1);
     control_status_sub_ = create_subscription<std_msgs::msg::String>("/luxi/control_status", 1,
         [this](std_msgs::msg::String::ConstSharedPtr m) {
@@ -321,28 +522,46 @@ class Adapter : public rclcpp::Node {
           try { res->success = startup_command(req->command, res->message, req->detail);
             startup_rejection_ = res->success ? "" : res->message; }
           catch (const std::exception& e) {
-            startup_hold("initialization_failed"); res->success = false; res->message = e.what();
+            if (req->command.rfind("pose_", 0) == 0 || manual_phase_ != "inactive") {
+              clear_command(); manual_phase_ = "editing";
+              manual_disabled_ = false; manual_reason_ = "disable_or_enable_failed";
+              try { disable_outputs(); } catch (...) {}
+            } else startup_hold("initialization_failed");
+            res->success = false; res->message = e.what(); startup_rejection_ = res->message;
           }
         });
     life_ = create_subscription<std_msgs::msg::String>(
         "/luxi/driver_lifecycle", 10, [this](std_msgs::msg::String::ConstSharedPtr s) {
           if (monitor_only_) return;
           try {
-            if (s->data == "enable" && luxi::valid_state(state_) &&
-                luxi::fresh(state_.receive_mono_ns, luxi::mono())) {
-              if (startup_pending_ || (startup_owned_ && startup_phase_ == "moving")) return;
+            const bool enable_request = s->data == "enable" || s->data.rfind("enable:", 0) == 0;
+            const bool disable_request = s->data == "disable" || s->data.rfind("disable:", 0) == 0;
+            const auto requested_at = luxi::mono();
+            if (enable_request && luxi::valid_state(state_) &&
+                luxi::fresh(state_.receive_mono_ns, requested_at)) {
+              if (manual_editing() || startup_pending_ || (startup_owned_ && startup_phase_ == "moving")) return;
+              if (manual_phase_ == "holding" ? s->data != "enable:" + manual_generation_ : s->data != "enable") return;
+              if (manual_fault_latched_ && !manual_feedback_fresh(requested_at)) return;
+              const auto handover_target = manual_phase_ == "holding" && !manual_fault_latched_
+                  ? manual_target_ : state_.position;
               startup_owned_ = false; startup_phase_ = "idle";
               startup_reason_ = "teleop_handover";
-              sent_ = state_.position;
+              leave_manual("lifecycle_handover"); clear_command();
+              // Preserve support torque until a newly issued target arrives.
+              // Previously queued ArmCommands are older than command_after_.
+              sent_ = handover_target; command_.position = handover_target;
+              command_.phase = "lifecycle_hold"; command_.source_mono_ns = command_after_;
+              send_target(handover_target);
               for (auto& a : arms_)
                 if (a) a->enable_all();
               enabled_ = true;
-            } else if (s->data == "disable") {
+              send_target(handover_target);
+            } else if (disable_request) {
+              if (manual_phase_ == "inactive" ? s->data != "disable" : s->data != "disable:" + manual_generation_)
+                return;
               startup_owned_ = startup_pending_ = false;
               startup_phase_ = "idle"; startup_reason_ = "operator_disable";
-              for (auto& a : arms_)
-                if (a) a->disable_all();
-              enabled_ = false;
+              clear_command(); disable_outputs(); leave_manual("operator_disable");
             }
           } catch (const std::exception& e) {
             enabled_ = false;
@@ -367,6 +586,8 @@ class Adapter : public rclcpp::Node {
   }
   void update() {
     auto t = luxi::mono();
+    if (manual_phase_ == "holding" && previous_ && t - previous_ > 150000000)
+      latch_manual_fault("control_loop_stalled");
     double dt = previous_ ? std::min(.05, (t - previous_) * 1e-9) : .01;
     previous_ = t;
     try {
@@ -417,10 +638,13 @@ class Adapter : public rclcpp::Node {
         state_.age_ns[i] = seen_[i] ? feedback_now - seen_[i] : INT64_MAX;
         state_.valid[i] = luxi::fresh(seen_[i], feedback_now) && std::isfinite(state_.position[i]);
       }
+      t = feedback_now;
       const auto previous_sent = sent_;
+      update_manual(t);
       update_startup(t, dt, luxi::valid_state(state_));
       state_.phase = monitor_only_ ? "monitor_only" : (enabled_ ? command_.phase : "disabled");
-      if (enabled_ && luxi::valid_state(state_) && luxi::fresh(command_.source_mono_ns, t)) {
+      if (enabled_ && !(manual_phase_ == "holding" && manual_fault_latched_) &&
+          luxi::valid_state(state_) && luxi::fresh(command_.source_mono_ns, t)) {
         auto target = cfg_.limit(command_.position, sent_, dt);
         if (startup_owned_) {
           // A stopped out-of-limit recovery must hold, never jump to the limit.
@@ -432,18 +656,7 @@ class Adapter : public rclcpp::Node {
               target[i] = previous_sent[i] + std::clamp(desired - previous_sent[i], -step, step);
             }
         }
-        if (!mock_)
-          for (int s = 0; s < 2; s++) {
-            std::vector<dm::MITParam> params;
-            for (int i = 0; i < 7; i++) {
-              int k = s * 8 + i;
-              params.push_back(
-                  dm::MITParam{cfg_.kp[k], cfg_.kd[k], target[k] + cfg_.offset[k], 0, 0});
-            }
-            arms_[s]->get_arm().mit_control_all(params);
-            arms_[s]->get_gripper().set_position(target[s * 8 + 7] + cfg_.offset[s * 8 + 7], 50.,
-                                                 1. / 4.5);
-          }
+        send_target(target);
         sent_ = target;
         auto applied = command_;
         applied.position = sent_;
@@ -451,7 +664,8 @@ class Adapter : public rclcpp::Node {
         applied.source_mono_ns = luxi::mono();
         applied_->publish(applied);
       } else if (enabled_)
-        state_.phase = "hold_feedback_or_command_timeout";
+        state_.phase = manual_phase_ == "holding" && manual_fault_latched_
+            ? "manual_pose_fault_latched" : "hold_feedback_or_command_timeout";
     } catch (const std::exception& e) {
       state_.valid.fill(false);
       state_.phase = "fault";
@@ -473,6 +687,12 @@ class Adapter : public rclcpp::Node {
         {"phase", startup_phase_}, {"reason", startup_reason_}, {"target", startup_pose_},
         {"speed_rad_s", startup_speed_}, {"tolerance_rad", startup_tolerance_},
         {"static_compensation_rad", startup_bias_},
+        {"manual_pose", {{"phase", manual_phase_}, {"reason", manual_reason_},
+                         {"generation", manual_generation_},
+                         {"fault_latched", manual_fault_latched_},
+                         {"target", manual_target_},
+                         {"can_hold", manual_phase_ == "editing" && manual_disabled_ &&
+                                      manual_feedback_rejection(luxi::mono()).empty()}}},
         {"max_error_rad", max_error}, {"receive_mono_ns", std::to_string(luxi::mono())}}.dump();
     startup_status_->publish(status);
   }
