@@ -42,6 +42,13 @@ class Manager : public rclcpp::Node {
   int64_t start_manual_request_ns_ = 0;
   bool start_manual_fault_ = false;
   int64_t manual_pose_status_ns_ = 0;
+  std::string control_generation_, return_control_generation_;
+  std::array<double, 16> support_target_{};
+  bool support_target_valid_ = false;
+  std::array<double, 16> supported_pose(int64_t t) const {
+    return state_.enabled && support_target_valid_ && luxi::fresh(manual_pose_status_ns_, t, 500000000)
+        ? support_target_ : state_.position;
+  }
   std::string system_phase_ = "disabled", epoch_;
   const std::string owner_ = std::to_string(luxi::mono());
   uint64_t epoch_count_ = 0;
@@ -61,8 +68,12 @@ class Manager : public rclcpp::Node {
     std_msgs::msg::String m;
     // A hand-posed hold accepts only this generation's explicit enable. Plain
     // queued enables from before the edit must not release the captured pose.
-    m.data = (s == "enable" && manual_pose_phase_ == "holding") ||
-                     (s == "disable" && manual_pose_phase_ != "inactive")
+    if (s == "disable") {
+      const auto& generation = return_control_generation_.empty() ? control_generation_ : return_control_generation_;
+      // Older drivers/fixtures have no generation. New drivers reject the
+      // unscoped fallback rather than unloading another owner's hold.
+      m.data = generation.empty() ? "disable" : "disable:" + generation;
+    } else m.data = s == "enable" && manual_pose_phase_ == "holding"
         ? s + ":" + manual_pose_generation_ : s;
     lifecycle_->publish(m);
   }
@@ -165,6 +176,7 @@ class Manager : public rclcpp::Node {
       return_manual_request_ns_ = luxi::mono();
       life("enable");
     }
+    return_control_generation_ = control_generation_;
     return_from_ = last_;
     return_step_ = 0;
     return_next_ns_ = t;
@@ -191,6 +203,7 @@ class Manager : public rclcpp::Node {
       }
       if (return_manual_fault_) last_ = return_from_ = state_.position;
       return_manual_generation_.clear(); return_manual_request_ns_ = 0;
+      return_control_generation_ = control_generation_;
       return_next_ns_ = t;
     }
     if (t < return_next_ns_) return;
@@ -257,14 +270,14 @@ class Manager : public rclcpp::Node {
     const bool waiting_for_owner = !start_manual_generation_.empty();
     clear_manual_start();
     shared_input_paused_ = false;
-    if (arm_feedback(luxi::mono()) && state_.enabled) last_ = state_.position;
+    if (arm_feedback(luxi::mono()) && state_.enabled) last_ = supported_pose(luxi::mono());
     phase_ = !waiting_for_owner && (state_.enabled || torque_requested_) ? "hold" : "disabled";
     enter("stopped"); reason_ = why; rest_ready_ = false;
     broadcast(); // No return motion and no arm torque removal on this path.
   }
   bool shared_command(const std::string& s) {
     const auto t = luxi::mono();
-    if (s == "disable" || s == "halt") { hold_all("operator_stop_all"); return true; }
+    if (s == "disable" || s == "halt" || s == "hold") { hold_all("operator_stop_all"); return true; }
     if (s == "start") {
       if ((system_phase_ != "disabled" && system_phase_ != "stopped") ||
           !neutral_input(t) || !arm_feedback(t) || arrivals_.size() < 50 ||
@@ -393,6 +406,10 @@ class Manager : public rclcpp::Node {
   }
   bool command(const std::string& s) {
     if (manual_pose_blocked_) {
+      if (manual_pose_phase_ == "moving" && (s == "stop" || s == "park" || s == "disable" || s == "halt" || s == "hold")) {
+        life("joint_stop:" + manual_pose_generation_);
+        reason_ = "joint_motion_stop_requested"; return true;
+      }
       reason_ = "manual_pose_in_progress";
       return false;
     }
@@ -400,9 +417,10 @@ class Manager : public rclcpp::Node {
       reason_ = "waiting_for_manual_pose_handover"; return false;
     }
     if (shared_) return shared_command(s);
+    if (s == "disable" || s == "halt" || s == "hold") { hold_all("operator_stop_all"); return true; }
     if (s == "stop" || s == "park" || s == "disable" || s == "halt") clear_manual_start();
     if (s == "start") {
-      if (phase_ != "disabled" || arrivals_.size() < 50 ||
+      if ((phase_ != "disabled" && phase_ != "hold") || arrivals_.size() < 50 ||
           !luxi::fresh(quest_.receive_mono_ns, luxi::mono()) || quest_.left_tracking == 2 ||
           quest_.right_tracking == 2 || !luxi::valid_state(state_) ||
           !luxi::fresh(state_.receive_mono_ns, luxi::mono()))
@@ -412,7 +430,7 @@ class Manager : public rclcpp::Node {
         if (!reserve_manual_start(t)) return false;
         return request_manual_start(t);
       }
-      last_ = state_.position;
+      last_ = supported_pose(luxi::mono());
       phase_ = "homing";
       reason_ = "operator_start";
       transition_ = luxi::mono();
@@ -427,12 +445,6 @@ class Manager : public rclcpp::Node {
       return_manual_request_ns_ = 0;
       if (!begin_return(luxi::mono())) return false;
       reason_ = "operator_return";
-      return true;
-    }
-    if (s == "disable") {
-      life("disable");
-      phase_ = "disabled";
-      reason_ = "operator_disable";
       return true;
     }
     return false;
@@ -487,7 +499,7 @@ class Manager : public rclcpp::Node {
             if (source <= manual_pose_status_ns_ || !luxi::fresh(source, luxi::mono(), 500000000)) return;
             const auto& pose = j.at("manual_pose");
             const auto next = pose.value("phase", std::string("inactive"));
-            if (next != "inactive" && next != "editing" && next != "preparing" && next != "holding") return;
+            if (next != "inactive" && next != "editing" && next != "preparing" && next != "holding" && next != "moving") return;
             const auto generation = pose.value("generation", std::string());
             auto held_target = manual_pose_target_;
             if (next == "holding") {
@@ -498,6 +510,15 @@ class Manager : public rclcpp::Node {
             const bool entered_hold = next == "holding" &&
                 (manual_pose_phase_ != "holding" || manual_pose_generation_ != generation);
             const bool was_blocked = manual_pose_blocked_;
+            control_generation_ = j.value("control_generation", std::string());
+            support_target_valid_ = false;
+            if (j.contains("support_target")) {
+              const auto target = j.at("support_target").get<std::array<double, 16>>();
+              support_target_valid_ = true;
+              for (int i = 0; i < 16; ++i)
+                support_target_valid_ = support_target_valid_ && std::isfinite(target[i]) && target[i] >= cfg_.lo[i] && target[i] <= cfg_.hi[i];
+              if (support_target_valid_) support_target_ = target;
+            }
             manual_pose_status_ns_ = source;
             manual_pose_phase_ = next;
             manual_pose_generation_ = generation;
@@ -505,7 +526,7 @@ class Manager : public rclcpp::Node {
             manual_pose_fault_ = pose.value("fault_latched", false);
             manual_pose_reason_ = pose.value("reason", std::string());
             startup_owned_ = j.value("owned", false);
-            manual_pose_blocked_ = next == "editing" || next == "preparing";
+            manual_pose_blocked_ = next == "editing" || next == "preparing" || next == "moving";
             if (manual_pose_blocked_) suspend_for_manual_pose();
             else if (!start_manual_generation_.empty() &&
                 (generation != start_manual_generation_ || startup_owned_ ||
@@ -554,6 +575,7 @@ class Manager : public rclcpp::Node {
           while (!arrivals_.empty() && q->receive_mono_ns - arrivals_.front() > 1000000000)
             arrivals_.pop_front();
           if (manual_pose_blocked_) {
+            if (manual_pose_phase_ == "moving" && ((q->buttons[1] && !b_) || (q->buttons[2] && !x_))) command("halt");
             x_ = q->buttons[2]; b_ = q->buttons[1];
             x_released_ = x_enable_press_ = false; long_x_ = true;
             return;

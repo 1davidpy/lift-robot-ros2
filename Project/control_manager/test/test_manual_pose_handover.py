@@ -261,8 +261,9 @@ class ManualPoseHandover(unittest.TestCase):
         values = [value for _, value in self.lifecycle[lifecycle_index:]]
         self.assertIn('enable:' + return_generation, values,
                       'stop/park must acquire the manual hold before its return')
-        self.assertIn('disable', values)
-        self.assertLess(values.index('enable:' + return_generation), values.index('disable'))
+        disabled = next((value for value in values if value.startswith('disable:')), None)
+        self.assertIsNotNone(disabled, 'explicit park must use the current driver ownership token')
+        self.assertLess(values.index('enable:' + return_generation), values.index(disabled))
         submitted = [c for c in self.applied[applied_index:] if c.phase == 'returning']
         requested = [c for c in self.commands[command_index:] if c.phase == 'returning']
         self.assertTrue(submitted, 'the mock adapter must actually apply the return trajectory')

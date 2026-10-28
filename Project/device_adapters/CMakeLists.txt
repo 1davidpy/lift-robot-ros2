@@ -61,6 +61,20 @@ if(BUILD_TESTING)
      $<TARGET_FILE:openarm_adapter>
      ${LUXI_ROOT}/Project/robot_bringup/config/arms-kh.json)
  set_tests_properties(openarm_manual_pose PROPERTIES TIMEOUT 40)
+ add_test(NAME openarm_joint_target
+   COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_openarm_joint_target.py
+     $<TARGET_FILE:openarm_adapter>
+     ${LUXI_ROOT}/build/packages/luxi_control_manager/control_manager
+     ${LUXI_ROOT}/build/install/luxi_web_ctrl/lib/luxi_web_ctrl/web_ctrl
+     ${LUXI_ROOT}/Project/robot_bringup/config/arms-kh.json)
+ set_tests_properties(openarm_joint_target PROPERTIES TIMEOUT 75)
+ add_test(NAME openarm_continuous_handover
+   COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_openarm_continuous_handover.py
+     $<TARGET_FILE:openarm_adapter>
+     ${LUXI_ROOT}/build/packages/luxi_control_manager/control_manager
+     ${LUXI_ROOT}/build/install/luxi_web_ctrl/lib/luxi_web_ctrl/web_ctrl
+     ${LUXI_ROOT}/Project/robot_bringup/config/arms-kh.json)
+ set_tests_properties(openarm_continuous_handover PROPERTIES TIMEOUT 60)
  add_test(NAME depth_output
    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_depth_output.py
      $<TARGET_FILE:realsense_depth>)

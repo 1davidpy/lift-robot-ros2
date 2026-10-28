@@ -248,10 +248,13 @@ def normal_case(binary, config_path, config, directory):
         h.pump(.1)
         assert close_to(h.state.position, captured)
         h.lifecycle('disable')
+        h.pump(.1)
+        assert h.state.enabled, 'unscoped legacy disable must not unload a new controller'
+        h.request('disable')
         h.until(lambda: not h.state.enabled and not h.status['owned'])
 
         # A queued legacy park/disable must not unload a newly established
-        # manual hold. Explicit same-generation disable and service disable
+        # manual hold. Explicit current-owner disable and service disable
         # remain available to the operator.
         h.request('pose_enter')
         h.until(lambda: h.manual.get('can_hold', False))
@@ -261,7 +264,7 @@ def normal_case(binary, config_path, config, directory):
         h.lifecycle('disable:wrong-generation')
         h.pump(.1)
         assert h.manual['phase'] == 'holding' and h.state.enabled
-        h.lifecycle('disable:' + h.manual['generation'])
+        h.lifecycle('disable:' + h.status['control_generation'])
         h.until(lambda: h.manual.get('phase') == 'inactive' and not h.state.enabled)
         h.request('pose_enter')
         h.until(lambda: h.manual.get('can_hold', False))

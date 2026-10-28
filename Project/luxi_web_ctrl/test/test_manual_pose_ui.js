@@ -147,4 +147,5 @@ async function run() {
   assert.match(html,/先支撑双臂及夹爪/); assert.match(html,/移除双臂和夹爪的电机转矩/);
   console.log('PASS: manual pose page initialization, API interactions, handover, feedback gates, preparation cancellation and no automatic torque removal');
 }
-run().catch(error => { console.error(error); process.exitCode = 1; });
+module.exports = {harness, fixture};
+if (require.main === module) run().catch(error => { console.error(error); process.exitCode = 1; });
