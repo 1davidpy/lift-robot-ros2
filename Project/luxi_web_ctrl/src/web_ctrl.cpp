@@ -512,6 +512,21 @@ class Server : public rclcpp::Node {
         res.status = 400;
         return;
       }
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const std::string kind = req.matches[1], command = j["command"];
+        const auto source = control_.is_object() ? control_.value("control_source", "legacy") : "legacy";
+        const bool select = kind == "control" && (command == "select_console" || command == "select_teleop");
+        const bool stop = kind == "control" ? (command == "disable" || command == "halt" || command == "hold") :
+            (command == "stop" || command == "disable" || command == "joint_stop" || command == "pose_cancel" || command == "position_stop");
+        if (source != "legacy" && !select && !stop && kind != "episode" &&
+            (!luxi::fresh(control_time_, luxi::mono(), 500000000) ||
+             (kind == "control" ? source != "teleop" : source != "console"))) {
+          res.status = 409;
+          res.set_content(luxi::Json{{"success", false}, {"message", "请先显式切换控制权限"}}.dump(), "application/json");
+          return;
+        }
+      }
       auto client = req.matches[1] == "arm_startup" ? startup_client_ : req.matches[1] == "lift" ? lift_client_ : req.matches[1] == "control" ? arm_client_ : (req.matches[1] == "base" || keyboard) ? base_client_ : record_client_;
       if (!client->service_is_ready()) {
         res.status = 503;

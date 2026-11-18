@@ -86,7 +86,8 @@ class LiftHold(unittest.TestCase):
         self.process = None
         command = [str(args.binary.resolve()), '--ros-args', '-p', 'allow_hardware:=true',
                    '-p', 'allow_motion:=true', '-p', 'shared_enable:=' + str(self.shared).lower(),
-                   '-p', 'interface:=' + args.interface]
+                   '-p', 'interface:=' + args.interface,
+                   '-p', 'network_recovery_timeout:=' + ('10.0' if 'ten_second' in self._testMethodName else '0.5')]
         for topic in ('quest', 'recorder/status', 'coordinated_control', 'lift/state',
                       'lift/can_rx', 'lift/events', 'lift/status', 'lift/control'):
             command += ['-r', '/luxi/' + topic + ':=' + self.prefix + '/' + topic]
@@ -300,6 +301,23 @@ class LiftHold(unittest.TestCase):
         self.quest.grips = [1., 0.]
         self.wait_for(lambda: len(self.moves) == 2, 2, 'new grip after release')
         self.assertTrue(self.status['enabled'])
+
+    def test_shared_ten_second_window_stops_motion_and_requires_new_grip(self):
+        self.start_up()
+        self.sending = False
+        self.run_for(9.3)
+        self.assertFalse(self.moving)
+        self.assertTrue(self.status['enabled'])
+        self.sending = True
+        self.run_for(.3)
+        self.assertEqual(len(self.moves), 1)
+        self.quest.grips = [0., 0.]
+        self.run_for(.2)
+        self.quest.grips = [1., 0.]
+        self.wait_for(lambda: len(self.moves) == 2, 2, 'new grip after recovery')
+        self.sending = False
+        self.run_for(10.3)
+        self.assertFalse(self.status['enabled'])
 
     def test_shared_long_gap_disables_until_explicit_enable(self):
         self.start_up()

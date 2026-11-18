@@ -163,7 +163,7 @@ class UartSession(unittest.TestCase):
         now = time.monotonic()
         self.extra_step(now)
         self.quest.receive_mono_ns = time.monotonic_ns()
-        self.publisher.publish(self.quest)
+        if getattr(self,"sending",True): self.publisher.publish(self.quest)
         if self.coordinator is not None:
             message = String()
             message.data = json.dumps({'epoch': 'interrupted-test:1', 'phase': 'active',

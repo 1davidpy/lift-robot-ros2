@@ -201,3 +201,22 @@ TEST(R680Gate, DeviceFaultsOverrideShortGapRecovery) {
     EXPECT_FALSE(g.enabled);
   }
 }
+
+TEST(R680Gate, TenSecondNetworkWindowNeverReplaysHeldVelocity) {
+  auto g = ready();
+  g.require_left_grip = false;
+  g.recover_short_gaps = true;
+  g.network_recovery_ns = 10000000000LL;
+  ASSERT_TRUE(g.start(1000000000));
+  g.sticks[1] = 1;
+  g.feedback_time = 10500000000LL;
+  EXPECT_EQ(g.command(10500000000LL), Velocity{});
+  EXPECT_TRUE(g.enabled);
+  g.note_input_arrival(10500000000LL);
+  g.quest_time = 10500000000LL;
+  EXPECT_EQ(g.command(10500000000LL), Velocity{});
+  EXPECT_TRUE(g.input_recovery);
+  g.feedback_time = 20600000000LL;
+  EXPECT_EQ(g.command(20600000000LL), Velocity{});
+  EXPECT_FALSE(g.enabled);
+}

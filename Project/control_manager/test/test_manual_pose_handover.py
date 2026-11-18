@@ -205,8 +205,10 @@ class ManualPoseHandover(unittest.TestCase):
             self.run_for(.22)
             self.assertEqual(self.status.get('system_phase'), 'preparing')
             self.assertEqual(self.manual_phase(), 'holding')
-            self.assertGreater(sum(j.get('manual_pose', {}).get('phase') == 'holding'
-                                   for j in self.startup_history[repeated_from:]), 5)
+            # Routine driver diagnostics now run at at most 20 Hz. Require
+            # repeated holding reports within 220 ms, not the old 100 Hz count.
+            self.assertGreaterEqual(sum(j.get('manual_pose', {}).get('phase') == 'holding'
+                                        for j in self.startup_history[repeated_from:]), 3)
         self.until(lambda: self.manual_phase() == 'inactive'
                    and any(value == 'enable:' + generation
                            for _, value in self.lifecycle[lifecycle_index:]),

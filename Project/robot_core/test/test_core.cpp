@@ -66,3 +66,55 @@ TEST(Filter, ResetDoesNotKeepOldPose) {
   f.reset();
   EXPECT_DOUBLE_EQ(f.update(p, 20000000).position.x, 1);
 }
+TEST(Filter, ResetMatchesFreshFilter) {
+  luxi::PoseFilter used, fresh;
+  auto p = luxi::pose({0, 0, 0}, Eigen::Quaterniond::Identity());
+  used.update(p, 1000000000);
+  p.position.x = 1;
+  used.update(p, 1010000000);
+  used.reset();
+  p.position.x = 0;
+  used.update(p, 1020000000);
+  fresh.update(p, 1020000000);
+  p.position.x = .1;
+  EXPECT_NEAR(used.update(p, 1030000000).position.x,
+              fresh.update(p, 1030000000).position.x, 1e-12);
+}
+TEST(Filter, ResponsiveSettingSettlesPositionAndRotationWithin140ms) {
+  luxi::PoseFilter f(4.0);
+  auto p = luxi::pose({0, 0, 0}, Eigen::Quaterniond::Identity());
+  constexpr int64_t start = 1000000000, dt = 13888889;
+  f.update(p, start);
+  p.position.x = .1;
+  p.orientation = luxi::pose({0, 0, 0},
+      Eigen::Quaterniond(Eigen::AngleAxisd(.1, Eigen::Vector3d::UnitZ()))).orientation;
+  geometry_msgs::msg::Pose out;
+  for (int i = 1; i <= 10; ++i) out = f.update(p, start + i * dt);
+  EXPECT_GT(out.position.x, .09);
+  EXPECT_LT(luxi::rot(out).angularDistance(luxi::rot(p)), .01);
+}
+
+TEST(Mapping, ReferencePitchAndRollDoNotTiltWrists) {
+  const auto controller = luxi::pose({.2, .3, .4}, Eigen::Quaterniond::Identity());
+  const auto level = luxi::pose({0, 0, 0}, Eigen::Quaterniond::Identity());
+  const auto tilted = luxi::pose({0, 0, 0}, Eigen::Quaterniond(
+      Eigen::AngleAxisd(.52, Eigen::Vector3d::UnitX()) *
+      Eigen::AngleAxisd(.2, Eigen::Vector3d::UnitZ())));
+  const auto expected = luxi::map_pose(controller, level, true);
+  const auto corrected = luxi::map_pose(controller, tilted, true);
+  EXPECT_NEAR(luxi::rot(expected).angularDistance(luxi::rot(corrected)), 0, 1e-9);
+  EXPECT_GT(luxi::rot(expected).angularDistance(
+      luxi::rot(luxi::map_pose(controller, tilted, false))), .5);
+  EXPECT_NEAR((luxi::pos(corrected) - luxi::pos(luxi::map_pose(controller, tilted, false))).norm(), 0, 1e-12);
+}
+TEST(Mapping, HeadingAndControllerPitchArePreserved) {
+  const Eigen::Quaterniond yaw(Eigen::AngleAxisd(.7, Eigen::Vector3d::UnitY()));
+  const Eigen::Quaterniond pitch(Eigen::AngleAxisd(.4, Eigen::Vector3d::UnitX()));
+  const auto reference = luxi::pose({0, 0, 0}, yaw);
+  const auto neutral = luxi::pose({0, 0, 0}, yaw);
+  const auto hand = luxi::pose({0, 0, 0}, yaw * pitch);
+  EXPECT_NEAR(luxi::rot(luxi::map_pose(neutral, reference, true)).angularDistance(
+      luxi::rot(luxi::map_pose(neutral, reference, false))), 0, 1e-9);
+  EXPECT_NEAR(luxi::rot(luxi::map_pose(neutral, reference, true)).angularDistance(
+      luxi::rot(luxi::map_pose(hand, reference, true))), .4, 1e-9);
+}

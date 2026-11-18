@@ -1,0 +1,360 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mujoco model="wheel_claw14_unified">
+  <compiler angle="radian" fusestatic="false" inertiafromgeom="false" />
+  <option gravity="0 0 0" />
+  <asset>
+    <mesh name="mesh_15e08c666baf068091cb" file="claw14_meshes/15e08c666baf068091cb.obj" />
+    <mesh name="mesh_84b7b6e36fe9122622c1" file="claw14_meshes/84b7b6e36fe9122622c1.obj" />
+    <mesh name="mesh_d8853e3d375dc359e5aa" file="claw14_meshes/d8853e3d375dc359e5aa.obj" />
+    <mesh name="mesh_45b72cb45d773a0cfd86" file="claw14_meshes/45b72cb45d773a0cfd86.obj" />
+    <mesh name="mesh_2b8a2a97eb756ea9b01b" file="claw14_meshes/2b8a2a97eb756ea9b01b.obj" />
+    <mesh name="mesh_9e749a351dd181c0d1c1" file="claw14_meshes/9e749a351dd181c0d1c1.obj" />
+    <mesh name="mesh_5e2a418a2319fcfa0bc6" file="claw14_meshes/5e2a418a2319fcfa0bc6.obj" />
+    <mesh name="mesh_088b3e6116bf97dfcc72" file="claw14_meshes/088b3e6116bf97dfcc72.obj" />
+    <mesh name="mesh_a2f4b9dc8e6ce7de66f2" file="claw14_meshes/a2f4b9dc8e6ce7de66f2.obj" />
+    <mesh name="mesh_1ca627d9ae1790b86ed6" file="claw14_meshes/1ca627d9ae1790b86ed6.obj" />
+    <mesh name="mesh_6a06faa3124c3a118291" file="claw14_meshes/6a06faa3124c3a118291.obj" />
+    <mesh name="mesh_af7d8a86172575bc4718" file="claw14_meshes/af7d8a86172575bc4718.obj" />
+    <mesh name="mesh_15386253ed86a85b9416" file="claw14_meshes/15386253ed86a85b9416.obj" />
+    <mesh name="mesh_4ccacbc2ba80f1ae456b" file="claw14_meshes/4ccacbc2ba80f1ae456b.obj" />
+    <mesh name="mesh_287a4055a3dc01e795b4" file="claw14_meshes/287a4055a3dc01e795b4.obj" />
+    <mesh name="mesh_2569ee3cedbbb476da0f" file="claw14_meshes/2569ee3cedbbb476da0f.obj" />
+    <mesh name="mesh_138807768ccf85e45178" file="claw14_meshes/138807768ccf85e45178.obj" />
+    <mesh name="mesh_d5b6eb8c1c91036e2004" file="claw14_meshes/d5b6eb8c1c91036e2004.obj" />
+    <mesh name="mesh_4003c0552acfc52f5dee" file="claw14_meshes/4003c0552acfc52f5dee.obj" />
+    <mesh name="mesh_9323a830ad4aec2171ba" file="claw14_meshes/9323a830ad4aec2171ba.obj" />
+    <mesh name="mesh_4bda8840f9ba5170bb20" file="claw14_meshes/4bda8840f9ba5170bb20.obj" />
+    <mesh name="mesh_0cd060f2fbbabf79b9a0" file="claw14_meshes/0cd060f2fbbabf79b9a0.obj" />
+    <mesh name="mesh_f63cf7ecfd2b167fb18f" file="claw14_meshes/f63cf7ecfd2b167fb18f.obj" />
+    <mesh name="mesh_e78298c71dbc88e65881" file="claw14_meshes/e78298c71dbc88e65881.obj" />
+    <mesh name="mesh_cffdc4a3f6a55aee0c1c" file="claw14_meshes/cffdc4a3f6a55aee0c1c.obj" />
+    <mesh name="mesh_ff1b27d77a5b3939ab31" file="claw14_meshes/ff1b27d77a5b3939ab31.obj" />
+    <mesh name="mesh_f22938255942ccfffe56" file="claw14_meshes/f22938255942ccfffe56.obj" />
+    <mesh name="mesh_49e982ed479bb1c0f966" file="claw14_meshes/49e982ed479bb1c0f966.obj" />
+    <mesh name="mesh_756aa61f93fa94b3c31d" file="claw14_meshes/756aa61f93fa94b3c31d.obj" />
+    <mesh name="mesh_21e99d764ba928154aea" file="claw14_meshes/21e99d764ba928154aea.obj" />
+    <mesh name="mesh_3a9af2c2b03a4ff8492d" file="claw14_meshes/3a9af2c2b03a4ff8492d.obj" />
+    <mesh name="mesh_dc28537a15f2d46dbe0b" file="claw14_meshes/dc28537a15f2d46dbe0b.obj" />
+    <mesh name="mesh_5a36a5f3c279d1dd3126" file="claw14_meshes/5a36a5f3c279d1dd3126.obj" />
+    <mesh name="mesh_a6b30e118674051d332f" file="claw14_meshes/a6b30e118674051d332f.obj" />
+    <mesh name="mesh_c7b4c75cedc0e5573d25" file="claw14_meshes/c7b4c75cedc0e5573d25.obj" />
+    <mesh name="mesh_bea15ce2ab10ab29a91c" file="claw14_meshes/bea15ce2ab10ab29a91c.obj" />
+    <mesh name="mesh_471a59806caf8066d5da" file="claw14_meshes/471a59806caf8066d5da.obj" />
+    <mesh name="mesh_a69a2660a434d4663713" file="claw14_meshes/a69a2660a434d4663713.obj" />
+    <mesh name="mesh_12c5220807fcdfe5c00e" file="claw14_meshes/12c5220807fcdfe5c00e.obj" />
+    <mesh name="mesh_2e448ed45c534e172d74" file="claw14_meshes/2e448ed45c534e172d74.obj" />
+    <mesh name="mesh_ad513a6ce8cccfdbe955" file="claw14_meshes/ad513a6ce8cccfdbe955.obj" />
+    <mesh name="mesh_9ae76807de10da13f500" file="claw14_meshes/9ae76807de10da13f500.obj" />
+    <mesh name="mesh_86b1417c5224ca65a364" file="claw14_meshes/86b1417c5224ca65a364.obj" />
+    <mesh name="mesh_0d5bdac5e508adf072e6" file="claw14_meshes/0d5bdac5e508adf072e6.obj" />
+    <mesh name="mesh_5be90bdbf1d03fc65666" file="claw14_meshes/5be90bdbf1d03fc65666.obj" />
+    <mesh name="mesh_eb2eb5445116fb31394c" file="claw14_meshes/eb2eb5445116fb31394c.obj" />
+    <mesh name="mesh_6b350542e449cefc8423" file="claw14_meshes/6b350542e449cefc8423.obj" />
+    <mesh name="mesh_ebe53842a12a964054f4" file="claw14_meshes/ebe53842a12a964054f4.obj" />
+    <mesh name="mesh_52789e2181da0ba723e2" file="claw14_meshes/52789e2181da0ba723e2.obj" />
+    <mesh name="mesh_879806dcdc5c23b4f4e4" file="claw14_meshes/879806dcdc5c23b4f4e4.obj" />
+    <mesh name="mesh_23b139faa2b2348f6b19" file="claw14_meshes/23b139faa2b2348f6b19.obj" />
+  </asset>
+  <worldbody>
+    <body name="base_footprint" pos="0 0 0" quat="1 0 0 0">
+      <site name="frame_base_footprint" size=".002" rgba="0 0 0 0" />
+      <body name="base_link" pos="0 0 0.03712" quat="1 0 0 0">
+        <inertial pos="0.02 0 0.12" mass="30.0" fullinertia="0.80000000000000004 0.80000000000000004 1.3 0 0 0" />
+        <site name="frame_base_link" size=".002" rgba="0 0 0 0" />
+        <geom name="base_link_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="6.123233995736766e-17 1 0 0" type="mesh" mesh="mesh_15e08c666baf068091cb" />
+        <geom name="base_link_collision_0" group="3" contype="0" conaffinity="0" pos="0.044999999999999998 0 0.127" quat="1 0 0 0" type="box" size="0.23999999999999999 0.26000000000000001 0.127" />
+        <body name="front_wheel_link" pos="0.280483714 0.000131896 0.039006026999999999" quat="1 0 0 0">
+          <joint name="front_wheel_joint" type="hinge" axis="1 0 0" />
+          <inertial pos="0 0 0" mass="1.0" fullinertia="0.0030000000000000001 0.0030000000000000001 0.0030000000000000001 0 0 0" />
+          <site name="frame_front_wheel_link" size=".002" rgba="0 0 0 0" />
+          <geom name="front_wheel_link_visual_0" group="2" contype="0" conaffinity="0" pos="-0.280483714 -0.000131896 -0.039006026999999999" quat="6.123233995736766e-17 1 0 0" type="mesh" mesh="mesh_84b7b6e36fe9122622c1" />
+          <geom name="front_wheel_link_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="0.70710678118654735 0 0.70710678118654768 0" type="cylinder" size="0.076119999999999993 0.020500000000000001" />
+        </body>
+        <body name="rear_left_wheel_link" pos="-0.14035608199999999 0.24284007399999999 0.039006026999999999" quat="1 0 0 0">
+          <joint name="rear_left_wheel_joint" type="hinge" axis="-0.49999999990665922 0.86602540383832904 0" />
+          <inertial pos="0 0 0" mass="1.0" fullinertia="0.0030000000000000001 0.0030000000000000001 0.0030000000000000001 0 0 0" />
+          <site name="frame_rear_left_wheel_link" size=".002" rgba="0 0 0 0" />
+          <geom name="rear_left_wheel_link_visual_0" group="2" contype="0" conaffinity="0" pos="0.14035608199999999 -0.24284007399999999 -0.039006026999999999" quat="6.123233995736766e-17 1 0 0" type="mesh" mesh="mesh_d8853e3d375dc359e5aa" />
+          <geom name="rear_left_wheel_link_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="-0.3535533905932739 0.61237243569579447 -0.35355339059327406 -0.61237243569579425" type="cylinder" size="0.076119999999999993 0.020500000000000001" />
+        </body>
+        <body name="rear_right_wheel_link" pos="-0.140127476 -0.24297170100000001 0.039006026999999999" quat="1 0 0 0">
+          <joint name="rear_right_wheel_joint" type="hinge" axis="-0.49999999990665922 -0.86602540383832904 0" />
+          <inertial pos="0 0 0" mass="1.0" fullinertia="0.0030000000000000001 0.0030000000000000001 0.0030000000000000001 0 0 0" />
+          <site name="frame_rear_right_wheel_link" size=".002" rgba="0 0 0 0" />
+          <geom name="rear_right_wheel_link_visual_0" group="2" contype="0" conaffinity="0" pos="0.140127476 0.24297170100000001 -0.039006026999999999" quat="6.123233995736766e-17 1 0 0" type="mesh" mesh="mesh_45b72cb45d773a0cfd86" />
+          <geom name="rear_right_wheel_link_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="0.3535533905932739 0.61237243569579447 0.35355339059327406 -0.61237243569579425" type="cylinder" size="0.076119999999999993 0.020500000000000001" />
+        </body>
+        <body name="lift_column_link" pos="0 0 0" quat="1 0 0 0">
+          <inertial pos="0.080000000000000002 0 0.65000000000000002" mass="7.0" fullinertia="0.45231700000000002 0.45791700000000002 0.067317000000000002 0 0 0" />
+          <site name="frame_lift_column_link" size=".002" rgba="0 0 0 0" />
+          <geom name="lift_column_link_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="6.123233995736766e-17 1 0 0" type="mesh" mesh="mesh_2b8a2a97eb756ea9b01b" />
+          <geom name="lift_column_link_collision_0" group="3" contype="0" conaffinity="0" pos="0.0567 0 0.68200000000000005" quat="1 0 0 0" type="box" size="0.125 0.115 0.42499999999999999" />
+          <body name="lift_carriage_link" pos="0 0 0" quat="1 0 0 0">
+            <joint name="lift_joint" type="slide" axis="0 0 1" limited="true" range="0 0.40000000000000002" />
+            <inertial pos="0.105 0 0.41599999999999998" mass="3.0" fullinertia="0.022100000000000002 0.015699999999999999 0.013599999999999999 0 0 0" />
+            <site name="frame_lift_carriage_link" size=".002" rgba="0 0 0 0" />
+            <geom name="lift_carriage_link_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 -0.37" quat="6.123233995736766e-17 1 0 0" type="mesh" mesh="mesh_9e749a351dd181c0d1c1" />
+            <geom name="lift_carriage_link_collision_0" group="3" contype="0" conaffinity="0" pos="0.10100000000000001 0.0060000000000000001 0.41599999999999998" quat="1 0 0 0" type="box" size="0.059999999999999998 0.10000000000000001 0.11" />
+            <body name="openarm_left_base_link" pos="0.116522717 0.090960189999999996 0.376813224" quat="0.99999923958369563 0 0 0.0012332201874129926">
+              <inertial pos="0.0025312374806156601 0.025818554033016899 2.7065829185890302e-05" mass="1.1432284943239561" fullinertia="0.0011360780622619801 0.00159935208714031 0.000750541980863571 -3.8148799318092903e-07 1.0916124770971499e-08 -2.7521421737084002e-08" />
+              <site name="frame_openarm_left_base_link" size=".002" rgba="0 0 0 0" />
+              <geom name="openarm_left_base_link_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_5e2a418a2319fcfa0bc6" />
+              <geom name="openarm_left_base_link_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_088b3e6116bf97dfcc72" />
+              <body name="openarm_left_link1" pos="0 0.0625 0" quat="1 0 0 0">
+                <joint name="openarm_left_joint1" type="hinge" axis="0 1 0" limited="true" range="-3.4906999999999999 1.3963000000000001" />
+                <inertial pos="0.00090035035562424399 0.044465971689287398 2.8844102116568301e-05" mass="1.1416684646202298" fullinertia="0.0010943212038551 0.00075919972816199295 0.00067065920101962899 -9.4162867367454306e-06 4.5342218248310203e-08 -6.6675569885963699e-08" />
+                <site name="frame_openarm_left_link1" size=".002" rgba="0 0 0 0" />
+                <geom name="openarm_left_link1_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_a2f4b9dc8e6ce7de66f2" />
+                <geom name="openarm_left_link1_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_1ca627d9ae1790b86ed6" />
+                <body name="openarm_left_link2" pos="0 0.060000000000000102 0" quat="1 0 0 0">
+                  <joint name="openarm_left_joint2" type="hinge" axis="-1 0 0" limited="true" range="-3.3161 0.17452999999999999" />
+                  <inertial pos="-0.024718492434663501 -7.6057839942800203e-08 -0.031264310229208697" mass="0.2775092746011571" fullinertia="0.000153588833784759 0.00011306218022572501 8.2299935186357898e-05 2.94422592188677e-10 5.2105607677906801e-06 -3.7581691146974401e-10" />
+                  <site name="frame_openarm_left_link2" size=".002" rgba="0 0 0 0" />
+                  <geom name="openarm_left_link2_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_6a06faa3124c3a118291" />
+                  <geom name="openarm_left_link2_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_af7d8a86172575bc4718" />
+                  <body name="openarm_left_link3" pos="0 0 -0.066250000000000794" quat="1 0 0 0">
+                    <joint name="openarm_left_joint3" type="hinge" axis="0 0 -1" limited="true" range="-1.5708 1.5708" />
+                    <inertial pos="-0.00300861804638783 -0.00051481331255080797 -0.10936824142943399" mass="1.073863338202347" fullinertia="0.0012893963659174599 0.0011401899217973401 0.00055976547867630296 -2.29951046666492e-07 -6.7616192698435805e-05 -1.0626080287257201e-05" />
+                    <site name="frame_openarm_left_link3" size=".002" rgba="0 0 0 0" />
+                    <geom name="openarm_left_link3_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_15386253ed86a85b9416" />
+                    <geom name="openarm_left_link3_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_4ccacbc2ba80f1ae456b" />
+                    <body name="openarm_left_link4" pos="0 0 -0.15375" quat="1 0 0 0">
+                      <joint name="openarm_left_joint4" type="hinge" axis="0 -1 0" limited="true" range="0 2.4434999999999998" />
+                      <inertial pos="-0.0031032624375260599 -0.0013653897904850199 -0.057460137935435099" mass="0.6348534566833373" fullinertia="0.0004690036047182 0.00043392627052284198 0.00024521142975971599 5.6362691026564502e-06 -1.77877991597693e-06 3.4175779777382199e-06" />
+                      <site name="frame_openarm_left_link4" size=".002" rgba="0 0 0 0" />
+                      <geom name="openarm_left_link4_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_287a4055a3dc01e795b4" />
+                      <geom name="openarm_left_link4_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_2569ee3cedbbb476da0f" />
+                      <body name="openarm_left_link5" pos="0 0 -0.095500000000000501" quat="1 0 0 0">
+                        <joint name="openarm_left_joint5" type="hinge" axis="0 0 -1" limited="true" range="-1.5708 1.5708" />
+                        <inertial pos="-0.00073718858013058404 0.00041240654435184499 -0.047093829077210998" mass="0.6156588026168502" fullinertia="0.00027965336875298901 0.000334599623120095 0.00017666246438813801 -3.3174528997244498e-06 7.6809731140373602e-07 1.49934409279756e-07" />
+                        <site name="frame_openarm_left_link5" size=".002" rgba="0 0 0 0" />
+                        <geom name="openarm_left_link5_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_138807768ccf85e45178" />
+                        <geom name="openarm_left_link5_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_d5b6eb8c1c91036e2004" />
+                        <body name="openarm_left_link6" pos="0 0 -0.120499999999998" quat="1 0 0 0">
+                          <joint name="openarm_left_joint6" type="hinge" axis="0 -1 0" limited="true" range="-0.78539999999999999 0.78539999999999999" />
+                          <inertial pos="2.2743842359324399e-05 -0.00068649602098908003 5.4400049476599502e-05" mass="0.475202773187987" fullinertia="0.00017927594144696399 0.00013624751275858701 0.000135340695937386 -6.5843934671222805e-08 -3.37101167120887e-08 -3.3225360029554399e-08" />
+                          <site name="frame_openarm_left_link6" size=".002" rgba="0 0 0 0" />
+                          <geom name="openarm_left_link6_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_4003c0552acfc52f5dee" />
+                          <geom name="openarm_left_link6_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_9323a830ad4aec2171ba" />
+                          <body name="openarm_left_link7" pos="0 0 0" quat="1 0 0 0">
+                            <joint name="openarm_left_joint7" type="hinge" axis="1 0 0" limited="true" range="-1.5708 1.5708" />
+                            <inertial pos="0 0 0" mass="1e-8" diaginertia="1e-10 1e-10 1e-10" />
+                            <site name="frame_openarm_left_link7" size=".002" rgba="0 0 0 0" />
+                            <body name="openarm_left_ee_base_link" pos="0.020500000000000001 0 0" quat="1 0 0 0">
+                              <inertial pos="-0.017500000000000002 0.0011912240000000001 -0.053289661000000002" mass="0.48" fullinertia="0.0019120204641081301 0.00093798492052501895 0.0012915555350599282 0 0 0" />
+                              <site name="frame_openarm_left_ee_base_link" size=".002" rgba="0 0 0 0" />
+                              <geom name="openarm_left_ee_base_link_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_4bda8840f9ba5170bb20" rgba=".28 .30 .32 1" />
+                              <geom name="openarm_left_ee_base_link_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_4bda8840f9ba5170bb20" />
+                              <body name="left_wrist_eb435i_link" pos="0.061314025000000001 0.0019740970000000002 -0.15741730900000001" quat="0.00082819289715866068 -0.087151807791907829 -0.0094662856702343989 0.99614972063979257">
+                                <inertial pos="-0.015471698000000001 -0.0031697489999999999 -3.7009999999999998e-06" mass="0.17" fullinertia="0.00014030119657426461 2.340546548438281e-05 0.00014455332793495646 0 0 0" />
+                                <site name="frame_left_wrist_eb435i_link" size=".002" rgba="0 0 0 0" />
+                                <geom name="left_wrist_eb435i_link_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_0cd060f2fbbabf79b9a0" rgba=".28 .31 .34 1" />
+                                <geom name="left_wrist_eb435i_link_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_0cd060f2fbbabf79b9a0" />
+                                <body name="left_wrist_eb435i_depth_frame" pos="0 0 0" quat="1 0 0 0">
+                                  <site name="frame_left_wrist_eb435i_depth_frame" size=".002" rgba="0 0 0 0" />
+                                  <body name="left_wrist_eb435i_depth_optical_frame" pos="0 0 0" quat="0.49999999999999978 -0.5 0.50000000000000022 -0.5">
+                                    <site name="frame_left_wrist_eb435i_depth_optical_frame" size=".002" rgba="0 0 0 0" />
+                                  </body>
+                                </body>
+                                <body name="left_wrist_eb435i_color_frame" pos="0 0 0" quat="1 0 0 0">
+                                  <site name="frame_left_wrist_eb435i_color_frame" size=".002" rgba="0 0 0 0" />
+                                  <body name="left_wrist_eb435i_color_optical_frame" pos="0 0 0" quat="0.49999999999999978 -0.5 0.50000000000000022 -0.5">
+                                    <site name="frame_left_wrist_eb435i_color_optical_frame" size=".002" rgba="0 0 0 0" />
+                                  </body>
+                                </body>
+                              </body>
+                              <body name="left_wrist_camera_bracket_link" pos="0 0 0" quat="1 0 0 0">
+                                <inertial pos="0.037500000999999998 0.001863298 -0.096531533000000003" mass="0.07" fullinertia="0.00013140017728484809 0.0002253149336323447 0.00016858525150909202 0 0 0" />
+                                <site name="frame_left_wrist_camera_bracket_link" size=".002" rgba="0 0 0 0" />
+                                <geom name="left_wrist_camera_bracket_link_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_f63cf7ecfd2b167fb18f" rgba=".85 .72 .08 1" />
+                                <geom name="left_wrist_camera_bracket_link_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_f63cf7ecfd2b167fb18f" />
+                              </body>
+                              <body name="openarm_left_ee_link1" pos="-0.020500000000000001 0.018900717782868021 -0.10814165513797899" quat="-0.0095024452828802661 0.99995485074759549 0 0">
+                                <joint name="openarm_left_finger_joint1" type="slide" axis="0 -1 0" limited="true" range="0.012860000208020216 0.043999999999999997" ref="0.012860000208020216" />
+                                <inertial pos="-0.047750029999999999 0.0011800000000000001 0.037600002" mass="0.12" fullinertia="7.8870097462371841e-05 0.00029089091366622468 0.00027782421028802796 0 0 0" />
+                                <site name="frame_openarm_left_ee_link1" size=".002" rgba="0 0 0 0" />
+                                <geom name="openarm_left_ee_link1_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_e78298c71dbc88e65881" rgba=".22 .22 .24 1" />
+                                <geom name="openarm_left_ee_link1_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_e78298c71dbc88e65881" />
+                              </body>
+                              <body name="openarm_left_ee_link2" pos="-0.020500000000000001 -0.016812831782868021 -0.10882047886202101" quat="-0.0095024452828802661 0.99995485074759549 0 0">
+                                <joint name="openarm_left_finger_joint2" type="slide" axis="0 1 0" limited="true" range="0.012860000208020216 0.043999999999999997" ref="0.012860000208020216" />
+                                <inertial pos="-0.037749974999999998 0.01082 0.037600002" mass="0.12" fullinertia="5.7097296887163168e-05 0.00023229090810883649 0.00019745140415543112 0 0 0" />
+                                <site name="frame_openarm_left_ee_link2" size=".002" rgba="0 0 0 0" />
+                                <geom name="openarm_left_ee_link2_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_cffdc4a3f6a55aee0c1c" rgba=".22 .22 .24 1" />
+                                <geom name="openarm_left_ee_link2_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_cffdc4a3f6a55aee0c1c" />
+                              </body>
+                            </body>
+                            <site name="left_ee_control_point" size=".004" />
+                          </body>
+                        </body>
+                      </body>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+            <body name="openarm_right_base_link" pos="0.116971609 -0.091039256999999998 0.376813224" quat="0.99999923958369563 0 0 0.0012332201874129926">
+              <inertial pos="0.0025312374806156601 -0.025818554033016899 2.7065829185890302e-05" mass="1.1432284943239561" fullinertia="0.0011360780622619801 0.00159935208714031 0.000750541980863571 3.8148799318092903e-07 1.0916124770971499e-08 2.7521421737084002e-08" />
+              <site name="frame_openarm_right_base_link" size=".002" rgba="0 0 0 0" />
+              <geom name="openarm_right_base_link_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_ff1b27d77a5b3939ab31" />
+              <geom name="openarm_right_base_link_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_f22938255942ccfffe56" />
+              <body name="openarm_right_link1" pos="0 -0.0625 0" quat="1 0 0 0">
+                <joint name="openarm_right_joint1" type="hinge" axis="0 -1 0" limited="true" range="-1.3963000000000001 3.4906999999999999" />
+                <inertial pos="0.00090035035562424399 -0.044465971689287398 2.8844102116568301e-05" mass="1.1416684646202298" fullinertia="0.0010943212038551 0.00075919972816199295 0.00067065920101962899 9.4162867367454306e-06 4.5342218248310203e-08 6.6675569885963699e-08" />
+                <site name="frame_openarm_right_link1" size=".002" rgba="0 0 0 0" />
+                <geom name="openarm_right_link1_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_49e982ed479bb1c0f966" />
+                <geom name="openarm_right_link1_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_756aa61f93fa94b3c31d" />
+                <body name="openarm_right_link2" pos="0 -0.060000000000000102 0" quat="1 0 0 0">
+                  <joint name="openarm_right_joint2" type="hinge" axis="-1 0 0" limited="true" range="-0.17452999999999999 3.3161" />
+                  <inertial pos="-0.024718492434663501 7.6057839942800203e-08 -0.031264310229208697" mass="0.2775092746011571" fullinertia="0.000153588833784759 0.00011306218022572501 8.2299935186357898e-05 -2.94422592188677e-10 5.2105607677906801e-06 3.7581691146974401e-10" />
+                  <site name="frame_openarm_right_link2" size=".002" rgba="0 0 0 0" />
+                  <geom name="openarm_right_link2_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_21e99d764ba928154aea" />
+                  <geom name="openarm_right_link2_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_3a9af2c2b03a4ff8492d" />
+                  <body name="openarm_right_link3" pos="0 0 -0.066250000000000794" quat="1 0 0 0">
+                    <joint name="openarm_right_joint3" type="hinge" axis="0 0 -1" limited="true" range="-1.5708 1.5708" />
+                    <inertial pos="-0.00300861804638783 -0.00051481331255080797 -0.10936824142943399" mass="1.073863338202347" fullinertia="0.0012893963659174599 0.0011401899217973401 0.00055976547867630296 -2.29951046666492e-07 -6.7616192698435805e-05 -1.0626080287257201e-05" />
+                    <site name="frame_openarm_right_link3" size=".002" rgba="0 0 0 0" />
+                    <geom name="openarm_right_link3_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_15386253ed86a85b9416" />
+                    <geom name="openarm_right_link3_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_4ccacbc2ba80f1ae456b" />
+                    <body name="openarm_right_link4" pos="0 0 -0.15375" quat="1 0 0 0">
+                      <joint name="openarm_right_joint4" type="hinge" axis="0 -1 0" limited="true" range="0 2.4434999999999998" />
+                      <inertial pos="-0.0031032624375260599 -0.0013653897904850199 -0.057460137935435099" mass="0.6348534566833373" fullinertia="0.0004690036047182 0.00043392627052284198 0.00024521142975971599 5.6362691026564502e-06 -1.77877991597693e-06 3.4175779777382199e-06" />
+                      <site name="frame_openarm_right_link4" size=".002" rgba="0 0 0 0" />
+                      <geom name="openarm_right_link4_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_287a4055a3dc01e795b4" />
+                      <geom name="openarm_right_link4_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_2569ee3cedbbb476da0f" />
+                      <body name="openarm_right_link5" pos="0 0 -0.095500000000000501" quat="1 0 0 0">
+                        <joint name="openarm_right_joint5" type="hinge" axis="0 0 -1" limited="true" range="-1.5708 1.5708" />
+                        <inertial pos="-0.00073718858013058404 -0.00041240654435184499 -0.047093829077210998" mass="0.6156588026168502" fullinertia="0.00027965336875298901 0.000334599623120095 0.00017666246438813801 3.3174528997244498e-06 7.6809731140373602e-07 -1.49934409279756e-07" />
+                        <site name="frame_openarm_right_link5" size=".002" rgba="0 0 0 0" />
+                        <geom name="openarm_right_link5_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_dc28537a15f2d46dbe0b" />
+                        <geom name="openarm_right_link5_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_5a36a5f3c279d1dd3126" />
+                        <body name="openarm_right_link6" pos="0 0 -0.120499999999998" quat="1 0 0 0">
+                          <joint name="openarm_right_joint6" type="hinge" axis="0 1 0" limited="true" range="-0.78539999999999999 0.78539999999999999" />
+                          <inertial pos="2.2743842359324399e-05 0.00068649602098908003 5.4400049476599502e-05" mass="0.475202773187987" fullinertia="0.00017927594144696399 0.00013624751275858701 0.000135340695937386 6.5843934671222805e-08 -3.37101167120887e-08 3.3225360029554399e-08" />
+                          <site name="frame_openarm_right_link6" size=".002" rgba="0 0 0 0" />
+                          <geom name="openarm_right_link6_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_a6b30e118674051d332f" />
+                          <geom name="openarm_right_link6_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_c7b4c75cedc0e5573d25" />
+                          <body name="openarm_right_link7" pos="0 0 0" quat="1 0 0 0">
+                            <joint name="openarm_right_joint7" type="hinge" axis="1 0 0" limited="true" range="-1.5708 1.5708" />
+                            <inertial pos="0 0 0" mass="1e-8" diaginertia="1e-10 1e-10 1e-10" />
+                            <site name="frame_openarm_right_link7" size=".002" rgba="0 0 0 0" />
+                            <body name="openarm_right_ee_base_link" pos="0.020500000000000001 0 0" quat="1 0 0 0">
+                              <inertial pos="-0.017499996 0.0027866760000000001 -0.053145248999999999" mass="0.48" fullinertia="0.0019084635328519295 0.00093478708847611117 0.0012911964358529565 0 0 0" />
+                              <site name="frame_openarm_right_ee_base_link" size=".002" rgba="0 0 0 0" />
+                              <geom name="openarm_right_ee_base_link_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_bea15ce2ab10ab29a91c" rgba=".28 .30 .32 1" />
+                              <geom name="openarm_right_ee_base_link_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_bea15ce2ab10ab29a91c" />
+                              <body name="right_wrist_eb435i_link" pos="0.061314028999999999 0.0034249509999999999 -0.15742677699999999" quat="0.00067521466434848057 -0.08715312711043216 -0.0077177375378549998 0.99616480215239822">
+                                <inertial pos="-0.015471698000000001 -0.0031697489999999999 -3.7009999999999998e-06" mass="0.17" fullinertia="0.00014030119657426461 2.340546548438281e-05 0.00014455332793495646 0 0 0" />
+                                <site name="frame_right_wrist_eb435i_link" size=".002" rgba="0 0 0 0" />
+                                <geom name="right_wrist_eb435i_link_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_0cd060f2fbbabf79b9a0" rgba=".28 .31 .34 1" />
+                                <geom name="right_wrist_eb435i_link_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_0cd060f2fbbabf79b9a0" />
+                                <body name="right_wrist_eb435i_depth_frame" pos="0 0 0" quat="1 0 0 0">
+                                  <site name="frame_right_wrist_eb435i_depth_frame" size=".002" rgba="0 0 0 0" />
+                                  <body name="right_wrist_eb435i_depth_optical_frame" pos="0 0 0" quat="0.49999999999999978 -0.5 0.50000000000000022 -0.5">
+                                    <site name="frame_right_wrist_eb435i_depth_optical_frame" size=".002" rgba="0 0 0 0" />
+                                  </body>
+                                </body>
+                                <body name="right_wrist_eb435i_color_frame" pos="0 0 0" quat="1 0 0 0">
+                                  <site name="frame_right_wrist_eb435i_color_frame" size=".002" rgba="0 0 0 0" />
+                                  <body name="right_wrist_eb435i_color_optical_frame" pos="0 0 0" quat="0.49999999999999978 -0.5 0.50000000000000022 -0.5">
+                                    <site name="frame_right_wrist_eb435i_color_optical_frame" size=".002" rgba="0 0 0 0" />
+                                  </body>
+                                </body>
+                              </body>
+                              <body name="right_wrist_camera_bracket_link" pos="0 0 0" quat="1 0 0 0">
+                                <inertial pos="0.037500005000000003 0.0033346169999999998 -0.096522385000000002" mass="0.07" fullinertia="0.00013111957511231141 0.00022503265444438197 0.00016858692852424653 0 0 0" />
+                                <site name="frame_right_wrist_camera_bracket_link" size=".002" rgba="0 0 0 0" />
+                                <geom name="right_wrist_camera_bracket_link_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_471a59806caf8066d5da" rgba=".85 .72 .08 1" />
+                                <geom name="right_wrist_camera_bracket_link_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_471a59806caf8066d5da" />
+                              </body>
+                              <body name="openarm_right_ee_link1" pos="-0.020499995999999999 0.020524453509250508 -0.10821084952198987" quat="-0.0077472182955823235 0.99996998985403596 0 0">
+                                <joint name="openarm_right_finger_joint1" type="slide" axis="0 -1 0" limited="true" range="0.012860000208020216 0.043999999999999997" ref="0.012860000208020216" />
+                                <inertial pos="-0.037750027999999998 -0.01082 0.037600002" mass="0.12" fullinertia="5.7097296887163168e-05 0.00023229090302381516 0.00019745139907040979 0 0 0" />
+                                <site name="frame_openarm_right_ee_link1" size=".002" rgba="0 0 0 0" />
+                                <geom name="openarm_right_ee_link1_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_a69a2660a434d4663713" rgba=".22 .22 .24 1" />
+                                <geom name="openarm_right_ee_link1_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_a69a2660a434d4663713" />
+                              </body>
+                              <body name="openarm_right_ee_link2" pos="-0.020499995999999999 -0.015191258509250509 -0.10876429447801013" quat="-0.0077472182955823235 0.99996998985403596 0 0">
+                                <joint name="openarm_right_finger_joint2" type="slide" axis="0 1 0" limited="true" range="0.012860000208020216 0.043999999999999997" ref="0.012860000208020216" />
+                                <inertial pos="-0.047749973000000001 -0.0011800000000000001 0.037600002" mass="0.12" fullinertia="7.8870097462371841e-05 0.00029089089617598653 0.00027782419279778986 0 0 0" />
+                                <site name="frame_openarm_right_ee_link2" size=".002" rgba="0 0 0 0" />
+                                <geom name="openarm_right_ee_link2_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_12c5220807fcdfe5c00e" rgba=".22 .22 .24 1" />
+                                <geom name="openarm_right_ee_link2_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_12c5220807fcdfe5c00e" />
+                              </body>
+                            </body>
+                            <site name="right_ee_control_point" size=".004" />
+                          </body>
+                        </body>
+                      </body>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+            <site name="arm_origin" size=".003" pos="0.11659917659347843 0.059960284291585897 0.376813224" quat="0.99999923958369563 0 0 0.0012332201874129926" />
+          </body>
+        </body>
+        <body name="lift_bottom_reference_link" pos="0.116747 -4.0000000000000003e-05 0.24081322399999999" quat="1 0 0 0">
+          <site name="frame_lift_bottom_reference_link" size=".002" rgba="0 0 0 0" />
+        </body>
+        <body name="head_d455_link" pos="0.235411642 0.047853290999999999 0.90255523299999996" quat="0.87194696423410423 -0.00060378356509782768 0.48959878546714042 0.001075303416325222">
+          <inertial pos="-0.0084499999999999992 -0.047500000000000001 0" mass="0.072" fullinertia="0.0038812429999999999 0.00049894000000000002 0.0038792570000000001 0 0 0" />
+          <site name="frame_head_d455_link" size=".002" rgba="0 0 0 0" />
+          <geom name="head_d455_link_visual_0" group="2" contype="0" conaffinity="0" pos="0.0046499999999999996 -0.047500000000000001 0" quat="0.49999999999999978 0.5 0.50000000000000022 0.5" type="mesh" mesh="mesh_2e448ed45c534e172d74" />
+          <geom name="head_d455_link_collision_0" group="3" contype="0" conaffinity="0" pos="-0.0084499999999999992 -0.047500000000000001 0" quat="1 0 0 0" type="box" size="0.012999999999999999 0.062 0.014500000000000001" />
+          <body name="head_d455_depth_frame" pos="0 0 0" quat="1 0 0 0">
+            <site name="frame_head_d455_depth_frame" size=".002" rgba="0 0 0 0" />
+            <body name="head_d455_depth_optical_frame" pos="0 0 0" quat="0.49999999999999978 -0.5 0.50000000000000022 -0.5">
+              <site name="frame_head_d455_depth_optical_frame" size=".002" rgba="0 0 0 0" />
+            </body>
+          </body>
+          <body name="head_d455_infra1_frame" pos="0 0 0" quat="1 0 0 0">
+            <site name="frame_head_d455_infra1_frame" size=".002" rgba="0 0 0 0" />
+            <body name="head_d455_infra1_optical_frame" pos="0 0 0" quat="0.49999999999999978 -0.5 0.50000000000000022 -0.5">
+              <site name="frame_head_d455_infra1_optical_frame" size=".002" rgba="0 0 0 0" />
+            </body>
+          </body>
+          <body name="head_d455_infra2_frame" pos="0 -0.095000000000000001 0" quat="1 0 0 0">
+            <site name="frame_head_d455_infra2_frame" size=".002" rgba="0 0 0 0" />
+            <body name="head_d455_infra2_optical_frame" pos="0 0 0" quat="0.49999999999999978 -0.5 0.50000000000000022 -0.5">
+              <site name="frame_head_d455_infra2_optical_frame" size=".002" rgba="0 0 0 0" />
+            </body>
+          </body>
+          <body name="head_d455_color_frame" pos="0 -0.058999999999999997 0" quat="1 0 0 0">
+            <site name="frame_head_d455_color_frame" size=".002" rgba="0 0 0 0" />
+            <body name="head_d455_color_optical_frame" pos="0 0 0" quat="0.49999999999999978 -0.5 0.50000000000000022 -0.5">
+              <site name="frame_head_d455_color_optical_frame" size=".002" rgba="0 0 0 0" />
+            </body>
+          </body>
+          <body name="chest_camera_bracket_link" pos="0 0 0" quat="1 0 0 0">
+            <inertial pos="-0.052283419999999997 -0.047600000000000003 -0.046425382000000001" mass="0.12" fullinertia="0.0002963529385913766 0.0001774253263973265 0.00021907236301042118 0 0 0" />
+            <site name="frame_chest_camera_bracket_link" size=".002" rgba="0 0 0 0" />
+            <geom name="chest_camera_bracket_link_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_ad513a6ce8cccfdbe955" rgba="0.72 0.65 0.25 1" />
+            <geom name="chest_camera_bracket_link_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_9ae76807de10da13f500" />
+            <geom name="chest_camera_bracket_link_collision_1" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_86b1417c5224ca65a364" />
+          </body>
+        </body>
+        <body name="lutu2_navigation_link" pos="0.078561269000000003 -0.00015071 1.2845" quat="-0.00087201821209658391 -0.00087201821227543802 0.70710624356371599 0.707106243418686">
+          <inertial pos="0.013563946 -0.024853027999999999 1.6991e-05" mass="6.0" fullinertia="0.030327488661568786 0.025962836761181635 0.026714901151872028 0 0 0" />
+          <site name="frame_lutu2_navigation_link" size=".002" rgba="0 0 0 0" />
+          <geom name="lutu2_navigation_link_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_0d5bdac5e508adf072e6" rgba="0.12 0.35 0.50 1" />
+          <geom name="lutu2_navigation_link_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_5be90bdbf1d03fc65666" />
+        </body>
+        <body name="lutu2_support_link" pos="0.0717473 -0.00015052300000000001 1.151" quat="0.50061622978300269 0.50061622988568089 -0.49938300980069289 -0.49938300969826765">
+          <inertial pos="0 -0.12475 -3e-09" mass="0.6" fullinertia="0.0059810125909551927 0.0021734500563025481 0.0064644626162633249 0 0 0" />
+          <site name="frame_lutu2_support_link" size=".002" rgba="0 0 0 0" />
+          <geom name="lutu2_support_link_visual_0" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_eb2eb5445116fb31394c" rgba="0.72 0.65 0.25 1" />
+          <geom name="lutu2_support_link_visual_1" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_6b350542e449cefc8423" rgba="0.72 0.65 0.25 1" />
+          <geom name="lutu2_support_link_visual_2" group="2" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_ebe53842a12a964054f4" rgba="0.72 0.65 0.25 1" />
+          <geom name="lutu2_support_link_collision_0" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_52789e2181da0ba723e2" />
+          <geom name="lutu2_support_link_collision_1" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_879806dcdc5c23b4f4e4" />
+          <geom name="lutu2_support_link_collision_2" group="3" contype="0" conaffinity="0" pos="0 0 0" quat="1 0 0 0" type="mesh" mesh="mesh_23b139faa2b2348f6b19" />
+        </body>
+      </body>
+    </body>
+  </worldbody>
+  <equality>
+    <joint joint1="openarm_left_finger_joint2" joint2="openarm_left_finger_joint1" polycoef="0 1 0 0 0" />
+    <joint joint1="openarm_right_finger_joint2" joint2="openarm_right_finger_joint1" polycoef="0 1 0 0 0" />
+  </equality>
+</mujoco>

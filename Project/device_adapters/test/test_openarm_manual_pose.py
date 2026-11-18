@@ -23,7 +23,7 @@ from std_msgs.msg import String
 
 
 class Harness:
-    def __init__(self, binary, config, initial, directory, case):
+    def __init__(self, binary, config, initial, directory, case, extra_args=None):
         self.state = None
         self.status = None
         self.applied = None
@@ -40,7 +40,7 @@ class Harness:
             str(binary), '--ros-args', '-p', 'mock:=true', '-p', 'monitor_only:=true',
             '-p', 'config:=' + str(config),
             '-p', 'mock_initial_positions:=' + json.dumps(initial),
-        ], stdout=self.log, stderr=subprocess.STDOUT, env=os.environ.copy())
+        ] + (extra_args or []), stdout=self.log, stderr=subprocess.STDOUT, env=os.environ.copy())
 
     def on_state(self, message):
         self.state = message

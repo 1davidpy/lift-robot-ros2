@@ -11,6 +11,7 @@
 
 namespace lp = luxi::lift;
 class Lift : public rclcpp::Node {
+  int64_t network_recovery_ns_ = 10000000000LL;
   struct Pending {
     can_frame frame{};
     int64_t first = 0, last = 0;
@@ -79,6 +80,8 @@ class Lift : public rclcpp::Node {
   std::string interface_, phase_ = "disabled", reason_ = "operator_enable_required";
   bool allow_motion_, enabled_ = false, session_ = false, neutral_ = false;
   bool coordinated_mode_ = false, want_home_ = false, home_complete_ = false;
+  bool isolate_position_invalid_ = false, position_invalid_paused_ = false;
+  lp::PositionValidity position_validity_;
   int home_locked_samples_ = 0;
   int64_t home_closed_ns_ = 0;
   luxi::CoordinatedControl coordination_;
@@ -147,12 +150,33 @@ class Lift : public rclcpp::Node {
     transmit(f, "request");
   }
   bool feedback(int64_t t) const { return sample_ && sample_->valid(t); }
+  bool position_isolation_active() const {
+    return isolate_position_invalid_ && !external_mode_ && !dashboard_position_;
+  }
   bool startup_grace(int64_t t) const {
     return uart_mode_ && !startup_released_ &&
            (phase_ == "move_ack" || phase_ == "moving" || (enabled_ && phase_ == "stopping")) &&
            sample_ && sample_->startup_healthy(t, motion_started_, startup_origin_);
   }
-  bool link_healthy(int64_t t) const { return sample_ && (sample_->healthy(t) || startup_grace(t)); }
+  bool position_pending() const {
+    return position_isolation_active() && position_validity_.pending();
+  }
+  bool link_healthy(int64_t t) const {
+    return sample_ && (sample_->healthy(t) || startup_grace(t) ||
+                       (position_pending() && sample_->healthy_without_position(t)));
+  }
+  bool position_pause_healthy(int64_t t) const {
+    return position_isolation_active() && position_invalid_paused_ && sample_ &&
+           sample_->healthy_without_position(t);
+  }
+  void pause_position() {
+    if (!position_invalid_paused_ || enabled_) {
+      cancel("position_invalid");
+      if (reason_ != "position_invalid") { coordination_.blocked = true; return; }
+      event("position_invalid_pause", "five_consecutive_invalid_snapshots");
+    }
+    position_invalid_paused_ = true;
+  }
   bool command_ready(int64_t t) const {
     return !uart_mode_ || (ready_ && ready_ns_ >= ready_after_ && t >= ready_ns_ && t - ready_ns_ <= 500000000);
   }
@@ -161,7 +185,7 @@ class Lift : public rclcpp::Node {
       return uart_mode_ ? "uart_feedback_timeout" : "can_feedback_timeout";
     if (sample_->fault) return "drive_fault";
     if (sample_->flags & 128) return "motion_inhibited";
-    if (!(sample_->flags & 1)) return "position_invalid";
+    if (!(sample_->flags & 1)) return position_pending() ? "position_invalid_pending" : "position_invalid";
     if (!uart_mode_ && (sample_->guard & 4)) return "can_bus_off";
     if (sample_->age_ms(t) > 500) return startup_grace(t) ? "locked_startup_preparation" : "motor_feedback_stale";
     return "ok";
@@ -227,8 +251,13 @@ class Lift : public rclcpp::Node {
     if (!changed) return;
     try {
       if (old_epoch != coordination_.epoch) { home_complete_ = false; home_locked_samples_ = 0; }
-      if (coordination_.phase == "prepare") { cancel("shared_prepare"); configure(false); }
+      if (coordination_.phase == "prepare") {
+        if (position_isolation_active() && position_validity_.confirmed() &&
+            sample_ && sample_->healthy_without_position(t)) { pause_position(); return; }
+        cancel("shared_prepare"); configure(false);
+      }
       else if (coordination_.phase == "active") {
+        if (position_pause_healthy(t)) return;
         if (!enabled_ || phase_ != "idle" || !link_healthy(t) || !sample_->stationary() || !input_present(t) || !grips_released_)
           throw std::runtime_error("lift shared enable rejected");
         neutral_ = false; reason_ = "release_both_grips_then_press";
@@ -237,6 +266,9 @@ class Lift : public rclcpp::Node {
     } catch (const std::exception& e) { coordination_.blocked = true; cancel(e.what()); }
   }
   void cancel(const std::string& why, bool keep_permission = false) {
+    const bool shared_stop = why == "shared_stop" || why == "shared_park" ||
+                             why == "shared_halt" || why == "shared_disabled";
+    if (why != "position_invalid" && !shared_stop) position_invalid_paused_ = false;
     const auto lease_age = external_.received_ns ? (luxi::mono() - external_.received_ns) / 1000000 : -1;
     RCLCPP_WARN(get_logger(), "lift cancel: %s; phase=%s; position_um=%d; target_um=%d; external_age_ms=%lld; lease_ms=%lld",
                 why.c_str(), phase_.c_str(), sample_ ? sample_->current_um : 0, target_,
@@ -434,6 +466,7 @@ class Lift : public rclcpp::Node {
     auto s = assembler_.consume(f, received, uart_mode_ ? 0 : wall);
     if (!s) return;
     sample_ = s;
+    position_validity_.observe(*s);
     if (s->flags & 4) startup_released_ = true;
     const auto t = luxi::mono();
     observe_settling(*s, t);
@@ -457,6 +490,8 @@ class Lift : public rclcpp::Node {
                         {"receive_first_mono_ns", std::to_string(s->first_ns)},
                         {"receive_mono_ns", std::to_string(s->received_ns)},
                         {"ros_time_ns", std::to_string(now().nanoseconds())}});
+    if (position_isolation_active() && position_validity_.confirmed() && s->healthy_without_position(t))
+      pause_position();
     if (enabled_ && !link_healthy(t)) throw std::runtime_error(health_reason(t));
     if (phase_ == "moving") {
       if (s->target_status >= 0xe0 || !(s->flags & 64)) throw std::runtime_error("lift motion canceled or session lost");
@@ -506,7 +541,7 @@ class Lift : public rclcpp::Node {
       if (external_mode_ && enabled_ && (!external_.live(t) || menu_ || !link_healthy(t)))
         cancel(!link_healthy(t) ? health_reason(t) : menu_ ? "recorder_failure_menu" : "external_lease_expired");
       if (!external_mode_ && enabled_ && (!input_ok_ || menu_ || !link_healthy(t) ||
-          !luxi::fresh(quest_time_, t, coordinated_mode_ ? 500000000 : 200000000))) {
+          !luxi::fresh(quest_time_, t, coordinated_mode_ ? network_recovery_ns_ : 200000000))) {
         if (coordinated_mode_) coordination_.blocked = true;
         cancel(!link_healthy(t) ? health_reason(t) : "quest_feedback_lost");
       } else if (!external_mode_ && enabled_ && !luxi::fresh(quest_time_, t, 200000000)) {
@@ -591,6 +626,13 @@ class Lift : public rclcpp::Node {
                            {"interface", interface_}, {"allow_motion", allow_motion_},
                            {"feedback_fresh", feedback(luxi::mono())}, {"session", session_},
                            {"feedback_healthy", link_healthy(luxi::mono())},
+                           {"position_invalid_isolation", position_isolation_active()},
+                           {"position_invalid_pending", position_pending()},
+                           {"position_invalid_count", position_validity_.invalid_count()},
+                           {"position_invalid_limit", lp::PositionValidity::confirmations},
+                           {"position_invalid_paused", position_invalid_paused_},
+                           {"position_invalid_pause_count", position_invalid_paused_ ? lp::PositionValidity::confirmations : 0},
+                           {"position_invalid_stationary", position_pause_healthy(luxi::mono()) && sample_->stationary()},
                            {"health", health_reason(luxi::mono())},
                            {"ready_for_command", command_ready(luxi::mono())},
                            {"startup_feedback_grace", startup_grace(luxi::mono())},
@@ -623,7 +665,7 @@ class Lift : public rclcpp::Node {
     // The first callback after an outage may precede tick(). Handle the old
     // receive timestamp before replacing it, so no queued command can resume.
     if (fresh && enabled_ && coordinated_mode_) {
-      if (!luxi::fresh(quest_time_, q.receive_mono_ns, 500000000)) {
+      if (!luxi::fresh(quest_time_, q.receive_mono_ns, network_recovery_ns_)) {
         coordination_.blocked = true; cancel("quest_timeout");
       } else if (!luxi::fresh(quest_time_, q.receive_mono_ns, 200000000)) pause_input();
     }
@@ -637,6 +679,18 @@ class Lift : public rclcpp::Node {
       if (coordinated_mode_ && (enabled_ || nonce_)) coordination_.blocked = true;
       if (enabled_ || nonce_) cancel(q.buttons[1] ? "B_operator_disable" : "invalid_quest_or_failure_menu");
       left_ = right_ = false; return;
+    }
+    if (position_invalid_paused_) {
+      // Reconfigure only after valid stopped feedback and a fresh grip release.
+      // INFO/READY does not move the lift; a later new grip press is still required.
+      left_ = right_ = false;
+      if (coordination_.live(t) && coordination_.phase == "active" && grips_released_ &&
+          sample_ && sample_->valid(t) && sample_->stationary() && !(sample_->flags & 64)) {
+        configure(false);
+        position_invalid_paused_ = false;
+        event("position_invalid_recovered", "valid_feedback_and_released_grips");
+      }
+      return;
     }
     if (input_recovery_) {
       if (!grips_released_) recovery_neutral_since_ = 0;
@@ -681,6 +735,12 @@ class Lift : public rclcpp::Node {
     allow_motion_ = declare_parameter("allow_motion", false);
     dashboard_available_ = declare_parameter("dashboard_position_control", false);
     coordinated_mode_ = declare_parameter("shared_enable", false);
+    const bool position_isolation = declare_parameter("isolate_position_invalid", true);
+    isolate_position_invalid_ = coordinated_mode_ && uart_mode_ && position_isolation;
+    const auto network_timeout = declare_parameter<double>("network_recovery_timeout", 10.);
+    if (!std::isfinite(network_timeout) || network_timeout < .5 || network_timeout > 10.)
+      throw std::invalid_argument("network_recovery_timeout must be in [0.5, 10] seconds");
+    network_recovery_ns_ = static_cast<int64_t>(network_timeout * 1e9);
     external_mode_ = declare_parameter("external_control", false);
     const auto external_lease_ms = declare_parameter("external_lease_ms", 1000);
     if (external_lease_ms < 200 || external_lease_ms > 2000)
@@ -728,6 +788,9 @@ class Lift : public rclcpp::Node {
               if (!j.is_object() || !j.contains("owner") || !j["owner"].is_string() ||
                   !j.contains("sequence") || !j["sequence"].is_number_unsigned())
                 throw std::runtime_error("网页控制会话格式错误");
+              if (op != "stop" && coordinated_mode_ &&
+                  coordination_.control_source == "teleop")
+                throw std::runtime_error("请先在控制台切换为控制台权限");
               if (op == "arm") {
                 if (enabled_ || external_mode_ || (coordination_.live(t) && coordination_.phase != "halt" && coordination_.phase != "disabled") || !link_healthy(t) ||
                     !sample_->stationary() || (sample_->flags & 64) || menu_)

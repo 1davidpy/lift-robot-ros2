@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <luxi/transfer.hpp>
+#include <luxi/episode_counts.hpp>
 #include <openssl/rand.h>
 #include <sys/file.h>
 #include <atomic>
@@ -38,6 +39,7 @@ int main(int argc, char** argv) {
     char hostname[201]{};
     if (gethostname(hostname, sizeof(hostname)-1)) throw std::runtime_error("hostname unavailable");
     luxi::Json claim{{"action", "claim"}, {"token", token.str()}, {"name", hostname}, {"directory", root.string()}, {"message", "watching"}};
+    claim["episode_counts"] = luxi::episode_counts(root);
     post(board, claim);
     std::signal(SIGINT, stop); std::signal(SIGTERM, stop);
     std::atomic<bool> done{false}, connected{true};
@@ -47,6 +49,7 @@ int main(int argc, char** argv) {
       while (!done) {
         try {
           auto body = claim;
+          body["episode_counts"] = luxi::episode_counts(root);
           { std::lock_guard<std::mutex> guard(status_mutex); body["episode"] = episode; body["message"] = message; }
           post(board, body); connected = true;
         } catch (const std::exception&) { connected = false; }

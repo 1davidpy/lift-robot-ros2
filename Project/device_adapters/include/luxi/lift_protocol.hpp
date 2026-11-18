@@ -50,10 +50,11 @@ struct Sample {
   // The motor scan age and CAN publication period are separate. Keep the
   // strict 250 ms bound for measurements/planning/arrival, but do not cancel
   // an accepted finite move between scans. Vendor client's watchdog is 500 ms.
-  bool healthy(int64_t now) const {
+  bool healthy_without_position(int64_t now) const {
     return first_ns > 0 && now >= received_ns && now - first_ns <= 300000000 &&
-           age_ms(now) <= 500 && (flags & 1) && !(flags & 128) && !fault && (uart || !(guard & 4));
+           age_ms(now) <= 500 && !(flags & 128) && !fault && (uart || !(guard & 4));
   }
+  bool healthy(int64_t now) const { return healthy_without_position(now) && (flags & 1); }
   bool startup_healthy(int64_t now, int64_t command_started, int32_t origin) const {
     // v29+ permits only this bounded, brake-locked preparation exception.
     return uart && command_started > 0 && now >= command_started && now - command_started < 2000000000LL &&
@@ -62,6 +63,20 @@ struct Sample {
            std::abs(int64_t(current_um) - origin) <= 10;
   }
   bool stationary() const { return !(flags & (4 | 8)) && std::abs(int(speed_rpm)) <= 2; }
+};
+// Observe assembled, ordered telemetry snapshots only, never timer/status ticks.
+class PositionValidity {
+  int invalid_ = 0;
+  bool seen_valid_ = false;
+ public:
+  static constexpr int confirmations = 5;
+  void observe(const Sample& s) {
+    if (s.flags & 1) { invalid_ = 0; seen_valid_ = true; }
+    else invalid_ = std::min(invalid_ + 1, confirmations);
+  }
+  int invalid_count() const { return invalid_; }
+  bool pending() const { return seen_valid_ && invalid_ > 0 && invalid_ < confirmations; }
+  bool confirmed() const { return invalid_ >= confirmations; }
 };
 class Assembler {
   struct Group {

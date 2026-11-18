@@ -2,8 +2,8 @@
 
 .keyboard-panel { margin-bottom:24px; border:1px solid #397c70; }
 .keyboard-keys { display:flex; gap:12px; flex-wrap:wrap; margin-top:20px; }
-.keyboard-keys kbd { padding:14px 18px; border:1px solid #7d9290; border-radius:8px; font:inherit; }
-.keyboard-keys kbd.pressed { background:#c5f4df; color:#123b2a; border-color:#267953; }
+.keyboard-keys .direction-key { padding:14px 18px; border:1px solid #7d9290; border-radius:8px; font:inherit; }
+.keyboard-keys .direction-key.pressed { background:#c5f4df; color:#123b2a; border-color:#267953; }
 #keyboard-state { font-weight:600; min-height:1.5em; }
 
 .arm-table-scroll{overflow-x:auto}.arm-table{width:100%;min-width:620px;text-align:left;border-collapse:collapse;font-variant-numeric:tabular-nums}.arm-table th,.arm-table td{padding:9px 12px;border-bottom:1px solid #253540;white-space:nowrap}.arm-table th{color:#91a5b3;font-size:12px}.arm-table tbody tr:nth-child(9){border-top:2px solid #526774}
@@ -18,3 +18,5 @@
 /* Radians remain the primary value; both units are always visible. */
 @media(max-width:1200px){.joint-arm-grid{grid-template-columns:1fr}}
 .joint-row{grid-template-columns:minmax(120px,1.3fr) minmax(92px,.9fr) minmax(85px,1fr) minmax(85px,1fr)}.joint-row small,.joint-measured{white-space:pre-line}.joint-target small{display:none}.joint-measured{font-size:12px}.joint-row .joint-target{min-width:0}@media(max-width:650px){.joint-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}.joint-column-heading{display:none}.joint-target small{display:block;margin:0 0 5px}.joint-measured{text-align:right}.joint-row input{padding:10px}.joint-arm-grid fieldset{padding:12px}}
+
+.keyboard-keys .direction-key { touch-action:none; user-select:none; }

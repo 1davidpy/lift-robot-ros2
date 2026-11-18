@@ -1,4 +1,5 @@
 <launch>
+ <arg name="model" default="$(find-pkg-share luxi_description)/model/openarm_claw14.xml"/>
   <arg name="quest_enabled" default="true" />
   <arg name="web_enabled" default="true" />
   <arg name="base_enabled" default="false" />
@@ -22,15 +23,19 @@
   <arg name="config" default="$(find-pkg-share luxi_bringup)/config/arms-teleop.json" />
   <arg name="home_tolerance" default="0.1" />
   <arg name="home_joint_speed_limit" default="0.2" />
+  <arg name="pose_filter_cutoff_hz" default="4.0" />
   <arg name="shared_enable" default="true" />
   <node pkg="luxi_teleop_mapper" exec="teleop_mapper" output="screen" respawn="true" respawn_delay="3.0">
+    <param name="heading_only_orientation_reference" value="true" />
     <param name="config" value="$(var config)" />
+    <param name="pose_filter_cutoff_hz" value="$(var pose_filter_cutoff_hz)" />
   </node>
   <node pkg="luxi_arm_motion" exec="arm_motion" output="screen" respawn="true" respawn_delay="3.0">
     <param name="config" value="$(var config)" />
-    <param name="model" value="$(find-pkg-share luxi_description)/model/cell/cell.xml" />
+    <param name="model" value="$(var model)" />
   </node>
   <node pkg="luxi_control_manager" exec="control_manager" output="screen" respawn="true" respawn_delay="3.0">
+    <param name="explicit_control_source" value="true" />
     <param name="shared_enable" value="$(var shared_enable)" />
     <param name="config" value="$(var config)" />
     <param name="home_tolerance" value="$(var home_tolerance)" />

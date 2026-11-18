@@ -4,6 +4,53 @@
 #include <luxi/coordinated_control.hpp>
 
 namespace lp = luxi::lift;
+TEST(LiftUart, PositionValidityRequiresFiveOrderedSnapshotsAndResetsOnValid) {
+  lp::PositionValidity validity;
+  lp::Sample sample; sample.uart = true; sample.flags = 1;
+  sample.first_ns = sample.received_ns = 1000000000; sample.feedback_age_ms = 50;
+  validity.observe(sample);
+  sample.flags = 0;
+  for (int i = 1; i <= 4; ++i) {
+    validity.observe(sample);
+    EXPECT_EQ(validity.invalid_count(), i);
+    EXPECT_TRUE(validity.pending()); EXPECT_FALSE(validity.confirmed());
+    EXPECT_FALSE(sample.valid(1100000000));
+    EXPECT_TRUE(sample.healthy_without_position(1100000000));
+  }
+  validity.observe(sample);
+  EXPECT_TRUE(validity.confirmed()); EXPECT_FALSE(validity.pending());
+  validity.observe(sample); EXPECT_EQ(validity.invalid_count(), 5);
+  sample.flags = 1; validity.observe(sample);
+  EXPECT_EQ(validity.invalid_count(), 0); EXPECT_FALSE(validity.confirmed());
+  sample.flags = 0; validity.observe(sample); EXPECT_EQ(validity.invalid_count(), 1);
+  sample.fault = 1; EXPECT_FALSE(sample.healthy_without_position(1100000000));
+  sample.fault = 0; sample.flags = 128;
+  EXPECT_FALSE(sample.healthy_without_position(1100000000));
+  sample.flags = 0;
+  EXPECT_FALSE(sample.healthy_without_position(1400000000));
+}
+TEST(LiftUart, IsolatedPositionPauseDoesNotHideOtherFaultsOrStaleFeedback) {
+  luxi::Json status{{"transport","uart"}, {"receive_mono_ns","2000000000"},
+    {"feedback_first_mono_ns","2000000000"}, {"feedback_age_ms",50},
+    {"position_invalid_isolation",true}, {"position_invalid_paused",true},
+    {"position_invalid_limit",5}, {"position_invalid_pause_count",5},
+    {"position_invalid_count",5}, {"flags",0}, {"fault",0},
+    {"shared_failed",false}, {"enabled",false}};
+  EXPECT_TRUE(luxi::coordinated_lift_position_paused(status, 2100000000));
+  status["fault"] = 1;
+  EXPECT_FALSE(luxi::coordinated_lift_position_paused(status, 2100000000));
+  status["fault"] = 0; status["flags"] = 128;
+  EXPECT_FALSE(luxi::coordinated_lift_position_paused(status, 2100000000));
+  status["flags"] = 0; status["shared_failed"] = true;
+  EXPECT_FALSE(luxi::coordinated_lift_position_paused(status, 2100000000));
+  status["shared_failed"] = false;
+  EXPECT_FALSE(luxi::coordinated_lift_position_paused(status, 2400000000));
+  status["position_invalid_pause_count"] = 4;
+  EXPECT_FALSE(luxi::coordinated_lift_position_paused(status, 2100000000));
+  status["position_invalid_pause_count"] = 5;
+  status["position_invalid_count"] = 0; status["flags"] = 1;
+  EXPECT_TRUE(luxi::coordinated_lift_position_paused(status, 2100000000));
+}
 TEST(LiftUart, PublishedWireExamples) {
   const auto move = lp::request(1, lp::Move, 1, -50000, true);
   EXPECT_EQ(lp::uart_frame(1, move.data, 8), (std::vector<uint8_t>{

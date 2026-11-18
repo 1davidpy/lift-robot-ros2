@@ -39,6 +39,19 @@ class ReceiverQueue {
       heartbeat_ = std::chrono::steady_clock::now();
       peer_ = {{"name", name}, {"address", address}, {"directory", directory},
                {"episode", j.value("episode", "")}, {"message", j.value("message", "watching")}};
+      // Optional for older receivers. Counts describe committed files on the PC.
+      const auto counts = j.find("episode_counts");
+      if (counts != j.end() && counts->is_object()) {
+        bool valid = counts->contains("valid") && (*counts)["valid"].is_boolean();
+        int64_t sum = 0;
+        for (const auto* key : {"accepted", "failed", "cancelled", "unknown", "total"}) {
+          const auto item = counts->find(key);
+          if (item == counts->end() || !item->is_number_integer() ||
+              item->get<int64_t>() < 0 || item->get<int64_t>() > 1000000000) { valid = false; break; }
+          if (std::string(key) != "total") sum += item->get<int64_t>();
+        }
+        if (valid && sum == (*counts)["total"].get<int64_t>()) peer_["episode_counts"] = *counts;
+      }
       return {{"success", true}};
     }
     if (!online() || token != token_) throw std::runtime_error("receiver lease expired or owned by another PC");

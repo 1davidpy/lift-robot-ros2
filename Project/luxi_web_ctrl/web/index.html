@@ -6,6 +6,12 @@
 <main>
 <header><div><div class="eyebrow">LUXI / TELEOPERATION</div><h1>机器人控制台 <span id="mode" class="pill">连接中</span></h1><p>设备检查 · Quest 遥操作 · 多视角数据采集</p></div><div class="connection"><span id="connection" class="pill">正在连接服务</span><small id="updated">等待第一帧状态</small></div></header>
 <div id="offline" class="alert" hidden>网页服务连接中断。显示状态已失效，请检查板端网络；网页按钮无法保证停车。</div>
+<section class="panel" id="control-source-panel" aria-labelledby="control-source-title">
+<div class="section-heading"><h2 id="control-source-title">控制权限</h2></div>
+<p>显式选择控制台或遥操。连接 Quest 不会自动切换权限；切换本身不会使能、回零或发起运动。</p>
+<div class="button-row"><button id="source-console" class="primary" aria-pressed="false" disabled>切换为控制台控制</button><button id="source-teleop" aria-pressed="false" disabled>切换为遥操控制</button></div>
+<p id="control-source-status" role="status" aria-live="polite">等待权限协调服务…</p>
+<p class="hint">切换前请停止当前动作，并释放底盘和升降会话。机械臂保持不会因切换而失能。</p></section>
 <section id="overview" class="devices">
 <article class="card"><div class="card-heading"><span>◉ QUEST 3</span><span id="quest-badge" class="pill">未知</span></div><h2 id="quest-rate">— <small>Hz</small></h2><p id="quest-detail">等待遥操作报文</p><div class="foot">Wi-Fi / UDP <span>双手柄追踪</span></div><div class="device-actions" data-device="quest"><small class="service-state">读取服务状态…</small><div class="button-row"><button data-service-action="toggle" disabled>开启采集</button><button data-service-action="restart" disabled>重启 / 重连</button></div></div></article>
 <article class="card"><div class="card-heading"><span>⌘ OPENARM × 2</span><span id="arms-badge" class="pill">未知</span></div><h2 id="arm-phase">等待反馈</h2><p id="arms-detail">左臂 — / 右臂 —</p><div class="foot">CH1 左臂 / CH2 右臂 <span>CAN FD</span></div><div class="device-actions" data-device="arms"><small class="service-state">读取服务状态…</small><div class="button-row"><button data-service-action="toggle" disabled>开启采集</button><button data-service-action="restart" disabled>重启 / 重连</button></div></div></article>
@@ -13,6 +19,17 @@
 <article class="card"><div class="card-heading"><span>⊞ R680 OMNI</span><span id="base-badge" class="pill">未知</span></div><h2 id="base-speed">— <small>m/s</small></h2><p id="base-detail">等待底盘反馈</p><div class="foot">CH3 <span>经典 CAN</span></div><div class="device-actions" data-device="base"><small class="service-state">读取服务状态…</small><div class="button-row"><button data-service-action="toggle" disabled>开启采集</button><button data-service-action="restart" disabled>重启 / 重连</button></div></div></article>
 <article class="card"><div class="card-heading"><span>▣ RGB CAMERAS</span><span id="camera-badge" class="pill">未知</span></div><h2 id="camera-count">— <small>/ 3 在线</small></h2><p id="disk">磁盘剩余 —</p><div class="foot">头部 / 左腕 / 右腕 <span>RGB</span></div></article>
 </section>
+<section class="panel" id="episode-counts-panel" aria-labelledby="episode-counts-title">
+<div class="section-heading"><h2 id="episode-counts-title">正式采集 · 已保存 episode</h2><span id="episode-counts-status" class="pill">正在读取</span></div>
+<div style="display:flex;gap:32px;flex-wrap:wrap;font-size:20px" aria-live="polite">
+<strong style="color:#15976a">成功 <span id="episode-count-accepted">—</span></strong>
+<strong style="color:#d64b4b">失败 <span id="episode-count-failed">—</span></strong>
+<strong>取消 <span id="episode-count-cancelled">—</span></strong>
+<strong>合计 <span id="episode-count-total">—</span></strong>
+</div><p id="episode-counts-note">统计接收电脑 raw 目录中已保存的数据，录制中及传输中的 episode 暂不计入。</p>
+<p class="hint">成功：按成功提交且质量检查通过；失败：操作失败或质量检查未通过；取消：取消但保留原始数据。</p>
+</section>
+<script defer src="/episode-counts.js"></script>
 <section class="panel" id="arm-startup-panel"><div class="section-heading"><h2>OpenArm 上电抬臂</h2><span id="arm-startup-badge" class="pill">等待状态</span></div>
 <p>上电后点击抬臂，双臂及夹爪移至图示启动姿态，到位后保持。目标指令限速 0.15 rad/s，实际速度以反馈为准。无需 Quest、底盘或升降使能。</p>
 <p id="arm-startup-status" role="status" aria-live="polite">等待关节反馈…</p>
@@ -64,13 +81,13 @@
 <p class="hint">到位后自动锁定。关闭页面、切换窗口、断网或反馈异常会停止当前运动；恢复后需重新开启，不会自动重发目标。</p></section>
 <section class="panel"><div class="section-heading"><h2>OpenArm 关节反馈</h2><span class="pill">角度 rad / ° · 温度 °C</span></div><div class="arm-table-scroll"><table class="arm-table"><thead><tr><th>机械臂</th><th>关节</th><th>状态</th><th>当前角度 rad</th><th>当前角度 °</th><th>速度 rad/s</th><th>力矩 Nm</th><th>MOS / 转子温度</th></tr></thead><tbody id="arm-joints"></tbody></table></div></section>
 <section id="keyboard-panel" tabindex="-1" class="panel keyboard-panel" aria-labelledby="keyboard-title">
-<div class="section-heading"><div><div class="eyebrow">WASD / CH3</div><h2 id="keyboard-title">键盘测试控制</h2></div><span id="keyboard-badge" class="pill">等待状态</span></div>
-<p>打开键盘控制开关即可使用，无需 Quest。测试速度上限 0.05 m/s。</p>
+<div class="section-heading"><div><div class="eyebrow">WASD + Q/E / CH3</div><h2 id="keyboard-title">网页底盘控制</h2></div><span id="keyboard-badge" class="pill">等待状态</span></div>
+<p>没有遥操占用时，打开开关即可使用 WASD 和 Q/E，无需连接 Quest。关闭开关后停车并让出控制权；网页与 Quest 互斥控制。平移速度上限 <span id="web-keyboard-speed-limit">—</span> m/s；原地转向上限 0.30 rad/s（约 17°/s）。按住 Q/E 或页面左转、右转按钮即可转向，松开停车。</p>
 <p id="keyboard-state" role="status" aria-live="polite">正在检查使能条件…</p>
-<div class="button-row"><button id="keyboard-start" class="primary" role="switch" aria-checked="false" disabled>键盘控制：关闭</button><button id="keyboard-stop" class="stop" disabled>停车并退出键盘控制</button></div>
-<div class="keyboard-keys" aria-label="键盘方向"><kbd id="key-w">W ↑ 前进</kbd><kbd id="key-a">A ← 左移</kbd><kbd id="key-s">S ↓ 后退</kbd><kbd id="key-d">D → 右移</kbd></div>
+<div class="button-row"><button id="keyboard-start" class="primary" role="switch" aria-checked="false" disabled>网页控制：关闭</button><button id="keyboard-stop" class="stop" disabled>停车并释放网页控制权</button></div>
+<div class="keyboard-keys" aria-label="按住键盘或页面按钮控制底盘"><button type="button" id="key-w" class="direction-key" data-direction-key="KeyW" aria-pressed="false" disabled>W ↑ 前进</button><button type="button" id="key-a" class="direction-key" data-direction-key="KeyA" aria-pressed="false" disabled>A ← 左移</button><button type="button" id="key-s" class="direction-key" data-direction-key="KeyS" aria-pressed="false" disabled>S ↓ 后退</button><button type="button" id="key-d" class="direction-key" data-direction-key="KeyD" aria-pressed="false" disabled>D → 右移</button><button type="button" id="key-q" class="direction-key" data-direction-key="KeyQ" aria-pressed="false" disabled>Q ↶ 原地左转</button><button type="button" id="key-e" class="direction-key" data-direction-key="KeyE" aria-pressed="false" disabled>E ↷ 原地右转</button></div>
 <p id="keyboard-input">当前按键：无</p>
-<p class="hint">使能后直接按住 WASD 行驶，松键停车；空格 / Esc、切换窗口或连接超时会撤销使能。重新进入页面后需再次使能。</p>
+<p class="hint">按住 WASD 平移、Q/E 转向，松键、空格 / Esc 或切换窗口停车并保留网页控制权。指令超过 500 毫秒未更新时停车，松开方向键后再按；关闭开关或点击“停车并释放网页控制权”才让出权限。刷新或重新打开页面后，可用释放按钮清理原网页会话。</p>
 </section>
 <section class="workspace">
 <div>

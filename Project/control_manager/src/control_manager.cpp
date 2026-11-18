@@ -11,6 +11,24 @@ class Manager : public rclcpp::Node {
   double home_joint_speed_limit_ = 0.;
   double input_hold_timeout_ = .5;
   int64_t input_hold_ns_ = 500000000;
+  int64_t network_recovery_ns_ = 10000000000LL;
+  std::array<double, 16> accepted_goal_{};
+  bool accepted_goal_valid_ = false;
+  bool network_recovering_ = false;
+  void finish_local_goal(double dt) {
+    if (!accepted_goal_valid_) return;
+    auto next = accepted_goal_;
+    for (int i = 0; i < 16; ++i)
+      next[i] = last_[i] + std::clamp(next[i] - last_[i], -.2 * dt, .2 * dt);
+    last_ = cfg_.limit(next, last_, dt);
+  }
+  void remember_goal(const std::array<double, 16>& goal) {
+    if (intent_.phase != "teleop") return;
+    for (int i = 0; i < 16; ++i)
+      if (!std::isfinite(goal[i]) || goal[i] < cfg_.lo[i] || goal[i] > cfg_.hi[i]) return;
+    accepted_goal_ = goal;
+    accepted_goal_valid_ = true;
+  }
   luxi::State state_;
   luxi::Command intent_;
   luxi::Quest quest_;
@@ -29,6 +47,7 @@ class Manager : public rclcpp::Node {
   bool x_ = false, long_x_ = false;
   int64_t x_start_ = 0;
   bool shared_ = false, menu_ = false;
+  bool isolate_lift_position_invalid_ = true;
   bool x_released_ = false, x_enable_press_ = false, b_ = false, rest_ready_ = false;
   bool torque_requested_ = false;
   bool manual_pose_blocked_ = false;
@@ -49,11 +68,46 @@ class Manager : public rclcpp::Node {
     return state_.enabled && support_target_valid_ && luxi::fresh(manual_pose_status_ns_, t, 500000000)
         ? support_target_ : state_.position;
   }
+  bool explicit_source_ = false;
+  std::string control_source_ = "console";
+  bool startup_motion_active_ = false;
+  bool select_source(const std::string& source) {
+    if (!explicit_source_) { reason_ = "explicit_control_source_not_enabled"; return false; }
+    if (source == control_source_) return true;
+    const auto t = luxi::mono();
+    if (!arm_feedback(t) || !luxi::fresh(manual_pose_status_ns_, t, 500000000) ||
+        !luxi::coordinated_status_fresh(base_status_, t) ||
+        !luxi::coordinated_status_fresh(lift_status_, t) ||
+        (system_phase_ != "disabled" && system_phase_ != "stopped") ||
+        (phase_ != "disabled" && phase_ != "hold") || manual_pose_blocked_ || startup_motion_active_ ||
+        base_status_.value("enabled", true) || !base_status_.value("stationary", false) ||
+        lift_status_.value("enabled", true) || !lift_status_.value("stationary", false) ||
+        lift_status_.value("session_present", true)) {
+      reason_ = "control_source_switch_requires_stopped_devices"; return false;
+    }
+    for (double speed : state_.velocity)
+      if (!std::isfinite(speed) || std::abs(speed) > .08) {
+        reason_ = "control_source_switch_requires_stopped_arms"; return false;
+      }
+    // Selection never enables, homes, releases torque, or publishes an arm goal.
+    control_source_ = source;
+    phase_ = "disabled"; enter("disabled");
+    torque_requested_ = rest_ready_ = accepted_goal_valid_ = false;
+    intent_ = luxi::Command{};
+    clear_manual_start();
+    epoch_ = owner_ + ":" + std::to_string(++epoch_count_);
+    x_ = quest_.buttons[2]; b_ = quest_.buttons[1];
+    x_released_ = x_enable_press_ = false; long_x_ = true;
+    tracking_resume_after_ = t;
+    reason_ = source == "console" ? "console_control_selected" : "teleop_selected_waiting_for_explicit_start";
+    broadcast(); return true;
+  }
   std::string system_phase_ = "disabled", epoch_;
   const std::string owner_ = std::to_string(luxi::mono());
   uint64_t epoch_count_ = 0;
   int64_t system_since_ = 0;
   luxi::Json base_status_, lift_status_;
+  luxi::Json feedback_fault_snapshot_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr coordinated_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr base_sub_, lift_sub_, recorder_sub_, startup_sub_;
   std::deque<int64_t> arrivals_;
@@ -64,6 +118,8 @@ class Manager : public rclcpp::Node {
   rclcpp::Subscription<luxi::Quest>::SharedPtr quests_;
   rclcpp::Service<luxi::Service>::SharedPtr service_;
   rclcpp::TimerBase::SharedPtr tick_;
+  int64_t status_published_ = 0;
+  std::string status_key_;
   void life(const std::string& s) {
     std_msgs::msg::String m;
     // A hand-posed hold accepts only this generation's explicit enable. Plain
@@ -144,7 +200,7 @@ class Manager : public rclcpp::Node {
     // starts from post-handover feedback, matching the adapter's re-anchoring.
     last_ = start_manual_fault_ ? state_.position : start_manual_target_;
     clear_manual_start();
-    phase_ = "homing"; transition_ = t; reason_ = "homing";
+    phase_ = "homing"; accepted_goal_valid_ = false; network_recovering_ = false; tracking_resume_after_ = 0; transition_ = t; reason_ = "homing";
   }
   bool parking_in_progress() const {
     return system_phase_ == "stopping_base" || system_phase_ == "returning_arms" ||
@@ -154,11 +210,22 @@ class Manager : public rclcpp::Node {
     return luxi::coordinated_status_fresh(j, t) && j.value("shared_enable", false) &&
            j.value("shared_epoch", "") == epoch_ && !j.value("shared_failed", true);
   }
+  bool lift_position_paused(int64_t t) const {
+    return isolate_lift_position_invalid_ && luxi::coordinated_lift_position_paused(lift_status_, t);
+  }
+  bool lift_stationary(int64_t t) const {
+    return lift_status_.value("stationary", false) ||
+           (lift_position_paused(t) && lift_status_.value("position_invalid_stationary", false));
+  }
+  bool lift_ready(int64_t t) const {
+    return lift_status_.value("shared_ready", false) ||
+           (lift_position_paused(t) && lift_stationary(t) && !lift_status_.value("session_present", true));
+  }
   bool device_feedback(int64_t t) const {
     try {
       const auto base_time = std::stoll(base_status_.at("feedback_mono_ns").get<std::string>());
       return base_status_.value("feedback_fresh", false) && luxi::fresh(base_time, t, 250000000) &&
-             luxi::coordinated_lift_feedback(lift_status_, t);
+             (luxi::coordinated_lift_feedback(lift_status_, t) || lift_position_paused(t));
     } catch (const std::exception&) { return false; }
   }
   bool begin_return(int64_t t) {
@@ -240,6 +307,7 @@ class Manager : public rclcpp::Node {
     if (!shared_) return;
     std_msgs::msg::String m;
     m.data = luxi::Json{{"epoch", epoch_}, {"phase", directive()},
+                         {"control_source", explicit_source_ ? control_source_ : "legacy"},
                          {"sent_mono_ns", std::to_string(luxi::mono())}}.dump();
     coordinated_->publish(m);
   }
@@ -267,6 +335,8 @@ class Manager : public rclcpp::Node {
     broadcast();
   }
   void hold_all(const std::string& why) {
+    if (base_status_.is_object() && base_status_.value("enabled", false) && base_status_.value("input_source", "") == "keyboard")
+      epoch_ = owner_ + ":" + std::to_string(++epoch_count_);
     const bool waiting_for_owner = !start_manual_generation_.empty();
     clear_manual_start();
     shared_input_paused_ = false;
@@ -279,13 +349,18 @@ class Manager : public rclcpp::Node {
     const auto t = luxi::mono();
     if (s == "disable" || s == "halt" || s == "hold") { hold_all("operator_stop_all"); return true; }
     if (s == "start") {
+      if (base_status_.is_object() && base_status_.value("enabled", false) && base_status_.value("input_source", "") == "keyboard") {
+        reason_ = "web_base_control_active"; return false;
+      }
+
       if ((system_phase_ != "disabled" && system_phase_ != "stopped") ||
-          !neutral_input(t) || !arm_feedback(t) || arrivals_.size() < 50 ||
+          !neutral_input(t) || !arm_feedback(t) || (arrivals_.size() < 3 || arrivals_.back() - arrivals_.front() < 100000000) ||
           !luxi::coordinated_status_fresh(base_status_, t) ||
           !luxi::coordinated_status_fresh(lift_status_, t) ||
           !base_status_.value("shared_enable", false) || !lift_status_.value("shared_enable", false) ||
           base_status_.value("receive_only", true) || !lift_status_.value("allow_motion", false) ||
-          !base_status_.value("feedback_fresh", false) || !lift_status_.value("feedback_healthy", false)) {
+          !base_status_.value("feedback_fresh", false) ||
+          (!lift_status_.value("feedback_healthy", false) && !lift_position_paused(t))) {
         reason_ = "enable_rejected_need_all_devices_and_neutral_input"; return false;
       }
       if (manual_pose_phase_ == "holding" && !reserve_manual_start(t)) return false;
@@ -320,7 +395,7 @@ class Manager : public rclcpp::Node {
     // Once the operator requests the fixed legacy return, headset tracking
     // is no longer a trajectory input. B/menu and device faults still halt it.
     if (menu_ || quest_.buttons[1] || (!parking &&
-        (!luxi::fresh(quest_.receive_mono_ns, t, input_hold_ns_) || quest_.tracking == 2 ||
+        (!luxi::fresh(quest_.receive_mono_ns, t, network_recovery_ns_) || quest_.tracking == 2 ||
          quest_.left_tracking == 2 || quest_.right_tracking == 2))) {
       hold_all("quest_invalid_or_failure_menu"); return;
     }
@@ -340,22 +415,27 @@ class Manager : public rclcpp::Node {
     }
     if (!base || !lift) return;
     if (!device_feedback(t)) {
+      // Capture the exact cached reports used for the decision, rather than a
+      // later observer's copy. Keep original device timestamps intact.
+      feedback_fault_snapshot_ = luxi::Json{{"decision_mono_ns", std::to_string(t)},
+                                           {"base", base_status_}, {"lift", lift_status_}};
+      RCLCPP_ERROR(get_logger(), "Device feedback deadline: %s", feedback_fault_snapshot_.dump().c_str());
       hold_all("base_or_lift_feedback_lost"); return;
     }
     if (system_phase_ == "preparing") {
       if (shared_input_paused_) return;
       if (!neutral_input(t)) { hold_all("release_grips_and_center_sticks_before_enable"); return; }
-      if (base_status_.value("shared_ready", false) && lift_status_.value("shared_ready", false)) {
+      if (base_status_.value("shared_ready", false) && lift_ready(t)) {
         if (!start_manual_generation_.empty()) {
           if (!request_manual_start(t)) return;
           torque_requested_ = true; enter("starting");
         } else {
-          last_ = state_.position; phase_ = "homing"; transition_ = t;
+          last_ = state_.position; phase_ = "homing"; accepted_goal_valid_ = false; network_recovering_ = false; tracking_resume_after_ = 0; transition_ = t;
           torque_requested_ = true; life("enable"); enter("starting"); reason_ = "homing";
         }
       } else if (t - system_since_ > 5000000000LL) hold_all("device_prepare_timeout");
     } else if (system_phase_ == "starting") {
-      if (!base_status_.value("stationary", false) || !lift_status_.value("shared_ready", false)) {
+      if (!base_status_.value("stationary", false) || !lift_ready(t)) {
         hold_all("base_or_lift_moved_during_arm_preparation"); return;
       }
       if (!state_.enabled && t - system_since_ > 1000000000) { hold_all("arm_enable_not_confirmed"); return; }
@@ -367,18 +447,19 @@ class Manager : public rclcpp::Node {
       }
     } else if (system_phase_ == "arming") {
       if (shared_input_paused_) return;
-      if (base_status_.value("enabled", false) && lift_status_.value("enabled", false) &&
+      if (base_status_.value("enabled", false) &&
+          (lift_status_.value("enabled", false) || (lift_position_paused(t) && lift_ready(t))) &&
           base_status_.value("shared_phase", "") == "active" && lift_status_.value("shared_phase", "") == "active") {
         enter("active"); reason_ = "teleop";
       } else if (t - system_since_ > 1000000000) hold_all("shared_enable_not_confirmed");
     } else if (system_phase_ == "active") {
       if (!state_.enabled || phase_ != "teleop" || !base_status_.value("enabled", false) ||
-          !lift_status_.value("enabled", false)) hold_all("subsystem_stopped");
+          (!lift_status_.value("enabled", false) && !lift_position_paused(t))) hold_all("subsystem_stopped");
     } else {
       if (!state_.enabled && system_phase_ != "disabling") { hold_all("arm_hold_lost"); return; }
       if (system_phase_ == "stopping_base") {
         if (!base_status_.value("enabled", true) && base_status_.value("stationary", false) &&
-            lift_status_.value("stationary", false) && !lift_status_.value("session_present", true)) {
+            lift_stationary(t) && !lift_status_.value("session_present", true)) {
           // Operator-requested legacy arm parking: keep the lift at its
           // stopped height. Never issue a lift HOME/MOVE as part of disable.
           if (begin_return(t)) {
@@ -389,7 +470,7 @@ class Manager : public rclcpp::Node {
         if (base_status_.value("enabled", true) || !base_status_.value("stationary", false)) {
           hold_all("base_not_stopped_during_parking"); return;
         }
-        if (!lift_status_.value("stationary", false) || lift_status_.value("session_present", true)) {
+        if (!lift_stationary(t) || lift_status_.value("session_present", true)) {
           hold_all("lift_not_stopped_during_arm_return");
         } else if (system_phase_ == "returning_arms") {
           if (phase_ == "fault") { hold_all(reason_); return; }
@@ -405,6 +486,12 @@ class Manager : public rclcpp::Node {
     }
   }
   bool command(const std::string& s) {
+    if (s == "select_console") return select_source("console");
+    if (s == "select_teleop") return select_source("teleop");
+    if (explicit_source_ && control_source_ == "console" &&
+        (s == "start" || s == "stop" || s == "park")) {
+      reason_ = "console_control_selected"; return false;
+    }
     if (manual_pose_blocked_) {
       if (manual_pose_phase_ == "moving" && (s == "stop" || s == "park" || s == "disable" || s == "halt" || s == "hold")) {
         life("joint_stop:" + manual_pose_generation_);
@@ -420,7 +507,7 @@ class Manager : public rclcpp::Node {
     if (s == "disable" || s == "halt" || s == "hold") { hold_all("operator_stop_all"); return true; }
     if (s == "stop" || s == "park" || s == "disable" || s == "halt") clear_manual_start();
     if (s == "start") {
-      if ((phase_ != "disabled" && phase_ != "hold") || arrivals_.size() < 50 ||
+      if ((phase_ != "disabled" && phase_ != "hold") || (arrivals_.size() < 3 || arrivals_.back() - arrivals_.front() < 100000000) ||
           !luxi::fresh(quest_.receive_mono_ns, luxi::mono()) || quest_.left_tracking == 2 ||
           quest_.right_tracking == 2 || !luxi::valid_state(state_) ||
           !luxi::fresh(state_.receive_mono_ns, luxi::mono()))
@@ -431,7 +518,7 @@ class Manager : public rclcpp::Node {
         return request_manual_start(t);
       }
       last_ = supported_pose(luxi::mono());
-      phase_ = "homing";
+      phase_ = "homing"; accepted_goal_valid_ = false; network_recovering_ = false; tracking_resume_after_ = 0;
       reason_ = "operator_start";
       transition_ = luxi::mono();
       life("enable");
@@ -455,6 +542,8 @@ class Manager : public rclcpp::Node {
       : Node("control_manager"), cfg_(luxi::config(declare_parameter<std::string>("config", ""))),
         home_cfg_(cfg_) {
     shared_ = declare_parameter("shared_enable", false);
+    isolate_lift_position_invalid_ = declare_parameter("isolate_lift_position_invalid", true);
+    explicit_source_ = declare_parameter("explicit_control_source", false);
     epoch_ = owner_ + ":0";
     home_tolerance_ = declare_parameter<double>("home_tolerance", .05);
     if (!std::isfinite(home_tolerance_) || home_tolerance_ <= 0 || home_tolerance_ > .1)
@@ -473,6 +562,10 @@ class Manager : public rclcpp::Node {
     if (!std::isfinite(input_hold_timeout_) || input_hold_timeout_ < .15 || input_hold_timeout_ > 1.)
       throw std::invalid_argument("input_hold_timeout must be finite and in [0.15, 1.0] seconds");
     input_hold_ns_ = static_cast<int64_t>(input_hold_timeout_ * 1e9);
+    const auto network_timeout = declare_parameter<double>("network_recovery_timeout", 10.);
+    if (!std::isfinite(network_timeout) || network_timeout < .5 || network_timeout > 10.)
+      throw std::invalid_argument("network_recovery_timeout must be in [0.5, 10] seconds");
+    network_recovery_ns_ = static_cast<int64_t>(network_timeout * 1e9);
     pub_ = create_publisher<luxi::Command>("/luxi/command", 1);
     lifecycle_ = create_publisher<std_msgs::msg::String>("/luxi/driver_lifecycle", 10);
     status_ = create_publisher<std_msgs::msg::String>("/luxi/control_status",
@@ -512,8 +605,10 @@ class Manager : public rclcpp::Node {
             const bool was_blocked = manual_pose_blocked_;
             control_generation_ = j.value("control_generation", std::string());
             support_target_valid_ = false;
-            if (j.contains("support_target")) {
-              const auto target = j.at("support_target").get<std::array<double, 16>>();
+            if (j.contains("nominal_target") || j.contains("support_target")) {
+              // Keep nominal goals separate from already compensated motor
+              // support targets, so a new owner never adds the bias twice.
+              const auto target = j.at(j.contains("nominal_target") ? "nominal_target" : "support_target").get<std::array<double, 16>>();
               support_target_valid_ = true;
               for (int i = 0; i < 16; ++i)
                 support_target_valid_ = support_target_valid_ && std::isfinite(target[i]) && target[i] >= cfg_.lo[i] && target[i] <= cfg_.hi[i];
@@ -526,8 +621,9 @@ class Manager : public rclcpp::Node {
             manual_pose_fault_ = pose.value("fault_latched", false);
             manual_pose_reason_ = pose.value("reason", std::string());
             startup_owned_ = j.value("owned", false);
+            startup_motion_active_ = j.value("phase", "idle") == "moving" || j.value("phase", "idle") == "preparing";
             manual_pose_blocked_ = next == "editing" || next == "preparing" || next == "moving";
-            if (manual_pose_blocked_) suspend_for_manual_pose();
+            if (manual_pose_blocked_ && !(explicit_source_ && control_source_ == "console")) suspend_for_manual_pose();
             else if (!start_manual_generation_.empty() &&
                 (generation != start_manual_generation_ || startup_owned_ ||
                  (next != "holding" && !(next == "inactive" && manual_pose_reason_ == "lifecycle_handover"))))
@@ -549,16 +645,25 @@ class Manager : public rclcpp::Node {
     targets_ = create_subscription<luxi::Command>(
         "/luxi/intent", 1, [this](luxi::Command::ConstSharedPtr c) { if (!manual_pose_blocked_) intent_ = *c; });
     quests_ =
-        create_subscription<luxi::Quest>("/luxi/quest", 100, [this](luxi::Quest::ConstSharedPtr q) {
+        create_subscription<luxi::Quest>("/luxi/quest", 1, [this](luxi::Quest::ConstSharedPtr q) {
           if (!luxi::fresh(q->receive_mono_ns, luxi::mono())) return;
           const bool sustained_gap = !luxi::fresh(quest_.receive_mono_ns, q->receive_mono_ns,
-                                                  shared_ ? input_hold_ns_ : 500000000);
+                                                  network_recovery_ns_);
           // Also catch a long outage when the recovery callback runs before
           // the watchdog timer; freshly dequeued input cannot hide the gap.
           if (shared_ && quest_.receive_mono_ns && sustained_gap &&
               system_phase_ != "disabled" && system_phase_ != "stopped" && !parking_in_progress())
             hold_all("quest_timeout");
-          if (sustained_gap) {
+          if (!shared_ && quest_.receive_mono_ns && sustained_gap &&
+              (phase_ == "aligning" || phase_ == "teleop")) {
+            phase_ = "hold"; reason_ = "quest_timeout";
+          }
+          if (quest_.receive_mono_ns && !luxi::fresh(quest_.receive_mono_ns, q->receive_mono_ns) &&
+              (phase_ == "aligning" || phase_ == "teleop")) {
+            tracking_resume_after_ = q->receive_mono_ns;
+            network_recovering_ = true;
+          }
+          if (!luxi::fresh(quest_.receive_mono_ns, q->receive_mono_ns, 500000000)) {
             x_ = false;
             long_x_ = false;
             arrivals_.clear();
@@ -574,6 +679,15 @@ class Manager : public rclcpp::Node {
           arrivals_.push_back(q->receive_mono_ns);
           while (!arrivals_.empty() && q->receive_mono_ns - arrivals_.front() > 1000000000)
             arrivals_.pop_front();
+          if (explicit_source_ && control_source_ == "console") {
+            // Connection, tracking, grips and X never acquire console ownership.
+            // B remains an explicit stop; adapters also retain their B stops.
+            if (q->buttons[1] && !b_ && manual_pose_phase_ == "moving")
+              life("joint_stop:" + manual_pose_generation_);
+            x_ = q->buttons[2]; b_ = q->buttons[1];
+            x_released_ = x_enable_press_ = false; long_x_ = true;
+            return;
+          }
           if (manual_pose_blocked_) {
             if (manual_pose_phase_ == "moving" && ((q->buttons[1] && !b_) || (q->buttons[2] && !x_))) command("halt");
             x_ = q->buttons[2]; b_ = q->buttons[1];
@@ -618,10 +732,21 @@ class Manager : public rclcpp::Node {
     tick_ = create_wall_timer(std::chrono::milliseconds(10), [this] { update(); });
   }
   void update() {
+    // A ready timer can run before the feedback subscription callback. Consume
+    // its latest queued sample before evaluating the measured-feedback deadline.
+    luxi::State latest;
+    rclcpp::MessageInfo info;
+    if (states_->take(latest, info) && latest.receive_mono_ns > state_.receive_mono_ns)
+      state_ = std::move(latest);
     auto t = luxi::mono();
     double dt = previous_ ? std::min(.05, (t - previous_) * 1e-9) : .01;
     previous_ = t;
-    if (manual_pose_blocked_) suspend_for_manual_pose();
+    if (explicit_source_ && control_source_ == "console") {
+      // The arm driver keeps its current hold. Do not overwrite console goals.
+      phase_ = "disabled"; system_phase_ = "disabled";
+      torque_requested_ = rest_ready_ = accepted_goal_valid_ = false;
+      reason_ = "console_control_selected";
+    } else if (manual_pose_blocked_) suspend_for_manual_pose();
     else {
       update_shared(t);
       update_manual_start(t);
@@ -633,13 +758,7 @@ class Manager : public rclcpp::Node {
         phase_ = "fault";
         reason_ = "feedback_unavailable";
       }  // Never pretend missing motor feedback is a valid measurement.
-      if (healthy && shared_input_paused_) {
-        reason_ = "quest_gap";
-        if (phase_ == "aligning" || phase_ == "teleop")
-          tracking_resume_after_ = std::max(tracking_resume_after_, quest_.receive_mono_ns + 1);
-        // Keep the same phase and submitted target during startup/teleop.
-        // The operator-requested fixed return does not depend on Quest poses.
-      } else if (phase_ == "returning") {
+      if (phase_ == "returning") {
         if (healthy) advance_return(t);
       } else if (phase_ == "homing") {
         if (healthy) {
@@ -661,14 +780,15 @@ class Manager : public rclcpp::Node {
         const bool invalid_tracking = quest_.left_tracking == 2 || quest_.right_tracking == 2;
         if (!luxi::fresh(quest_.receive_mono_ns, t)) {
           // Network delivery may be bursty even at a healthy average packet rate.
-          // Freeze at 150 ms; only a longer outage latches operator recovery.
+          // Complete only the last verified absolute goal during a short outage.
           input_paused_ = true;
-          reason_ = "quest_gap";
+          reason_ = "quest_gap_local_goal";
+          network_recovering_ = true;
           tracking_resume_after_ = std::max(tracking_resume_after_, quest_.receive_mono_ns + 1);
-          if (!luxi::fresh(quest_.receive_mono_ns, t, input_hold_ns_)) {
+          if (!luxi::fresh(quest_.receive_mono_ns, t, network_recovery_ns_)) {
             phase_ = "hold";
             reason_ = "quest_timeout";
-          }
+          } else if (!invalid_tracking) finish_local_goal(dt);
         } else if (invalid_tracking) {
           // Freeze the submitted target immediately. A brief tracking interruption
           // may recover within the existing 150 ms freshness window.
@@ -678,11 +798,12 @@ class Manager : public rclcpp::Node {
             phase_ = "hold";
             reason_ = "tracking_invalid";
           }
-        } else if (tracking_resume_after_ && intent_.source_mono_ns < tracking_resume_after_) {
+        } else if (tracking_resume_after_ && (intent_.source_mono_ns < tracking_resume_after_ ||
+                   (network_recovering_ && intent_.phase != "teleop"))) {
           // Do not follow a cached target before IK has processed the recovered pose.
           input_paused_ = true;
           reason_ = "waiting_for_recovered_ik";
-          if (!luxi::fresh(tracking_resume_after_, t, input_hold_ns_)) {
+          if (!luxi::fresh(tracking_resume_after_, t, network_recovering_ ? network_recovery_ns_ : input_hold_ns_)) {
             phase_ = "hold";
             reason_ = "ik_timeout";
           }
@@ -699,9 +820,14 @@ class Manager : public rclcpp::Node {
           input_paused_ = true;
           reason_ = "waiting_for_ik_solution";
         } else if (phase_ == "aligning") {
-          tracking_resume_after_ = 0;
+          tracking_resume_after_ = 0; network_recovering_ = false;
           reason_ = "aligning";
           bool aligned = true;
+          auto goal = intent_.position;
+          for (int side = 0; side < 2; ++side)
+            if (quest_.triggers[side ? 0 : 1] <= .92)
+              for (int j = 0; j < 7; ++j) goal[side * 8 + j] = last_[side * 8 + j];
+          remember_goal(goal);
           auto next = intent_.position;
           for (int s = 0; s < 2; s++) {
             bool trigger = quest_.triggers[s ? 0 : 1] > .92;
@@ -718,8 +844,9 @@ class Manager : public rclcpp::Node {
             reason_ = "teleop";
           }
         } else {
-          tracking_resume_after_ = 0;
+          tracking_resume_after_ = 0; network_recovering_ = false;
           reason_ = "teleop";
+          remember_goal(intent_.position);
           last_ = cfg_.limit(intent_.position, last_, dt);
         }
       }
@@ -734,9 +861,23 @@ class Manager : public rclcpp::Node {
         pub_->publish(out);
       }
     }
+    // Keep redundant JSON telemetry out of the 100 Hz command path. Phase,
+    // fault, ownership and pause transitions are still reported immediately.
+    const auto report_now = luxi::mono();
+    const auto report_key = control_source_ + "\n" + system_phase_ + "\n" + phase_ + "\n" + reason_ + "\n" +
+        epoch_ + "\n" + manual_pose_phase_ + "\n" + manual_pose_generation_ +
+        (input_paused_ ? "\npaused" : "\nrunning");
+    if (report_key == status_key_ && report_now - status_published_ < 50000000) {
+      broadcast();  // Coordination heartbeat remains at the control-loop rate.
+      return;
+    }
+    status_key_ = report_key;
+    status_published_ = report_now;
     std_msgs::msg::String s;
     s.data = luxi::Json{{"phase", phase_},
+                        {"control_source", explicit_source_ ? control_source_ : "legacy"},
                         {"shared_enable", shared_}, {"system_phase", system_phase_},
+                        {"lift_position_paused", lift_position_paused(t)},
                         {"manual_pose_active", manual_pose_blocked_},
                         {"manual_pose_phase", manual_pose_phase_},
                         {"parking_policy", "legacy_timed_return_lift_stopped"}, {"shared_epoch", epoch_},
@@ -744,6 +885,9 @@ class Manager : public rclcpp::Node {
                         {"return_step", return_step_}, {"return_steps", return_steps_},
                         {"reason", reason_},
                         {"input_paused", input_paused_},
+                        {"network_recovering", network_recovering_},
+                        {"feedback_fault_snapshot", feedback_fault_snapshot_},
+                        {"network_recovery_timeout", network_recovery_ns_ / 1e9},
                         {"arm_feedback_age_ms", state_.receive_mono_ns ? (t - state_.receive_mono_ns) / 1e6 : -1.0},
                         {"arm_feedback_valid", luxi::valid_state(state_)},
                         {"quest_window_samples", arrivals_.size()},

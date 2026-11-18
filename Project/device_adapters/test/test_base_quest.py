@@ -114,10 +114,24 @@ class BaseQuest(unittest.TestCase):
         self.wait_for(lambda: self.applied.get('velocity', [0])[0] < 0, 1, 'new joystick movement')
         self.assertTrue(self.status['enabled'])
 
+    def test_shared_nine_second_gap_requires_new_centered_input(self):
+        self.start_shared()
+        self.sending = False
+        self.run_for(9.3)
+        self.assertTrue(self.status['enabled'])
+        self.assertEqual(self.applied['velocity'], [0., 0., 0.])
+        self.sending = True
+        self.run_for(.3)
+        self.assertEqual(self.applied['velocity'], [0., 0., 0.])
+        self.quest.sticks = [0., 0., 0., 0.]
+        self.run_for(.2)
+        self.quest.sticks = [0., -1., 0., 0.]
+        self.wait_for(lambda:self.applied.get('velocity', [0])[0]<0,1,'new input after nine seconds')
+
     def test_shared_long_gap_requires_explicit_enable(self):
         self.start_shared()
         self.sending = False
-        self.run_for(.65)
+        self.run_for(10.3)
         self.assertFalse(self.status['enabled'])
         self.assertEqual(self.applied['velocity'], [0., 0., 0.])
         self.quest.sticks = [0., 0., 0., 0.]

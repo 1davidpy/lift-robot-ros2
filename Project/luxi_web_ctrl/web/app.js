@@ -6,8 +6,10 @@ const systemPhases = {disabled:'已失能',preparing:'检查底盘与升降',sta
 let liftPositionArmedAt = 0, liftPositionTask = 0, liftPositionMoving = false;
 let liftPositionOwner = '', liftPositionSequence = 0, liftPositionPending = false, liftPositionBusy = false, liftPositionError = '';
 let liftPositionHeartbeatAckAt = 0;
-let keyboardActive = false, keyboardPending = false, keyboardStarting = false;
+let keyboardActive = false, keyboardPending = 0, keyboardStarting = false;
 let keyboardError = "";
+let keyboardOwner = "";
+let keyboardSequence = 0;
 const heldKeys = new Set();
 let state = null, connected = false, busy = false, pendingCommands = 0, manualPoseCancelPending = false, lastUpdate = 0;
 const frames = {};
@@ -22,7 +24,63 @@ async function request(path, options = {}) {
   if (!r.ok) { const error = new Error(data?.message || ({409:'设备当前状态不允许此操作',503:'对应节点未就绪',504:'指令响应超时，请检查状态后再操作'}[r.status] || 'HTTP ' + r.status)); error.status = r.status; throw error; }
   return data;
 }
+
+let sourceSwitchBusy = false, sourceSwitchError = '';
+function consoleSourceReason() {
+  const c = state?.control;
+  if (!c || c.control_source === 'legacy' || !c.control_source) return '';
+  return !c.fresh ? '控制权限状态已过期' : c.control_source !== 'console' ? '请先切换为控制台控制' : '';
+}
+function teleopStatusMessage() {
+  const c = state?.control, q = state?.quest;
+  if (!q?.fresh || !c?.vr_fresh) return '遥操权限已选中，但手柄数据中断。请恢复 Quest 应用的数据发送，再启用遥操。';
+  const invalid = [q.left_tracking >= 2 ? '左手柄' : '', q.right_tracking >= 2 ? '右手柄' : ''].filter(Boolean);
+  if (invalid.length) return invalid.join('、') + '追踪无效。请恢复手柄追踪，再松开 X 后长按约 1.5 秒启用遥操。';
+  if (state?.recorder?.failure_menu) return '录制失败菜单正在阻止启用，请先关闭该菜单。';
+  if (c.system_phase === 'active') return '遥操作已启用。控制台停止按钮始终可用。';
+  if (!['disabled','stopped'].includes(c.system_phase)) return '遥操正在启动：' + (systemPhases[c.system_phase] || c.system_phase);
+  return '遥操权限已选中，尚未启用。手柄回中立，松开 X 后重新长按约 1.5 秒，或点击“启用全部遥操作”。';
+}
+
+function controlSourceUI() {
+  if (!$('source-console')) return;
+  const c = state?.control, ready = connected && state?.system?.services?.control && c?.fresh && ['console','teleop'].includes(c.control_source);
+  const consoleSelected = ready && c.control_source === 'console';
+  const teleopSelected = ready && c.control_source === 'teleop';
+  $('source-console').disabled = !ready || sourceSwitchBusy || consoleSelected;
+  $('source-teleop').disabled = !ready || sourceSwitchBusy || teleopSelected;
+  $('source-console').setAttribute('aria-pressed', String(consoleSelected));
+  $('source-teleop').setAttribute('aria-pressed', String(teleopSelected));
+  text('control-source-status', sourceSwitchError || (!ready ? '等待权限协调服务；可在设备采集中开启遥操作程序。' :
+    consoleSelected ? '控制台持有权限：可操作关节、底盘和升降。遥操连接、追踪和普通输入不会接管。' :
+    teleopStatusMessage()));
+}
+for (const source of ['console','teleop']) {
+  const button = $('source-' + source);
+  if (button) button.addEventListener('click', async () => {
+    if (sourceSwitchBusy) return;
+    sourceSwitchBusy = true; sourceSwitchError = ''; controlSourceUI();
+    try {
+      const result = await request('/api/control', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({command:'select_' + source, detail:''})});
+      log(result.message); render(await request('/api/state'));
+    } catch (error) {
+      sourceSwitchError = error.message.includes('control_source_switch_requires_stopped') ?
+        '请先停止当前动作并释放底盘、升降会话，再切换；机械臂可保持。' : error.message;
+    } finally { sourceSwitchBusy = false; buttons(); }
+  });
+}
+
+function liftAllowsTeleop(s) {
+  const ls = s.lift_status;
+  const isolated = !!(s.control?.fresh && s.control.lift_position_paused &&
+    ls?.position_invalid_isolation && ls.position_invalid_paused &&
+    !ls.fault && !(ls.flags & 128));
+  return !!(ls?.fresh && ls.allow_motion &&
+    (ls.feedback_healthy || isolated) &&
+    (ls.stationary || (isolated && ls.position_invalid_stationary)));
+}
 function buttons() {
+  controlSourceUI();
   const s = state, services = s?.system?.services || {};
   const poseEditing = ['editing','preparing','moving'].includes(s?.arm_startup?.manual_pose?.phase);
   keyboardUI();
@@ -32,6 +90,13 @@ function buttons() {
   document.querySelectorAll('[data-command]').forEach(b => {
     const kind = b.dataset.kind, cmd = b.dataset.command;
     let allow = connected && services[kind] && !busy;
+    const sourceReason = consoleSourceReason();
+    if (kind === 'arm_startup' && ['start','pose_enter','pose_hold'].includes(cmd) && sourceReason) {
+      b.disabled = true; return;
+    }
+    if (kind === 'control' && ['start','stop','park'].includes(cmd) && s?.control?.control_source === 'console') {
+      b.disabled = true; return;
+    }
     if (kind === 'arm_startup') {
       const startup = s?.arm_startup;
       if (cmd.startsWith('pose_')) {
@@ -53,9 +118,10 @@ function buttons() {
     if (cmd === 'start') {
       if (kind === 'control' || kind === 'episode') allow &&= !poseEditing;
       if (kind === 'control') {
-        allow &&= s.arms?.fresh && s.arms.phase !== 'monitor_only' && s.arms.valid.every(Boolean) && s.quest?.fresh && s.quest.rate_hz >= 50 && s.control?.fresh;
-        if (s.control?.shared_enable) allow &&= ['disabled','stopped'].includes(s.control.system_phase) && s.base_status?.fresh && s.base?.valid && s.lift_status?.fresh && s.lift_status.feedback_healthy && s.lift_status.stationary && s.lift_status.allow_motion && (['arms_home_lift_stopped','legacy_timed_return_lift_stopped'].includes(s.control.parking_policy) || s.control.supported_home_confirmed) && s.quest.grips.every(v => v < 0.35) && s.quest.sticks.every(v => Math.abs(v) < 0.16);
+        allow &&= s.arms?.fresh && s.arms.phase !== 'monitor_only' && s.arms.valid.every(Boolean) && s.quest?.fresh && s.quest.left_tracking < 2 && s.quest.right_tracking < 2 && s.control?.vr_fresh && s.control.quest_window_samples >= 3 && s.control?.fresh;
+        if (s.control?.shared_enable) allow &&= ['disabled','stopped'].includes(s.control.system_phase) && s.base_status?.fresh && s.base?.valid && liftAllowsTeleop(s) && (['arms_home_lift_stopped','legacy_timed_return_lift_stopped'].includes(s.control.parking_policy) || s.control.supported_home_confirmed) && s.quest.grips.every(v => v < 0.35) && s.quest.sticks.every(v => Math.abs(v) < 0.16);
         else allow &&= ['disabled','hold'].includes(s.control?.phase);
+        allow &&= !(s.base_status?.enabled && s.base_status.input_source === 'keyboard');
       }
       if (kind === 'lift') allow &&= s.lift_status?.feedback_healthy && s.lift_status?.stationary && s.lift_status?.fresh && !s.lift_status.enabled && s.lift_status.allow_motion && s.quest?.fresh && s.quest.grips.every(v => v < 0.35);
       if (kind === 'base') allow &&= s.base?.valid && s.base_status?.fresh && !s.base_status.enabled && s.quest?.fresh && !s.base_status.receive_only;
@@ -101,7 +167,7 @@ function hideFrame(id, message) {
   $(id+'-empty').querySelector('span').textContent = message;
 }
 function offline() {
-  stopKeyboard();
+  pauseKeyboard();
   document.body.classList.remove('recording');
   connected = false; $('offline').hidden = false;
   badge('connection','服务断开','bad');
@@ -123,7 +189,7 @@ function render(s) {
   text('arm-startup-status', startup?.fresh && startup.configured ?
     (startupReasons[startup.reason] || startup.reason) + ' · 最大位置误差 ' + Number(startup.max_error_rad).toFixed(3) + ' rad' + (startup.last_rejection ? ' · ' + startup.last_rejection : '') : '等待 OpenArm 服务及启动姿态配置');
   const shared = !!s.control?.shared_enable;
-  text('shared-control-status', a?.phase === 'monitor_only' ? '当前为只读设备检查，运动控制未开启。' : shared ? (systemPhases[s.control.system_phase] || s.control.system_phase) + ' · ' + s.control.reason : '当前运行版本使用独立使能；统一控制尚未加载。');
+  text('shared-control-status', s.control?.control_source === 'console' ? '控制台持有控制权限，遥操作未启用。' : a?.phase === 'monitor_only' ? '当前为只读设备检查，运动控制未开启。' : shared ? (systemPhases[s.control.system_phase] || s.control.system_phase) + ' · ' + s.control.reason : '当前运行版本使用独立使能；统一控制尚未加载。');
   document.querySelector('[data-kind="control"][data-command="start"]').textContent = shared ? '启用全部遥操作' : '使能双臂';
   document.querySelector('[data-kind="control"][data-command="stop"]').textContent = shared ? '双臂归位并失能 / 底盘升降停车' : '双臂返回并失能';
   document.querySelector('[data-kind="control"][data-command="disable"]').textContent = '停止全部 / 双臂保持';
@@ -141,7 +207,7 @@ function render(s) {
   const armCount = a?.fresh ? a.valid.filter(Boolean).length : 0;
   badge('arms-badge',armValid ? (s.system.mock ? '模拟反馈' : '反馈在线') : armCount ? '部分在线 · ' + armCount + '/16' : '未就绪',armValid ? 'good' : armCount ? 'warn' : 'bad');
   const manualArmPhases = {moving:'关节角度动作执行中',editing:'动作设置 · 手动摆姿',preparing:'动作设置 · 准备保持',holding:startup?.manual_pose?.fault_latched ? '动作保持已暂停' : a?.enabled ? '动作设置 · 姿态保持' : '动作保持待确认'};
-  text('arm-phase',!a?.fresh ? '采集节点离线' : a.phase === 'fault' ? '驱动通信异常' : startup?.fresh && manualArmPhases[startup.manual_pose?.phase] ? manualArmPhases[startup.manual_pose.phase] : startup?.fresh && startup.owned ? startupNames[startup.phase] || startup.phase : a?.fresh && a.phase === 'monitor_only' ? '状态采集 · 未使能' : s.control?.fresh ? (phases[s.control.phase] || s.control.phase) : a?.fresh ? (a.enabled ? '已使能' : '未使能') : '采集节点离线');
+  text('arm-phase',!a?.fresh ? '采集节点离线' : a.phase === 'fault' ? '驱动通信异常' : startup?.fresh && manualArmPhases[startup.manual_pose?.phase] ? manualArmPhases[startup.manual_pose.phase] : startup?.fresh && startup.owned ? startupNames[startup.phase] || startup.phase : a?.fresh && a.phase === 'monitor_only' ? '状态采集 · 未使能' : s.control?.fresh && s.control.control_source !== 'console' ? (phases[s.control.phase] || s.control.phase) : a?.fresh ? (a.enabled ? '已使能' : '未使能') : '采集节点离线');
   text('arms-detail',a?.fresh ? '左臂 ' + a.valid.slice(8,16).filter(Boolean).length + '/8 · 右臂 ' + a.valid.slice(0,8).filter(Boolean).length + '/8 有效反馈' : '没有新鲜关节反馈');
   const jointRows = [];
   for (const [side, offset] of [['左臂',8],['右臂',0]]) {
@@ -168,7 +234,7 @@ function render(s) {
   text('lift-transport', ls?.transport === 'uart' ? 'UART · 115200 bit/s' : '经典 CAN · 500 kbit/s');
   const liftFault = liftConnected && (!!lift.fault || !!(lift.flags & 128) || (liftTransport === 'CAN' && !!(lift.guard & 4)));
   const liftLabel = !ls?.fresh ? '服务离线' : !liftConnected ? `无 ${liftTransport} 反馈` :
-    liftFault ? '已连接 · 保护/故障' : !(lift.flags & 1) ? '已连接 · 等待电机/位置参考' :
+    liftFault ? '已连接 · 保护/故障' : (ls.position_invalid_isolation && ls.position_invalid_paused) ? '已连接 · 位置异常，仅暂停升降' : !(lift.flags & 1) ? '已连接 · 等待电机/位置参考' :
     ls.health === 'locked_startup_preparation' ? '已连接 · 锁闸启动准备' :
     !ls.feedback_healthy ? '已连接 · 电机反馈过期' : `已连接 · ${liftTransport}`;
   badge('lift-badge', liftLabel, liftFault ? 'bad' : liftConnected && ls.feedback_healthy ? 'good' : 'warn');
@@ -261,70 +327,131 @@ setInterval(episodes,5000);
 
 function keyboardUI() {
   const s = state, bs = s?.base_status;
+  if ($('web-keyboard-speed-limit')) text('web-keyboard-speed-limit', Number(bs?.web_keyboard_linear_limit ?? .05).toFixed(2));
   let reason = '';
-  if (!connected) reason = '网页服务未连接，请检查网络。';
+  if (consoleSourceReason()) reason = consoleSourceReason();
+  else if (!connected) reason = '网页服务未连接，请检查网络。';
   else if (!s.system.services.base) reason = '底盘控制服务未启动。';
   else if (!bs?.fresh) reason = '底盘控制状态已过期。';
-  else if (bs.shared_enable) reason = '统一 X 模式使用 Quest 摇杆；独立键盘使能已关闭。';
+  else if (bs.shared_enable && !bs.web_keyboard_control) reason = '底盘驱动尚未支持网页接管。';
+  else if (bs.shared_enable && !keyboardActive && !bs.keyboard_takeover_available && !bs.enabled) reason = '控制协调尚未就绪，请检查遥操作程序服务；仅连接 Quest 不会占用权限。';
   else if (bs.receive_only) reason = '底盘处于只读诊断模式，需要启动控制模式。';
   else if (!s.base?.valid || !bs.feedback_fresh) reason = '没有有效底盘反馈，请检查供电和 CAN3。';
   else if (s.base.flag_stop) reason = '底盘反馈失能（FlagStop 非零），请检查下位机状态。';
   else if (s.recorder?.failure_menu) reason = '请先关闭录制失败菜单。';
-  else if (bs.enabled && !keyboardActive) reason = '已有控制许可，请先停车退出，再使能本页键盘控制。';
+  else if (!keyboardActive && bs.stationary === false) reason = '等待底盘反馈确认停稳后再开启网页控制。';
+  else if (bs.enabled && (!keyboardActive || (bs.keyboard_owner && bs.keyboard_owner !== keyboardOwner))) reason = '底盘正由其他控制端使用，请先停车并释放控制权。';
   $('keyboard-start').disabled = (!keyboardActive && !!reason) || keyboardStarting;
   $('keyboard-start').setAttribute('aria-checked', String(keyboardActive));
-  text('keyboard-start', keyboardStarting ? '键盘控制：正在开启…' : keyboardActive ? '键盘控制：开启' : '键盘控制：关闭');
+  text('keyboard-start', keyboardStarting ? '网页控制：正在开启…' : keyboardActive ? '网页控制：开启' : '网页控制：关闭');
   $('keyboard-stop').disabled = !connected || !s?.system?.services?.base;
   badge('keyboard-badge', keyboardStarting ? '正在使能' : keyboardActive ? '键盘已使能' : reason ? '暂不可使能' : '待使能', keyboardActive ? 'good' : 'warn');
-  text('keyboard-state', keyboardError || (keyboardStarting ? '正在等待底盘确认…' : keyboardActive ? '键盘控制已启用，按住 WASD 行驶；松键停车。' : reason || '准备就绪，打开键盘控制开关即可，无需令牌。'));
+  text('keyboard-state', keyboardError || (keyboardStarting ? '正在等待底盘确认…' : keyboardActive ? (bs?.web_keyboard_paused ? '指令已暂停，网页权限保留；松开 WASD / Q/E 后再按，关闭开关可释放。' : '网页已取得底盘控制权，按住 WASD / Q/E 行驶；关闭开关后停车并让出控制权。') : reason || '准备就绪，无需连接 Quest；打开网页控制开关即可使用。'));
   text('keyboard-input', '当前按键：' + ([...heldKeys].map(k => k.slice(3)).join(' + ') || '无（零速）'));
-  for (const key of ['w','a','s','d']) $('key-'+key).classList.toggle('pressed', heldKeys.has('Key'+key.toUpperCase()));
+  for (const key of ['w','a','s','d','q','e']) {
+    const button = $('key-'+key);
+    if (!button) continue;
+    const pressed = heldKeys.has('Key'+key.toUpperCase());
+    button.classList.toggle('pressed', pressed);
+    button.setAttribute('aria-pressed', String(pressed));
+    button.disabled = !keyboardActive;
+  }
 }
 async function baseKeyboard(command, detail = '') {
-  return request('/api/keyboard', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({command,detail})});
+  return request('/api/keyboard', {timeoutMs:command === 'keyboard' ? 800 : 12000, method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({command,detail})});
+}
+function pauseKeyboard() {
+  heldKeys.clear();
+  if (keyboardActive) {
+    keyboardError = '已停车，网页控制权保留；返回页面后重新按 WASD / Q/E，关闭开关可释放。';
+    buttons();
+    const owner = keyboardOwner, sequence = ++keyboardSequence;
+    // A zero command may overtake a slow request; its newer sequence prevents
+    // the delayed movement request from restarting the chassis afterwards.
+    baseKeyboard('keyboard', JSON.stringify({owner, sequence, velocity:[0,0,0]}))
+      .catch(e => { if (keyboardOwner === owner) log('停车请求暂未确认，等待指令超时停车：' + e.message); });
+  }
 }
 function stopKeyboard() {
-  const active = keyboardActive;
-  keyboardActive = false; heldKeys.clear(); buttons();
-  if (active) baseKeyboard('stop').catch(e => log('停车请求失败：' + e.message));
+  const owner = keyboardOwner;
+  keyboardActive = false; keyboardOwner = ''; heldKeys.clear(); buttons();
+  if (owner) baseKeyboard('stop', owner).catch(e => log('停车请求失败：' + e.message));
 }
-async function keyboardTick() {
-  if (!keyboardActive || keyboardPending) return;
-  keyboardPending = true;
+async function keyboardTick(priority = false) {
+  if (!keyboardActive || (keyboardPending && !priority)) return;
+  keyboardPending += 1;
+  const owner = keyboardOwner;
+  const sequence = ++keyboardSequence;
   try {
-    await baseKeyboard('keyboard', JSON.stringify([Number(heldKeys.has('KeyW'))-Number(heldKeys.has('KeyS')), Number(heldKeys.has('KeyA'))-Number(heldKeys.has('KeyD'))]));
-  } catch (e) { keyboardError = '键盘控制已撤销：' + e.message; stopKeyboard(); log(keyboardError); }
-  finally { keyboardPending = false; }
+    const result = await baseKeyboard('keyboard', JSON.stringify({owner, sequence, velocity:[Number(heldKeys.has('KeyW'))-Number(heldKeys.has('KeyS')), Number(heldKeys.has('KeyA'))-Number(heldKeys.has('KeyD')), Number(heldKeys.has('KeyQ'))-Number(heldKeys.has('KeyE'))]}));
+    if (keyboardOwner === owner && sequence === keyboardSequence) {
+      if (result.message?.includes('motion paused')) {
+        heldKeys.clear(); keyboardError = '指令延迟，已停车并保留网页控制权；松开 WASD / Q/E 后再按。';
+      } else keyboardError = '';
+      buttons();
+    }
+  } catch (e) {
+    if (keyboardOwner === owner && sequence === keyboardSequence) {
+      heldKeys.clear();
+      keyboardError = '请求暂时中断，已停车并保留网页控制权；松开 WASD / Q/E 后再按。' + e.message;
+      if (e.status === 409 && e.message.includes('owned by another controller')) {
+        keyboardActive = false; keyboardOwner = '';
+        keyboardError = '网页控制权已释放，请重新打开开关。';
+      }
+      buttons(); log(keyboardError);
+    }
+  }
+  finally { keyboardPending -= 1; }
 }
 $('keyboard-start').addEventListener('click', async () => {
   if (keyboardStarting) return;
   if (keyboardActive) { stopKeyboard(); return; }
+  const owner = 'web-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+  keyboardOwner = owner; keyboardSequence = 0;
   keyboardStarting = true; keyboardError = ''; buttons();
   try {
-    await baseKeyboard('keyboard_start');
+    await baseKeyboard('keyboard_start', owner);
+    if (keyboardOwner !== owner) { await baseKeyboard('stop', owner); return; }
     keyboardActive = true; heldKeys.clear();
-    if (document.hidden || !document.hasFocus()) { stopKeyboard(); return; }
+    if (document.hidden || !document.hasFocus()) { pauseKeyboard(); return; }
     $('keyboard-panel').focus();
-    await keyboardTick(); if (keyboardActive) log('WASD 已启用，限速 0.05 m/s');
-  } catch(e) { keyboardError = '键盘启用失败：' + e.message; log(keyboardError); }
+    await keyboardTick(); if (keyboardActive) log('WASD / Q/E 已启用，限速 ' + Number(state?.base_status?.web_keyboard_linear_limit ?? .05).toFixed(2) + ' m/s');
+  } catch(e) { keyboardError = '网页控制启用失败：' + e.message; stopKeyboard(); log(keyboardError); }
   finally { keyboardStarting = false; buttons(); }
 });
 window.addEventListener('keydown', e => {
   if (!keyboardActive) return;
-  if (e.code === 'Space' || e.code === 'Escape') { e.preventDefault(); stopKeyboard(); return; }
+  if (e.code === 'Space' || e.code === 'Escape') { e.preventDefault(); pauseKeyboard(); return; }
   if (e.target.closest('input,textarea,select,[contenteditable]')) return;
-  if (['KeyW','KeyA','KeyS','KeyD'].includes(e.code)) { e.preventDefault(); heldKeys.add(e.code); keyboardUI(); keyboardTick(); }
+  if (['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE'].includes(e.code)) { e.preventDefault(); if (e.repeat) return; heldKeys.add(e.code); keyboardUI(); keyboardTick(); }
 });
-window.addEventListener('keyup', e => { if (heldKeys.delete(e.code)) { e.preventDefault(); keyboardUI(); keyboardTick(); } });
-window.addEventListener('blur', stopKeyboard);
-window.addEventListener('pagehide', stopKeyboard);
-document.addEventListener('visibilitychange', () => { if (document.hidden) stopKeyboard(); });
+window.addEventListener('keyup', e => { if (heldKeys.delete(e.code)) { e.preventDefault(); keyboardUI(); keyboardTick(true); } });
+['w','a','s','d','q','e'].forEach(name => {
+  const button = $('key-'+name), key = 'Key'+name.toUpperCase();
+  if (!button) return;
+  button.addEventListener('pointerdown', e => {
+    if (!keyboardActive || (e.button !== undefined && e.button !== 0)) return;
+    e.preventDefault();
+    heldKeys.add(key); keyboardUI(); keyboardTick();
+    try { button.setPointerCapture(e.pointerId); } catch {}
+  });
+  const release = e => {
+    if (!heldKeys.delete(key)) return;
+    e.preventDefault(); keyboardUI(); keyboardTick(true);
+  };
+  for (const event of ['pointerup','pointercancel','lostpointercapture'])
+    button.addEventListener(event, release);
+});
+window.addEventListener('blur', pauseKeyboard);
+window.addEventListener('pagehide', pauseKeyboard);
+document.addEventListener('visibilitychange', () => { if (document.hidden) pauseKeyboard(); });
 document.querySelector('[data-kind="base"][data-command="stop"]').addEventListener('click', stopKeyboard);
 setInterval(keyboardTick, 50);
 
 $('keyboard-stop').addEventListener('click', async () => {
-  keyboardActive = false; heldKeys.clear(); keyboardError = ''; buttons();
-  try { await baseKeyboard('stop'); log('底盘已撤销控制许可'); render(await request('/api/state')); }
+  const owner = keyboardOwner;
+  keyboardActive = false; keyboardOwner = ''; heldKeys.clear(); keyboardError = ''; buttons();
+  try { await baseKeyboard('stop', owner || '__web_operator_release__'); log('底盘已释放网页控制权'); render(await request('/api/state')); }
   catch(e) { keyboardError = '停车请求未确认：' + e.message; buttons(); log(keyboardError); }
 });
 
@@ -366,10 +493,10 @@ pollDevices(); setInterval(pollDevices, 3000); setInterval(deviceButtons, 500);
 
 function liftPositionUI() {
   const ls = state?.lift_status;
-  let reason = !connected ? '网页未连接' : !state?.system?.services?.lift ? '升降服务未就绪' :
+  let reason = consoleSourceReason() || (!connected ? '网页未连接' : !state?.system?.services?.lift ? '升降服务未就绪' :
     !ls?.fresh ? '升降状态已过期' : !ls.dashboard_position_available || !ls.allow_motion ? '升降位置控制未开启' :
     !ls.feedback_healthy ? '升降反馈异常' : state?.recorder?.failure_menu ? '请先关闭录制失败菜单' :
-    state?.control?.fresh && !['disabled','stopped'].includes(state.control.system_phase) ? '请先停止统一遥操作' : '';
+    state?.control?.fresh && !['disabled','stopped'].includes(state.control.system_phase) ? '请先停止统一遥操作' : '');
   const ours = !!liftPositionOwner && ls?.dashboard_position && ls.external_owner === liftPositionOwner;
   if (liftPositionOwner && ls?.fresh && !ours && !liftPositionBusy && Date.now()-liftPositionArmedAt>750) { liftPositionOwner = ''; liftPositionError = '位置控制已停止，需要重新开启'; }
   if (!reason && !liftPositionOwner && ls?.enabled) reason = '已有其他控制会话，请先停止';

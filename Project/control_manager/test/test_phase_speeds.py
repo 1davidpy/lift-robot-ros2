@@ -28,7 +28,7 @@ for side, name in enumerate(["right", "left"]):
 
 
 class PhaseSpeeds(unittest.TestCase):
-    def test_fast_following_preserves_slow_home_alignment_and_return(self):
+    def test_fast_following_preserves_slow_home_alignment_and_timed_return(self):
         with tempfile.TemporaryDirectory(prefix="luxi-phase-speeds-") as tmp:
             prefix = "/phase_speeds_" + str(time.monotonic_ns())
             args = [str(BINARY), "--ros-args", "-p", "config:=" + str(CONFIG),
@@ -54,7 +54,7 @@ class PhaseSpeeds(unittest.TestCase):
                 node.create_subscription(String, prefix + "/control_status",
                                          lambda m: status.update(json.loads(m.data)), 1)
                 node.create_subscription(ArmCommand, prefix + "/command", on_command, 100)
-                qp = node.create_publisher(QuestInput, prefix + "/quest", 100)
+                qp = node.create_publisher(QuestInput, prefix + "/quest", 1)
                 sp = node.create_publisher(ArmState, prefix + "/arms/state", 1)
                 ip = node.create_publisher(ArmCommand, prefix + "/intent", 1)
                 client = node.create_client(Command, prefix + "/control")
@@ -116,7 +116,7 @@ class PhaseSpeeds(unittest.TestCase):
                     advance = measured[0] - before
                     print(f"following: {advance:.3f} rad in 0.65 s for a 0.5 rad target step",
                           flush=True)
-                    self.assertGreater(advance, .4, "following remains limited by the slow profile")
+                    self.assertGreater(advance, .4, "following remains limited by the slow profile; status="+json.dumps(status))
                     self.assertLessEqual(advance, .501)
                     self.assertTrue(request("stop"))
                     wait_for(lambda: status.get("phase") == "disabled", 7, "slow return")
@@ -126,12 +126,20 @@ class PhaseSpeeds(unittest.TestCase):
                         rates = []
                         for previous, current in zip(samples, samples[1:]):
                             dt = (current.source_mono_ns - previous.source_mono_ns) * 1e-9
-                            rates.extend(abs(current.position[i] - previous.position[i]) / dt
-                                         for i in range(16) if i % 8 != 7)
+                            for i in range(16):
+                                if i % 8 == 7:
+                                    continue
+                                rate = abs(current.position[i] - previous.position[i]) / dt
+                                rates.append(rate)
+                                # The legacy two-second return uses the configured
+                                # joint limits; preparation has the slower cap.
+                                limit = CFG["velocity"][i % 8] if phase == "returning" else .2
+                                self.assertLessEqual(rate, limit + 1e-5, phase + " accelerated")
                         peak = max(rates)
                         print(f"{phase}: maximum commanded slew {peak:.6f} rad/s", flush=True)
-                        self.assertLessEqual(peak, .20001, phase + " accelerated")
                     self.assertAlmostEqual(status["home_joint_speed_limit"], .2)
+                    self.assertEqual(status["return_steps"], 100)
+                    self.assertAlmostEqual(status["return_nominal_duration_s"], 2.0)
                 finally:
                     node.destroy_node()
                     if process.poll() is None:

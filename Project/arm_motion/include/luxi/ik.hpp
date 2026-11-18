@@ -14,6 +14,13 @@ class Ik {
   std::array<int, 14> joints_;
   ArmConfig cfg_;
 
+  void update_kinematics() {
+    // Site poses and Jacobians need only these position stages. Full forward
+    // dynamics also computes contacts and constraints for the visual model.
+    mj_kinematics(m_, d_);
+    mj_comPos(m_, d_);
+  }
+
  public:
   Ik(const std::string& path, const ArmConfig& cfg) : cfg_(cfg) {
     char error[1024];
@@ -46,10 +53,10 @@ class Ik {
   }
   void sync(const std::array<double, 16>& q) {
     for (int k = 0; k < 14; k++) d_->qpos[m_->jnt_qposadr[joints_[k]]] = q[(k / 7) * 8 + k % 7];
-    mj_forward(m_, d_);
+    update_kinematics();
   }
   geometry_msgs::msg::Pose fk(int side) {
-    mj_forward(m_, d_);
+    update_kinematics();
     Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> r(d_->site_xmat + 9 * origin_);
     Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> e(d_->site_xmat +
                                                                      9 * site_[side]);
@@ -64,7 +71,7 @@ class Ik {
     double h = dt / 2;
     for (int step = 0; step < 2; step++)
       for (int side = 0; side < 2; side++) {
-        mj_forward(m_, d_);
+        update_kinematics();
         auto desired = side ? target.left : target.right;
         Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> origin_r(d_->site_xmat +
                                                                                 9 * origin_),

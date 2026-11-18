@@ -53,9 +53,17 @@ else()
 endif()
 install(TARGETS realsense_depth DESTINATION lib/${PROJECT_NAME})
 if(BUILD_TESTING)
+ find_package(Python3 REQUIRED COMPONENTS Interpreter)
+ add_executable(test_static_position_compensation test/test_static_position_compensation.cpp)
+ add_test(NAME static_position_compensation COMMAND test_static_position_compensation)
+ add_test(NAME openarm_static_load
+   COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_openarm_static_load.py
+     $<TARGET_FILE:openarm_adapter>
+     ${LUXI_ROOT}/build/packages/luxi_control_manager/control_manager
+     ${LUXI_ROOT}/Project/robot_bringup/config/arms-kh.json)
+ set_tests_properties(openarm_static_load PROPERTIES TIMEOUT 75)
  add_executable(test_openarm_monitor_readonly test/test_openarm_monitor_readonly.cpp)
  add_test(NAME openarm_monitor_readonly COMMAND test_openarm_monitor_readonly)
- find_package(Python3 REQUIRED COMPONENTS Interpreter)
  add_test(NAME openarm_manual_pose
    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_openarm_manual_pose.py
      $<TARGET_FILE:openarm_adapter>
@@ -75,10 +83,25 @@ if(BUILD_TESTING)
      ${LUXI_ROOT}/build/install/luxi_web_ctrl/lib/luxi_web_ctrl/web_ctrl
      ${LUXI_ROOT}/Project/robot_bringup/config/arms-kh.json)
  set_tests_properties(openarm_continuous_handover PROPERTIES TIMEOUT 60)
+ add_test(NAME teleop_status_rates
+   COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_status_rates.py
+     $<TARGET_FILE:openarm_adapter>
+     ${LUXI_ROOT}/build/packages/luxi_control_manager/control_manager
+     ${LUXI_ROOT}/Project/robot_bringup/config/arms-teleop.json)
+ set_tests_properties(teleop_status_rates PROPERTIES TIMEOUT 30)
+
  add_test(NAME depth_output
    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_depth_output.py
      $<TARGET_FILE:realsense_depth>)
  set_tests_properties(depth_output PROPERTIES TIMEOUT 25)
+ add_test(NAME lift_network_recovery
+   COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_lift_network_recovery.py
+     $<TARGET_FILE:lift_adapter>)
+ set_tests_properties(lift_network_recovery PROPERTIES TIMEOUT 75)
+ add_test(NAME lift_position_invalid
+   COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_lift_position_invalid.py
+     $<TARGET_FILE:lift_adapter>)
+ set_tests_properties(lift_position_invalid PROPERTIES TIMEOUT 75)
  add_test(NAME base_quest
    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_base_quest.py
      $<TARGET_FILE:r680_adapter>)

@@ -118,7 +118,8 @@ inline Quest parse_quest(const std::string& raw) {
   return q;
 }
 inline geometry_msgs::msg::Pose map_pose(const geometry_msgs::msg::Pose& p,
-                                         const geometry_msgs::msg::Pose& reference) {
+                                         const geometry_msgs::msg::Pose& reference,
+                                         bool heading_only_orientation_reference = false) {
   auto flip = [](const auto& v) {
     auto x = pos(v);
     x.z() = -x.z();
@@ -131,19 +132,34 @@ inline geometry_msgs::msg::Pose map_pose(const geometry_msgs::msg::Pose& p,
   auto [r, rq] = flip(reference);
   Eigen::Matrix3d m;
   m << 0, 0, -1, -1, 0, 0, 0, 1, 0;
+  auto orientation_reference = rq;
+  if (heading_only_orientation_reference) {
+    // Keep headset pitch/roll out of wrist commands. Position retains its existing frame.
+    const auto forward = rq * Eigen::Vector3d::UnitZ();
+    const auto right = rq * Eigen::Vector3d::UnitX();
+    const double yaw = std::hypot(forward.x(), forward.z()) > 1e-6
+                           ? std::atan2(forward.x(), forward.z())
+                           : std::atan2(-right.z(), right.x());
+    orientation_reference = Eigen::Quaterniond(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitY()));
+  }
   return pose(m * (rq.conjugate() * (x - r)) + Eigen::Vector3d(-.085, 0, -.14),
-              Eigen::Quaterniond(m) * rq.conjugate() * q *
+              Eigen::Quaterniond(m) * orientation_reference.conjugate() * q *
                   Eigen::Quaterniond(Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d::UnitZ())));
 }
 class PoseFilter {
   bool ready_ = false;
   int64_t t_ = 0;
-  Eigen::Vector3d p_, velocity_ = Eigen::Vector3d::Zero();
-  Eigen::Quaterniond q_;
+  double min_cutoff_hz_;
+  Eigen::Vector3d p_ = Eigen::Vector3d::Zero(), velocity_ = Eigen::Vector3d::Zero();
+  Eigen::Quaterniond q_ = Eigen::Quaterniond::Identity();
   static double alpha(double hz, double dt) { return 1.0 / (1.0 + 1.0 / (2 * M_PI * hz * dt)); }
 
  public:
-  void reset() { ready_ = false; }
+  explicit PoseFilter(double min_cutoff_hz = 2.0) : min_cutoff_hz_(min_cutoff_hz) {
+    if (!std::isfinite(min_cutoff_hz_) || min_cutoff_hz_ <= 0)
+      throw std::invalid_argument("pose filter cutoff must be finite and positive");
+  }
+  void reset() { ready_ = false; velocity_.setZero(); }
   geometry_msgs::msg::Pose update(const geometry_msgs::msg::Pose& p, int64_t t) {
     auto x = pos(p);
     auto q = rot(p);
@@ -158,7 +174,7 @@ class PoseFilter {
     t_ = t;
     double ad = alpha(1.5, dt);
     velocity_ = ad * (x - p_) / dt + (1 - ad) * velocity_;
-    double a = alpha(2 + .04 * velocity_.norm(), dt);
+    double a = alpha(min_cutoff_hz_ + .04 * velocity_.norm(), dt);
     p_ += a * (x - p_);
     q_ = q_.slerp(a, q);
     return pose(p_, q_);

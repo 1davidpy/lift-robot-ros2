@@ -1,18 +1,21 @@
 {
-  "date": "2026-10-21",
-  "method": "persistent software coordinate offset; motor encoders not reset",
+  "schema": "luxi_gripper_zero_v2",
+  "date": "2026-11-02T02:46:20.016720+00:00",
+  "method": "motor hardware zero set using Disable -> Set Zero (0xFE) -> Disable on both buses IDs 1..8; software offsets cleared",
   "raw_zero_rad": {
-    "right": -0.3732738231479363,
-    "left": -0.36717021438925773
-  },
-  "zero_feedback_rad": {
     "right": 0.0,
     "left": 0.0
+  },
+  "zero_feedback_rad": {
+    "right": -0.0001907377737087046,
+    "left": -0.0001907377737087046
   },
   "profiles": [
     "arms-kh.json",
     "arms-teleop.json",
     "arms.json"
   ],
-  "schema": "luxi_gripper_zero_v1"
+  "audit_directory": "work/openarm-hardware-zero-20261102T024430Z",
+  "previous_record_backup": "work/openarm-hardware-zero-20261102T024430Z/gripper_zero_calibration.json",
+  "gripper_target_policy": "Translate open/home/limits to preserve previous physical motor endpoints; closed and startup grippers are current user-designated zero. J1-J7 targets and limits unchanged."
 }

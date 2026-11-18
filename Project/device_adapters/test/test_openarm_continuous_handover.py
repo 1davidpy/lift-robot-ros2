@@ -148,7 +148,7 @@ def main():
                 # explicit arm service, including after lifecycle ownership.
                 h.check_continuity = False
                 http_post(18043, 'disable', '', True)
-                h.until(lambda: not h.state.enabled)
+                h.until(lambda: not h.state.enabled and h.status['output_disable_count'] == dc+1)
                 assert h.status['output_disable_count'] == dc+1
                 print('PASS: explicit operator torque removal remains effective')
             finally:

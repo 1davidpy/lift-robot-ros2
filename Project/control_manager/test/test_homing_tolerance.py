@@ -89,8 +89,13 @@ class HomingTolerance(unittest.TestCase):
                     if expected=="aligning":
                         req=Command.Request();req.command="stop"
                         future=client.call_async(req)
-                        until=time.monotonic()+2.6
-                        while time.monotonic()<until:step()
+                        # The legacy sequence sends 100 distinct 50 Hz steps;
+                        # scheduling delays extend its wall time rather than
+                        # skipping commands. Wait for completion, not 2.6 s.
+                        until=time.monotonic()+5
+                        while time.monotonic()<until:
+                            step()
+                            if future.done() and future.result().success and phases[-1]=="disabled":break
                         self.assertTrue(future.done())
                         self.assertTrue(future.result().success)
                         self.assertEqual(phases[-1],"disabled",

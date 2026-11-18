@@ -2,6 +2,8 @@
 
 管理程序传入 `shared_enable=true`：长按 X 准备全部设备，双臂完成对齐后开放底盘/升降；短按 X 先停车并保持双臂，升降 HOME 到保存 0 mm，再返回已确认有支撑的双臂 home 并撤销转矩。B 和 `disable/halt` 只停止保持，不回位、不移除转矩。
 
+UART 升降的位置有效位采用连续 5 组完整反馈确认；1–4 次无效允许既有遥操继续，有效反馈清零计数。确认无效后，仅暂停升降，双臂和底盘继续；升降恢复有效、停稳并收到松开握键后重新读取 INFO/READY，后续新按握键才产生运动。控制器独立验证隔离状态的反馈年龄、故障和运动禁止位；通信中断、电机故障、B 停止等仍作用于整机。状态 `lift_position_paused` 表示正在隔离位置异常；参数 `isolate_lift_position_invalid=false` 可撤销控制器侧隔离。
+
 实现要求新鲜反馈和带 epoch 的协调心跳；错误后须新操作，不自动重放。`supported_home_confirmed` 默认 false，管理启动依据用户确认设为 true。完整顺序与交付限制见 `docs/SHARED_X_CONTROL_ZH.md`。本轮未编译/测试。
 
 以下为 `shared_enable=false` 的原独立模式说明。

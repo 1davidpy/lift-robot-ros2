@@ -1,0 +1,21 @@
+{
+  "target_type": "checkerboard",
+  "inner_corners": [
+    11,
+    8
+  ],
+  "square_size_mm": 10.0,
+  "square_size_status": "user_provided_board_specification",
+  "wrist_physical_mapping_confirmed": false,
+  "note": "User supplied board specification and ROS calibration command. Prior 8x6 detection was a partial-pattern detection; use full 11x8 pattern.",
+  "square_size_m": 0.01,
+  "board_model": "Q12-150-10",
+  "board_outer_size_mm": [
+    150,
+    150
+  ],
+  "checker_area_mm": [
+    120,
+    90
+  ]
+}

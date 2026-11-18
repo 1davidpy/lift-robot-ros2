@@ -1,0 +1,558 @@
+{
+  "urdf": "assets/robots/r680_lift_openarm_claw1.4/r680_lift_openarm_robot_viewer.urdf",
+  "urdf_sha256": "97a45afc775dbc2c4be16e3c305e2525025a89c4489a0d678b0198368e99ec53",
+  "meshes": {
+    "15e08c666baf068091cb": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/r680_base.stl",
+      "source_sha256": "7f33b961b0d2958c9938f119e2fb3994cbfaabd5406362bf542a7ae15d2c1704",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "7753a2d9ac806148b5155c178452dbc5caf9f5092316da7684dca41ba77566cf"
+    },
+    "84b7b6e36fe9122622c1": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/wheel_front.stl",
+      "source_sha256": "c8be13daf91bdd395a53203878cdb5c23feab68fbb5ade4a3ec5e91f2bc5ebae",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "a4d2e5df6376d8822b85ab0f14794701f2c9dd0b7cd6fdfc0322a36eb0271b89"
+    },
+    "d8853e3d375dc359e5aa": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/wheel_rear_left.stl",
+      "source_sha256": "aa5ee2656086b38215fa766c8d837229cb1cd44cdcf2fb6f6003f6b9cf2de62b",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "674e1f6c30fa248578326be08d74c5e2600a40e683af3530a564e0dfe2d2f0c4"
+    },
+    "45b72cb45d773a0cfd86": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/wheel_rear_right.stl",
+      "source_sha256": "991dc6fbf26ce321d11ed803639857b26208c990791eb9a30b8ae71d9ea87487",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "e9bae02650d1f4413d8ced70d6ac811237144b78f8c91076d64a26702bce70b9"
+    },
+    "2b8a2a97eb756ea9b01b": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/lift/lift_column_fixed.stl",
+      "source_sha256": "a71d7abfa01e6242badbe454f806fc3d8fcea0c80c950cc5b69660de8d035eed",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "a7484352abb629cd05a0439ffc60b50f13d8588aa2f038cd82739c72ffce3485"
+    },
+    "9e749a351dd181c0d1c1": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/lift/lift_carriage_high.stl",
+      "source_sha256": "dd0003d929dc202fc1d1466d98ec0da5d2533a2ba895a45bba7e89108ffde24a",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "802d37119910f6cc68e68a6189c1eed92de322c60ae1dab2b367affa95fae4be"
+    },
+    "5e2a418a2319fcfa0bc6": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/visual/base_link.dae",
+      "source_sha256": "c872c45d81892676921080407720daca70480b8956efb7d3e6b2557c194b1cd7",
+      "scale": [
+        1.0,
+        -1.0,
+        1.0
+      ],
+      "output_sha256": "7f46736fbc5563ceb7d370a354ead75ef65cdd91e27232e140adf7ee91f6ab3c"
+    },
+    "088b3e6116bf97dfcc72": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/collision/base_link.stl",
+      "source_sha256": "795f96ece4db1f896ba2962314c6bda5a876eac2c3cb578b018b21985b57c158",
+      "scale": [
+        1.0,
+        -1.0,
+        1.0
+      ],
+      "output_sha256": "a63bd8bf7aa5ae0d7ff19951f3608f5139beca416a5d7f325ad1821ebab5d38e"
+    },
+    "a2f4b9dc8e6ce7de66f2": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/visual/link1.dae",
+      "source_sha256": "f098d012ac9c760e6efe39e2a8ec7d0c173bb384a57211dc6c6774712f443f90",
+      "scale": [
+        1.0,
+        -1.0,
+        1.0
+      ],
+      "output_sha256": "9ce572281634ed23e635c6ba04461f609c12b4328f6daef6d0c11650636c4643"
+    },
+    "1ca627d9ae1790b86ed6": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/collision/link1.stl",
+      "source_sha256": "5fcc7bd6900fd115004f6d4553fae0602aa4b29d132b354728cca9510f701803",
+      "scale": [
+        1.0,
+        -1.0,
+        1.0
+      ],
+      "output_sha256": "c587859e8460ac19d37fa9e44c4fa2df813f02940e92fdced519ce16e39c8447"
+    },
+    "6a06faa3124c3a118291": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/visual/link2.dae",
+      "source_sha256": "b732c896af720f4d14a0150bf850fa5d9eb7006489904f9a0210140ecd1aa739",
+      "scale": [
+        1.0,
+        -1.0,
+        1.0
+      ],
+      "output_sha256": "2b191754596c490123120f0da68989f43c72bc449d7d90db774fae5ca8244461"
+    },
+    "af7d8a86172575bc4718": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/collision/link2.stl",
+      "source_sha256": "381f0c51a4d2bacb40a9782ecd9901877d5b32b9083329d39b741fc63a73a483",
+      "scale": [
+        1.0,
+        -1.0,
+        1.0
+      ],
+      "output_sha256": "eb3df4ee450eb448f9a646bb82f430b48030d0c77d59fe85e712fa905829b1d5"
+    },
+    "15386253ed86a85b9416": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/visual/link3.dae",
+      "source_sha256": "51cfccd9d2dc5ae969b0922b7de84708868403ad2531fcfed4d8af77fe047937",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "9bd896d436c7c8da1ba2f74863e7bde11b30bdbae0bbae68c896cf1efd799be6"
+    },
+    "4ccacbc2ba80f1ae456b": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/collision/link3.stl",
+      "source_sha256": "72ce0a23e5e65803c9a5d08d8bd915f5ccb4c5a285119183d461f73ab2f535b7",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "0944789e585c1611812e48d9a8e8904a487271df7ae2c90ed8c704739c94a533"
+    },
+    "287a4055a3dc01e795b4": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/visual/link4.dae",
+      "source_sha256": "688000d8eea2e2d6d9c73d5a98dd64c44e162aa6e55260074751218dedcf4aac",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "5d3e5ae726388b1d3db9d1cb61f7ad1f8498ce9f0869325acb16341d468bb6b6"
+    },
+    "2569ee3cedbbb476da0f": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/collision/link4.stl",
+      "source_sha256": "3eb42e669449020c05d5b17152fd22ea8d5737c831619d0f026cfeb2cf28e735",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "770ba34cfa063bd25c6a4632c4b0ee16174843c0f85f0ff898e14604d67b0c88"
+    },
+    "138807768ccf85e45178": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/visual/link5.dae",
+      "source_sha256": "f6a65b2c84d36e371328984aea3b00d6e2d904e058d96c51ad927d703da8b80b",
+      "scale": [
+        1.0,
+        -1.0,
+        1.0
+      ],
+      "output_sha256": "26311a77cafde851ab6c9cdf969cb62417378512921a3c2c138c04485f969896"
+    },
+    "d5b6eb8c1c91036e2004": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/collision/link5.stl",
+      "source_sha256": "d05a44d9ad9ca0e41fd04bf89363dd6d2a301bd90409553fa92e4be337759959",
+      "scale": [
+        1.0,
+        -1.0,
+        1.0
+      ],
+      "output_sha256": "b5c1e6a4c41521419da5ed3471e57d0b916aff9b7cda37815878100a12bd15c9"
+    },
+    "4003c0552acfc52f5dee": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/visual/link6.dae",
+      "source_sha256": "e1c35bfde4533fc6239b5be6ddd3b5bbc0ab05b577b96653dfdc61eb4382bdfd",
+      "scale": [
+        1.0,
+        -1.0,
+        1.0
+      ],
+      "output_sha256": "80d3729050bce32ac1584d610328f2a70559d42522d98d1f30b03c099f764b2e"
+    },
+    "9323a830ad4aec2171ba": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/collision/link6.stl",
+      "source_sha256": "2f474d557a6f442922f1e4ffa4e78365c011c01f33207108da13b79e53e18f39",
+      "scale": [
+        1.0,
+        -1.0,
+        1.0
+      ],
+      "output_sha256": "5ba5b62b4778393d2a16283da29965de9a3cb255dcd3f28fe23aa283e5b6aa38"
+    },
+    "4bda8840f9ba5170bb20": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/sw_pose_20261029_v2/left_palm.stl",
+      "source_sha256": "640339d172cb9cd95678f25d2ee9592fc65fb20451335bf181c90e10ad84f7e2",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "dc124ddbc23172dffa39639f2e2ba7d87f003504bafdee2453bb38e40c519a70"
+    },
+    "0cd060f2fbbabf79b9a0": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/wrist_cameras_20261104/mv_eb435i_v2.stl",
+      "source_sha256": "3a326c86a3f2f0bc61d69eaf0fd01f2b43a6bf7260fc66e4ba849d2b4c822ca8",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "624568244989a346f6aef92ffa7b325ddc541b55f9269b81adc6a42131d84e25"
+    },
+    "f63cf7ecfd2b167fb18f": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/wrist_cameras_20261104/left_bracket_1_1.stl",
+      "source_sha256": "4e9fd483cffd94ef67d9946cd1d80aa4d89c87aa3b7058c743c1563680f63bba",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "3d6ece75ebe52ef634b1c90b0d2d31f744da5e29770f63e7d21de9172ed5fdef"
+    },
+    "e78298c71dbc88e65881": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/sw_pose_20261029_v2/left_jaw1.stl",
+      "source_sha256": "415d034d62876fec838216db3c173e4f9352b179c6269fd252365e4b208e6f4e",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "35b0ff19da2c03419ff87db25eb3e83d70f65ec48e2b785eb31b87f8cc8eac54"
+    },
+    "cffdc4a3f6a55aee0c1c": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/sw_pose_20261029_v2/left_jaw2.stl",
+      "source_sha256": "7892a51be8f14676fb9f212b11924353a9655031310678f9ef7be20e874121ea",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "5bddacb01d7d25a88d3304153ae38a41cdc27d9b07f1fd3a78c30973e96db71b"
+    },
+    "ff1b27d77a5b3939ab31": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/visual/base_link.dae",
+      "source_sha256": "c872c45d81892676921080407720daca70480b8956efb7d3e6b2557c194b1cd7",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "ba1ae8e29a1c2b654b2b4f1d35623c352b025c2765e19fcfd4a078429f0e45ca"
+    },
+    "f22938255942ccfffe56": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/collision/base_link.stl",
+      "source_sha256": "795f96ece4db1f896ba2962314c6bda5a876eac2c3cb578b018b21985b57c158",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "d8715053884093ca1dadd4b3b9d967df46e44951db80c897162153b210efb61c"
+    },
+    "49e982ed479bb1c0f966": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/visual/link1.dae",
+      "source_sha256": "f098d012ac9c760e6efe39e2a8ec7d0c173bb384a57211dc6c6774712f443f90",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "20d5d1c674ebd31ed85793b12cef4f4031f33e466db7c63978ceee064680f21a"
+    },
+    "756aa61f93fa94b3c31d": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/collision/link1.stl",
+      "source_sha256": "5fcc7bd6900fd115004f6d4553fae0602aa4b29d132b354728cca9510f701803",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "c1be29855a6b254298751542388215b55b68ef0140badf85f10d6da211dfccc8"
+    },
+    "21e99d764ba928154aea": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/visual/link2.dae",
+      "source_sha256": "b732c896af720f4d14a0150bf850fa5d9eb7006489904f9a0210140ecd1aa739",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "849227d8356577babf5d19014da34698e8b9049e9eaef77813002f91f1dddfce"
+    },
+    "3a9af2c2b03a4ff8492d": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/collision/link2.stl",
+      "source_sha256": "381f0c51a4d2bacb40a9782ecd9901877d5b32b9083329d39b741fc63a73a483",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "b5a0b24e5e501b8a834840b1e6274a2163962c9917dd5e79cfb8c91644169a09"
+    },
+    "dc28537a15f2d46dbe0b": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/visual/link5.dae",
+      "source_sha256": "f6a65b2c84d36e371328984aea3b00d6e2d904e058d96c51ad927d703da8b80b",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "5d9c2a0bfc3a3ca5d95f1ec6522e69a44136a195f96f08b900bdfe6fd8e99e18"
+    },
+    "5a36a5f3c279d1dd3126": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/collision/link5.stl",
+      "source_sha256": "d05a44d9ad9ca0e41fd04bf89363dd6d2a301bd90409553fa92e4be337759959",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "4d6a88451cff5ba952e92555c89b354aaa99825a4a7c6dedf951bb5c38a044b8"
+    },
+    "a6b30e118674051d332f": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/visual/link6.dae",
+      "source_sha256": "e1c35bfde4533fc6239b5be6ddd3b5bbc0ab05b577b96653dfdc61eb4382bdfd",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "a47222b3fe40b8408395fd619a0964863e1ad45c5d5366f2057f23cb7319a35a"
+    },
+    "c7b4c75cedc0e5573d25": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/openarm_description/assets/robot/openarm_v2.0/meshes/arm/collision/link6.stl",
+      "source_sha256": "2f474d557a6f442922f1e4ffa4e78365c011c01f33207108da13b79e53e18f39",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "e2e1d698dd46cadcbde44008ff34601ead0ac0ca9f419c5d37ca739af4efa983"
+    },
+    "bea15ce2ab10ab29a91c": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/sw_pose_20261029_v2/right_palm.stl",
+      "source_sha256": "021eb47a7ec78925b858c91411ef05693b6e07cf89ce03fdd24f043936acca8c",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "92f664455f48823753972c9847c5769e6fa99072e0c2a7e8e69af0d4a329aa02"
+    },
+    "471a59806caf8066d5da": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/wrist_cameras_20261104/right_bracket_1_1.stl",
+      "source_sha256": "0d18781c94ef9c057a0edd5597c8c28adb5348453f7cc8f3b3ba0fde2a4edf87",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "445c79458156b605e27ee44cd2267625b4070e5ad0ecd01390926b4c15f5bf76"
+    },
+    "a69a2660a434d4663713": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/sw_pose_20261029_v2/right_jaw1.stl",
+      "source_sha256": "400a703225d87b4ee2d11bbc3879343722f374113a2a5ea1d0b3bb84ce134f34",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "dccf1e5fffc38eb6abe859b1d0b4663353231dbaa39b837f98187042444ae8fe"
+    },
+    "12c5220807fcdfe5c00e": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/sw_pose_20261029_v2/right_jaw2.stl",
+      "source_sha256": "4fa054924c036fdb47fc6154d1fb35d1aa81e30735e84353ea02d39ea2b6c3af",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "150e4bd7268f95c5203c1fb3e947454c59bc6973c440afd9d30f8b61f3a37c72"
+    },
+    "2e448ed45c534e172d74": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/cameras/d455.stl",
+      "source_sha256": "47e8321db7cb42291810c69329ab10b601108d651dfcac28bfc12469fa142fa6",
+      "scale": [
+        0.001,
+        0.001,
+        0.001
+      ],
+      "output_sha256": "615c22dfac627ee12171e298b283bb1e1d2ea61382e84c779fef0eeda3d17960"
+    },
+    "ad513a6ce8cccfdbe955": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/update_20261023/chest_bracket.stl",
+      "source_sha256": "ef7866685b9431b4c86246f5bb0a8bb9812be0fe4a81acb1ae226e8313449925",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "53bdd0348357a422ebc7d9d721c68b910e1f4dbd894a79779949ab26b1a62c09"
+    },
+    "9ae76807de10da13f500": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/update_20261023/chest_bracket_collision_0.stl",
+      "source_sha256": "a2f1c6760db04ea7632241dbfd4bb0d49b12c77e117d70ff2a1ecd40da59d4b5",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "8939ac95166e119584dd46d0f48bd1d1d0e4c387aa466818dbb65fd7471e51ec"
+    },
+    "86b1417c5224ca65a364": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/update_20261023/chest_bracket_collision_1.stl",
+      "source_sha256": "b35196abff3acb99990f04ab90d2ad265e1796ddfb4504b71a029b3f18cdf8a8",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "efb9d470a630591d95cff92f5b32b02c60f46508de00ba279f037c883c9967ad"
+    },
+    "0d5bdac5e508adf072e6": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/update_20261023/navigation.stl",
+      "source_sha256": "a26d3b73e66f59476fcc0d6ba4fdd28f5717ef3e2752cbacaebe416e8f1e2dd0",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "6943805b853edbc72c5548ac08a03a3e3363b0ee86099629dff6f1d3105940f3"
+    },
+    "5be90bdbf1d03fc65666": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/update_20261023/navigation_collision.stl",
+      "source_sha256": "a0b4606f97201c64eef3b89c6e3935a1b9a45e1e38e07f04269f546301d2468e",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "c5cc6b3f997d3ff7d9a8b6472a618d5aaaa1bf2b0ee9ba78375d94bb11a94398"
+    },
+    "eb2eb5445116fb31394c": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/update_20261023/nav_plate.stl",
+      "source_sha256": "e4a5829b4cbb01296e83144d8a4e97dbd6b5a7f3588e6d42b6c3434c49462818",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "04eb4b3674889b7eefa13febbbe2b919f6678949bcf5162c4080a165bba93653"
+    },
+    "6b350542e449cefc8423": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/update_20261023/nav_support_right.stl",
+      "source_sha256": "e083fbcb3a5c1e622b7bd99ef39f9862b20f33c65555c8f2b7a99cf1c6e192c2",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "163686074ca08e309b3e094b3a2bc3a22c35209d2d1ae649ae76a149e6042726"
+    },
+    "ebe53842a12a964054f4": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/update_20261023/nav_support_left.stl",
+      "source_sha256": "0a8156cd01957794a01ed1078ea12d3f63ecd5ceafe53c1c6fe7c8ad9c4afb52",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "d7fd8a6b7406f6ea286dd80569430f5da86bfcd3ff2bc091f6cabc0bdb097940"
+    },
+    "52789e2181da0ba723e2": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/update_20261023/nav_plate_collision.stl",
+      "source_sha256": "849a4b93cd68f4f496da71666864ed784f70f3fb730333d6ad39cc72fbef5d37",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "30f90d6d5e7473f1d8fa251afefcbe2e035a299dd51f9d2426ee639a0f8896b3"
+    },
+    "879806dcdc5c23b4f4e4": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/update_20261023/nav_support_right_collision.stl",
+      "source_sha256": "2f6db15432cb731943a64cf72f0bfeeabf7aa16c7bec89e53541d198c3b67e89",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "dd6e103d62351beae8173c56b2fb7bd6e9f2dbd3bb8631294585ed3865133e47"
+    },
+    "23b139faa2b2348f6b19": {
+      "source": "assets/robots/r680_lift_openarm_claw1.4/resources/r680_lift_openarm_description/meshes/visual/update_20261023/nav_support_left_collision.stl",
+      "source_sha256": "d642df4c948eb6091d70b546f16f0fd3580cf3cb621eed6b0e24667ef2dc2cfc",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "output_sha256": "438f34b5b0629c4997c24a901a084a279ab1ade4c63f92849f87f36289aabb32"
+    }
+  },
+  "massless_moving_frames_with_declared_epsilon": [
+    "openarm_left_link7",
+    "openarm_right_link7"
+  ],
+  "kinematics_only": true,
+  "contacts_enabled": false,
+  "sdk_origin_definition": "Legacy arm_origin registered through the unchanged left arm base; full URDF right shoulder retained. This frame moves with the carriage. Native SDK wrist FK/IK relative to this frame is independent of lift q.",
+  "carriage_T_arm_origin": [
+    [
+      0.9999969583359386,
+      -0.00246643849930451,
+      0.0,
+      0.11659917659347843
+    ],
+    [
+      0.00246643849930451,
+      0.9999969583359386,
+      0.0,
+      0.0599602842915859
+    ],
+    [
+      0.0,
+      0.0,
+      0.9999999999999999,
+      0.376813224
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "sdk_reference_chains": "config/robots/calibration/sdk_arm_chains.json",
+  "hardware_deployment_approved": true,
+  "mesh_directory": "claw14_meshes",
+  "xml_sha256": "77cdaabc78e8f23c47f1111c112ee3d47565c4dd6d95bb3dd60d015be647a78b",
+  "native_sdk_compatibility": "Fourteen named arm axes; legacy left-base registered arm_origin; relative wrist FK independent of lift; fingers at nominal closed qpos0, no new gripper motor mapping.",
+  "physical_alignment_accepted": false,
+  "user_authorization": "2026-11-04 explicitly requested replacing project URDF with claw1.4, converting and selecting XML in real SDK, retaining all old model files",
+  "deployment_record": "deployment.json",
+  "native_sdk_verification": "validation.json"
+}

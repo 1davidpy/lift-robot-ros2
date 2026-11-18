@@ -12,7 +12,7 @@
     "height": 360,
     "fps": 30,
     "format": "jpeg",
-    "quality": 90
+    "quality": 85
   },
   "timestamp_quality": "v4l2_host_monotonic",
   "hardware_synchronized": false,

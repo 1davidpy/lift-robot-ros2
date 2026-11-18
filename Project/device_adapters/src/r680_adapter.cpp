@@ -9,6 +9,8 @@
 #include <sensor_msgs/msg/battery_state.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <thread>
+#include <deque>
+#include <set>
 namespace rb = luxi::r680;
 class R680 : public rclcpp::Node {
   bool mock_;
@@ -48,6 +50,116 @@ class R680 : public rclcpp::Node {
   }
   bool receive_only_ = false;
   bool keyboard_ = false;
+  std::string keyboard_owner_;
+  bool web_keyboard_paused_ = false;
+  uint64_t web_keyboard_sequence_ = 0;
+  std::string web_keyboard_pause_reason_, last_keyboard_release_reason_;
+  static constexpr int64_t web_keyboard_timeout_ns_ = 500000000;
+  void pause_web_keyboard(const std::string& reason) {
+    if (!web_keyboard_paused_) {
+      RCLCPP_WARN(get_logger(), "Web base motion paused, ownership retained: %s", reason.c_str());
+      web_keyboard_pause_reason_ = reason;
+    }
+    web_keyboard_paused_ = true;
+    keyboard_velocity_ = {}; sent_ = {}; gate_.reason = web_keyboard_pause_reason_;
+  }
+  std::set<std::string> keyboard_owners_;
+  std::deque<std::string> keyboard_owner_order_;
+  double web_keyboard_linear_limit_ = .05;
+  bool keyboard_coordinator_idle(int64_t t) const {
+    return !coordinated_mode_ ||
+        (luxi::fresh(coordination_.sent_ns, t, 250000000) &&
+         coordination_.control_source != "teleop" &&
+         (coordination_.phase == "disabled" || coordination_.phase == "halt"));
+  }
+  void release_keyboard(const std::string& reason) {
+    if (!keyboard_owner_.empty()) {
+      last_keyboard_release_reason_ = reason;
+      RCLCPP_INFO(get_logger(), "Web base ownership released: %s", reason.c_str());
+    }
+    web_keyboard_paused_ = false; web_keyboard_pause_reason_.clear(); web_keyboard_sequence_ = 0;
+    keyboard_ = navigation_ = false;
+    keyboard_owner_.clear(); keyboard_velocity_ = {}; keyboard_time_ = 0;
+    sent_ = {};
+    gate_.halt(reason);
+  }
+  bool web_keyboard_command(const std::string& command, const std::string& detail,
+                            bool& success, std::string& message) {
+    const bool scoped_stop = command == "stop" && !detail.empty();
+    const bool start = command == "keyboard_start";
+    const bool update = command == "keyboard";
+    if (!scoped_stop && !start && !update) return false;
+    if (!coordinated_mode_ && keyboard_owner_.empty() && detail.empty()) return false;
+    // Preserve legacy array commands only for independent, unowned sessions.
+    if (update && !coordinated_mode_ && keyboard_owner_.empty() &&
+        !detail.empty() && detail.front() == '[') return false;
+    success = false;
+    if (scoped_stop) {
+      if (keyboard_ && (detail == keyboard_owner_ || detail == "__web_operator_release__"))
+        release_keyboard("web_keyboard_released");
+      success = true; message = "Web control released; stale owners cannot stop a new controller";
+      return true;
+    }
+    try {
+      const auto t = luxi::mono();
+      if (start) {
+        if (detail.empty() || detail.size() > 96) throw std::invalid_argument("Web control owner required");
+        if (keyboard_ && gate_.enabled && detail == keyboard_owner_) {
+          success = true; message = "Web control already accepted"; return true;
+        }
+        if (keyboard_owners_.count(detail)) throw std::invalid_argument("Expired web control; turn the switch on again");
+        if (receive_only_ || gate_.enabled || !keyboard_coordinator_idle(t) || gate_.menu || gate_.stop ||
+            stationary_samples_ < 2 || !rb::fresh(gate_.feedback_time, t, 100000000))
+          throw std::invalid_argument("Base busy or not ready; stop Quest control before enabling web control");
+        keyboard_owners_.insert(detail); keyboard_owner_order_.push_back(detail);
+        if (keyboard_owner_order_.size() > 256) {
+          keyboard_owners_.erase(keyboard_owner_order_.front()); keyboard_owner_order_.pop_front();
+        }
+        keyboard_owner_ = detail; keyboard_ = true; navigation_ = false;
+        web_keyboard_paused_ = false; web_keyboard_pause_reason_.clear(); web_keyboard_sequence_ = 0;
+        keyboard_velocity_ = {}; keyboard_time_ = t; sent_ = {};
+        gate_.enabled = true; gate_.reason = "web_keyboard_ready";
+        success = true; message = "Web base control acquired"; return true;
+      }
+      const auto j = luxi::Json::parse(detail);
+      if (!j.is_object() || !j.contains("owner") || !j.at("owner").is_string() ||
+          j.at("owner").get<std::string>() != keyboard_owner_ || keyboard_owner_.empty() ||
+          !keyboard_ || navigation_ || !gate_.enabled)
+        throw std::invalid_argument("Web control expired or owned by another controller");
+      if (!j.contains("sequence") || !j.at("sequence").is_number_unsigned())
+        throw std::invalid_argument("Web command sequence required; refresh the console");
+      const auto sequence = j.at("sequence").get<uint64_t>();
+      if (sequence <= web_keyboard_sequence_)
+        throw std::invalid_argument("Stale web command sequence");
+      const auto v = j.at("velocity").get<std::array<double, 3>>();
+      for (double value : v)
+        if (!std::isfinite(value) || std::abs(value) > 1) throw std::invalid_argument("Invalid web velocity");
+      // Check the old deadline inside the callback as well as the timer.
+      // A queued nonzero request must not resume motion after a scheduling gap.
+      if (!rb::fresh(keyboard_time_, t, web_keyboard_timeout_ns_))
+        pause_web_keyboard("web_command_timeout");
+      if (coordinated_mode_ && !luxi::fresh(coordination_.sent_ns, t, 250000000))
+        pause_web_keyboard("coordinator_feedback_lost");
+      web_keyboard_sequence_ = sequence;
+      keyboard_time_ = t;
+      if (web_keyboard_paused_) {
+        if (v == rb::Velocity{} && rb::fresh(gate_.feedback_time, t, 100000000) &&
+            (!coordinated_mode_ || luxi::fresh(coordination_.sent_ns, t, 250000000))) {
+          web_keyboard_paused_ = false; web_keyboard_pause_reason_.clear();
+        } else {
+          success = true; message = "Web motion paused; release WASD to continue"; return true;
+        }
+      }
+      const double scale = std::min(web_keyboard_linear_limit_, gate_.mapping.linear) /
+          std::max(1., std::hypot(v[0], v[1]));
+      keyboard_velocity_ = {v[0] * scale, v[1] * scale, v[2] * .30};
+      keyboard_time_ = t; success = true; message = "Web command accepted";
+    } catch (const std::exception& error) {
+      // A rejected or late request cannot release a different owner's hold.
+      message = error.what();
+    }
+    return true;
+  }
   bool navigation_ = false;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_sub_;
   bool y_released_ = false;
@@ -83,12 +195,22 @@ class R680 : public rclcpp::Node {
   bool shared_ready(int64_t t) const {
     auto candidate = gate_;
     candidate.enabled = false;
-    return !receive_only_ && stationary_samples_ >= 2 && candidate.start(t);
+    return !keyboard_ && !receive_only_ && stationary_samples_ >= 2 && candidate.start(t);
   }
   void coordinate(const std::string& data) {
     if (!coordinated_mode_) return;
     const auto t = luxi::mono();
     const bool changed = coordination_.accept(data, t);
+    if (keyboard_ && gate_.enabled) {
+      // Incoming Quest packets and rejected prepare attempts never steal the
+      // web lease. Explicit shared parking remains a stop action.
+      if (coordination_.phase == "stop" || coordination_.phase == "park" ||
+          (changed && coordination_.phase == "halt"))
+        release_keyboard("shared_operator_stop");
+      if (coordination_.phase == "prepare" || coordination_.phase == "active")
+        coordination_.blocked = true;
+      return;
+    }
     if (!coordination_.live(t)) { gate_.halt("coordinator_not_ready"); return; }
     if (!changed) return;
     keyboard_ = false; keyboard_velocity_ = {};
@@ -198,7 +320,12 @@ class R680 : public rclcpp::Node {
         }
       }
       // 10 ms receive loop, 20 ms command period, 50 ms feedback mock period.
-      if (coordinated_mode_) {
+      if (coordinated_mode_ && keyboard_) {
+        if (!luxi::fresh(coordination_.sent_ns, luxi::mono(), 250000000)) {
+          if (!keyboard_owner_.empty()) pause_web_keyboard("coordinator_feedback_lost");
+          else release_keyboard("coordinator_feedback_lost");
+        }
+      } else if (coordinated_mode_) {
         if (!coordination_.live(luxi::mono())) {
           if (!coordination_.epoch.empty()) coordination_.blocked = true;
           gate_.halt("coordinator_lost_or_stopped");
@@ -218,14 +345,19 @@ class R680 : public rclcpp::Node {
           }
           if (!gate_.enabled) external_.revoke();
         } else if (keyboard_) {
-          if (!rb::fresh(keyboard_time_, luxi::mono(), 200000000)) gate_.halt("keyboard_timeout");
+          if (!keyboard_owner_.empty()) {
+            if (!rb::fresh(keyboard_time_, luxi::mono(), web_keyboard_timeout_ns_))
+              pause_web_keyboard("web_command_timeout");
+          } else if (!rb::fresh(keyboard_time_, luxi::mono(), 200000000)) gate_.halt("keyboard_timeout");
           if (!rb::fresh(gate_.feedback_time, luxi::mono(), 250000000)) gate_.halt("feedback_timeout");
           if (gate_.menu || gate_.stop) gate_.halt("chassis_disabled_or_menu");
           if (gate_.enabled && rb::fresh(gate_.feedback_time, luxi::mono(), 100000000)) {
-            wanted = keyboard_velocity_;
-            gate_.reason = wanted == rb::Velocity{} ? "keyboard_ready" : "teleop";
+            wanted = web_keyboard_paused_ ? rb::Velocity{} : keyboard_velocity_;
+            gate_.reason = web_keyboard_paused_ ? web_keyboard_pause_reason_ :
+                wanted == rb::Velocity{} ? "keyboard_ready" : "teleop";
           } else if (gate_.enabled) gate_.reason = "feedback_delayed";
         } else wanted = gate_.command(luxi::mono());
+        if (keyboard_ && !gate_.enabled) release_keyboard(gate_.reason);
         if (coordinated_mode_ && coordination_.phase == "active" && !gate_.enabled)
           coordination_.blocked = true;
         double norm = std::hypot(wanted[0], wanted[1]);
@@ -278,6 +410,17 @@ class R680 : public rclcpp::Node {
                      {"navigation_cmd_vel", !external_mode_ && !coordinated_mode_ && !receive_only_},
                      {"navigation_active", navigation_ && gate_.enabled},
                      {"manual_twist", true},
+                      {"web_keyboard_control", true},
+                      {"web_keyboard_manual_release", true},
+                      {"web_keyboard_paused", web_keyboard_paused_},
+                      {"web_keyboard_pause_reason", web_keyboard_pause_reason_},
+                      {"web_keyboard_command_timeout_ms", web_keyboard_timeout_ns_ / 1000000},
+                      {"web_keyboard_sequence", web_keyboard_sequence_},
+                      {"last_keyboard_release_reason", last_keyboard_release_reason_},
+                      {"web_keyboard_linear_limit", std::min(web_keyboard_linear_limit_, gate_.mapping.linear)},
+                      {"keyboard_owner", keyboard_owner_},
+                      {"keyboard_takeover_available", keyboard_coordinator_idle(luxi::mono()) && !gate_.enabled},
+                      {"control_source", coordination_.control_source},
                      {"manual_linear_limit", std::min(.50, gate_.mapping.linear)},
                      {"manual_angular_limit", .30},
                      {"manual_linear_acceleration", manual_linear_accel_},
@@ -303,9 +446,17 @@ class R680 : public rclcpp::Node {
     if (external_mode_ && (coordinated_mode_ || receive_only_))
       throw std::runtime_error("external_control excludes shared/receive_only modes");
     gate_.recover_short_gaps = coordinated_mode_;
+    const auto network_timeout = declare_parameter<double>("network_recovery_timeout", 10.);
+    if (!std::isfinite(network_timeout) || network_timeout < .5 || network_timeout > 10.)
+      throw std::invalid_argument("network_recovery_timeout must be in [0.5, 10] seconds");
+    gate_.network_recovery_ns = static_cast<int64_t>(network_timeout * 1e9);
     if (receive_only_) gate_.reason = "receive_only_no_motion";
     bool hardware = declare_parameter("allow_hardware", false);
     gate_.mapping.linear = declare_parameter("max_linear", .2);
+    web_keyboard_linear_limit_ = declare_parameter("web_keyboard_linear_limit", .05);
+    if (!std::isfinite(web_keyboard_linear_limit_) || web_keyboard_linear_limit_ <= 0 ||
+        web_keyboard_linear_limit_ > .50)
+      throw std::invalid_argument("web_keyboard_linear_limit must be in (0, 0.50] m/s");
     gate_.mapping.angular = declare_parameter("max_angular", .3141592653589793);
     gate_.mapping.deadzone = declare_parameter("deadzone", .16);
     gate_.mapping.reverse_steering = declare_parameter("ps2_reverse_steering", true);
@@ -353,7 +504,7 @@ class R680 : public rclcpp::Node {
               !input_ordered)
             y_released_ = false;
           const bool y_toggle = input_fresh && q->buttons[3] && y_released_;
-          if (input_fresh && input_ordered) gate_.note_input_arrival(q->receive_mono_ns);
+          if (input_fresh && input_ordered && !keyboard_) gate_.note_input_arrival(q->receive_mono_ns);
           gate_.quest_time = q->receive_mono_ns;
           // Ordinary STALE poses still carry current stick/button input, as in
           // arm teleop. INVALID (including a missing controller pose) must stop.
@@ -365,7 +516,7 @@ class R680 : public rclcpp::Node {
           if (q->buttons[1]) {
             gate_.halt("operator_stop");
             if (coordinated_mode_) coordination_.blocked = true;
-          } else if (y_toggle && !coordinated_mode_) {
+          } else if (y_toggle && !coordinated_mode_ && !keyboard_) {
             if (gate_.enabled) {
               gate_.halt("operator_stop");
             } else if (receive_only_) {
@@ -393,6 +544,7 @@ class R680 : public rclcpp::Node {
             res->message = "external_control: explicit bridge ARM/leased commands only";
             return;
           }
+          if (web_keyboard_command(req->command, req->detail, res->success, res->message)) return;
           if (coordinated_mode_) {
             if (req->command == "stop" || req->command == "disable") {
               coordination_.blocked = true; gate_.halt("operator_stop"); res->success = true;

@@ -50,6 +50,7 @@ function jointControlUI() {
   let reason = !connected ? '网页未连接' : !service ? '机械臂服务未就绪' : !j ? '驱动待更新，尚无关节限位信息' :
     !valid ? '需要全部 16 轴的新鲜有效反馈' : ['editing','preparing'].includes(s?.manual_pose?.phase) ? '请先完成或退出手动摆姿设置' :
     s?.owned && ['moving','preparing'].includes(s.phase) ? '请先停止抬臂动作' : '';
+  if (!reason) reason = consoleSourceReason();
   const c = state?.control;
   if (!reason && j && valid) {
     const outside=a.position.findIndex((v,i)=>v<j.lower[i] || v>j.upper[i]);

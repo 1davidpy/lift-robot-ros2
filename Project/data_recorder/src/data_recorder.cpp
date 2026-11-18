@@ -4,6 +4,7 @@
 #include <deque>
 #include <luxi/core.hpp>
 #include <luxi/storage.hpp>
+#include <luxi/initial_state.hpp>
 #include <rosbag2_cpp/writer.hpp>
 #include <std_msgs/msg/string.hpp>
 class Recorder : public rclcpp::Node {
@@ -18,6 +19,7 @@ class Recorder : public rclcpp::Node {
   int64_t last_sample_ = 0;
   double reserve_;
   luxi::State state_;
+  luxi::Json lift_state_ = luxi::Json::object();
   std::deque<luxi::State> state_history_;
   std::array<std::deque<luxi::Frame>, 3> frame_history_;
   luxi::Json hardware_config_;
@@ -74,7 +76,7 @@ class Recorder : public rclcpp::Node {
       control_->async_send_request(r);
     }
   }
-  bool start(const std::string& task) {
+  bool start(const std::string& task, const std::string& trigger = "service", int64_t request_ns = 0) {
     if (writer_ || task.empty() || !luxi::valid_state(state_) || !state_.enabled ||
         !luxi::fresh(state_.receive_mono_ns, luxi::mono()))
       return false;
@@ -83,6 +85,10 @@ class Recorder : public rclcpp::Node {
         if (f.data.empty() || !luxi::fresh(f.receive_mono_ns, luxi::mono(), 200000000))
           return false;
     if (luxi::fs::space(root_).available < reserve_ * 1024 * 1024 * 1024) return false;
+    const auto captured_mono_ns = luxi::mono();
+    const auto captured_ros_ns = now().nanoseconds();
+    const auto initial = luxi::initial_state(state_, lift_state_, captured_mono_ns,
+                                            captured_ros_ns, trigger, request_ns);
     id_ = "episode-" + std::to_string(now().nanoseconds());
     active_ = root_ / (".partial-" + id_);
     luxi::fs::create_directory(active_);
@@ -97,8 +103,10 @@ class Recorder : public rclcpp::Node {
                        {"joint_units", "rad"},
                        {"gripper_units", "signed_logical_action_motor_feedback"},
                        {"task", task},
-                       {"started_ns", std::to_string(now().nanoseconds())},
+                       {"started_ns", std::to_string(captured_ros_ns)},
+                       {"initial_state_file", "initial_state.json"},
                        {"time_domain", "board_monotonic_and_ros_wall"}});
+    luxi::atomic_json(active_ / "initial_state.json", initial);
     luxi::atomic_json(active_ / "robot_config.json", hardware_config_);
     luxi::atomic_json(active_ / "camera_config.json", camera_config_);
     writer_ = std::make_unique<rosbag2_cpp::Writer>();
@@ -237,7 +245,12 @@ class Recorder : public rclcpp::Node {
     watch<std_msgs::msg::String>("/luxi/coordinated_control");
     for (const auto& topic : {"/luxi/base/state", "/luxi/base/applied", "/luxi/base/can_rx", "/luxi/base/status"})
       watch<std_msgs::msg::String>(topic);
-    for (const auto& topic : {"/luxi/lift/state", "/luxi/lift/events", "/luxi/lift/can_rx", "/luxi/lift/uart_rx", "/luxi/lift/status"})
+    watch<std_msgs::msg::String>("/luxi/lift/state", [this](const auto& s) {
+      const auto value = luxi::Json::parse(s.data, nullptr, false);
+      // A malformed latest report invalidates the snapshot instead of reusing older data.
+      lift_state_ = value.is_object() ? value : luxi::Json{{"malformed", true}};
+    });
+    for (const auto& topic : {"/luxi/lift/events", "/luxi/lift/can_rx", "/luxi/lift/uart_rx", "/luxi/lift/status"})
       watch<std_msgs::msg::String>(topic);
     watch<std_msgs::msg::String>("/luxi/faults", [this](const auto& s) {
       if (writer_) qc_.push_back(s.data);
@@ -267,7 +280,7 @@ class Recorder : public rclcpp::Node {
         else if (writer_)
           finish("success", "");
         else
-          start(task_);
+          start(task_, "quest_a", q.receive_mono_ns);
       }
       if (q.buttons[1] && !buttons_[1]) {
         b_start_ = q.receive_mono_ns;

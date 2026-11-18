@@ -20,7 +20,8 @@ class TrackingGap(unittest.TestCase):
         self.tmp=tempfile.TemporaryDirectory(prefix="luxi-gap-")
         self.log=open(Path(self.tmp.name)/"manager.log","w+")
         prefix="/gap_"+str(time.monotonic_ns())
-        args=[str(BINARY),"--ros-args","-p","config:="+str(CONFIG)]
+        args=[str(BINARY),"--ros-args","-p","config:="+str(CONFIG),
+              "-p","network_recovery_timeout:="+str(getattr(self,"network_timeout",.5))]
         for topic in ["quest","arms/state","intent","control","control_status","command"]:
             args+=["-r",f"/luxi/{topic}:={prefix}/{topic}"]
         self.process=subprocess.Popen(args,stdout=self.log,stderr=subprocess.STDOUT,
@@ -31,13 +32,14 @@ class TrackingGap(unittest.TestCase):
             lambda m:setattr(self,"status",json.loads(m.data)),1)
         self.node.create_subscription(ArmCommand,prefix+"/command",
             lambda m:self.commands.append(list(m.position)),1)
-        self.qp=self.node.create_publisher(QuestInput,prefix+"/quest",100)
+        self.qp=self.node.create_publisher(QuestInput,prefix+"/quest",1)
         self.sp=self.node.create_publisher(ArmState,prefix+"/arms/state",1)
         self.ip=self.node.create_publisher(ArmCommand,prefix+"/intent",1)
         self.client=self.node.create_client(Command,prefix+"/control")
         self.flag=1 # Ordinary STALE is permitted, including during startup.
-        self.quest_on=True;self.intent_on=True;self.intent_offset=0.
+        self.quest_on=True;self.intent_on=True;self.intent_offset=0.;self.feedback_on=True
         self.intent_phase='ik_unconverged' if self._testMethodName=='test_alignment_waits_for_ik_solution' else 'teleop'
+        self.addCleanup(self.cleanup)
         self.run_for(1.5)
         end=time.monotonic()+5;future=None;accepted=False
         while time.monotonic()<end and not accepted:
@@ -47,23 +49,25 @@ class TrackingGap(unittest.TestCase):
             self.step()
             if future is not None and future.done():
                 accepted=future.result().success;future=None
-        self.assertTrue(accepted)
+        self.assertTrue(accepted,json.dumps(self.status))
         end=time.monotonic()+4
         expected='aligning' if self.intent_phase=='ik_unconverged' else 'teleop'
         while self.status.get("phase")!=expected and time.monotonic()<end:self.step()
-        self.assertEqual(self.status.get("phase"),expected)
+        self.assertEqual(self.status.get("phase"),expected, json.dumps(self.status))
 
     def step(self):
         now=time.monotonic_ns()
         state=ArmState();state.position=HOME.copy();state.valid=[True]*16
-        state.receive_mono_ns=now;self.sp.publish(state)
-        if self.quest_on:
+        state.receive_mono_ns=now
+        if self.feedback_on:self.sp.publish(state)
+        if self.quest_on and now-getattr(self,"last_quest_publish",0)>=int(getattr(self,"quest_period",0)*1e9):
+            self.last_quest_publish=now
             quest=QuestInput();quest.receive_mono_ns=now
             quest.tracking=self.flag;quest.left_tracking=self.flag;quest.right_tracking=self.flag
             quest.triggers=[1.,1.]
             self.qp.publish(quest)
         if self.intent_on:
-            intent=ArmCommand();intent.source_mono_ns=now;intent.position=HOME.copy()
+            intent=ArmCommand();intent.source_mono_ns=getattr(self,"intent_stamp",now);intent.position=HOME.copy()
             intent.phase=self.intent_phase
             intent.position[0]+=self.intent_offset;self.ip.publish(intent)
         rclpy.spin_once(self.node,timeout_sec=.001)
@@ -73,12 +77,20 @@ class TrackingGap(unittest.TestCase):
         end=time.monotonic()+seconds
         while time.monotonic()<end:self.step()
 
-    def tearDown(self):
+    def cleanup(self):
         self.node.destroy_node()
         if self.process.poll() is None:self.process.send_signal(signal.SIGINT)
         try:self.process.wait(timeout=3)
         except subprocess.TimeoutExpired:self.process.kill();self.process.wait()
         self.log.close();self.tmp.cleanup()
+
+    def test_arm_feedback_expiry_still_faults(self):
+        # Fresh Quest/IK input must never hide missing measured motor feedback.
+        self.feedback_on=False
+        self.run_for(.3)
+        self.assertEqual(self.status.get('phase'), 'fault')
+        self.assertEqual(self.status.get('reason'), 'feedback_unavailable')
+        self.assertGreaterEqual(self.status.get('arm_feedback_age_ms', 0), 150.)
 
     def test_brief_invalid_tracking_freezes_without_latching(self):
         self.flag=2;self.run_for(.025)

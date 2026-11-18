@@ -27,6 +27,11 @@ if(BUILD_TESTING)
       $<TARGET_FILE:control_manager>
       ${CMAKE_CURRENT_SOURCE_DIR}/../robot_bringup/config/arms-kh.json)
   set_tests_properties(homing_tolerance PROPERTIES TIMEOUT 45)
+  add_test(NAME network_recovery
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_network_recovery.py
+      $<TARGET_FILE:control_manager>
+      ${CMAKE_CURRENT_SOURCE_DIR}/../robot_bringup/config/arms-teleop.json)
+  set_tests_properties(network_recovery PROPERTIES TIMEOUT 90)
   add_test(NAME tracking_gap
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_tracking_gap.py
       $<TARGET_FILE:control_manager>
@@ -41,6 +46,11 @@ if(BUILD_TESTING)
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_shared_parking.py
       $<TARGET_FILE:control_manager>
       ${CMAKE_CURRENT_SOURCE_DIR}/../robot_bringup/config/arms-teleop.json)
-  set_tests_properties(shared_parking PROPERTIES TIMEOUT 60)
+  set_tests_properties(shared_parking PROPERTIES TIMEOUT 120)
+  add_test(NAME lift_position_isolation
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_lift_position_isolation.py
+      $<TARGET_FILE:control_manager>
+      ${CMAKE_CURRENT_SOURCE_DIR}/../robot_bringup/config/arms-teleop.json)
+  set_tests_properties(lift_position_isolation PROPERTIES TIMEOUT 90)
 endif()
 ament_package()

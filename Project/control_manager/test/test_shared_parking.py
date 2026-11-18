@@ -57,14 +57,17 @@ class SharedParking(unittest.TestCase):
         self.lift_stationary = True
         self.lift_session = False
         self.lift_healthy = True
+        self.base_feedback_age_ns = 0
+        self.lift_sample_age_ns = 0
+        self.lift_measurement_age_ms = 30
         self.quest_sending = True
         self.quest = QuestInput()
         self.quest.buttons = [False] * 4
         self.quest.grips = [0., 0.]
-        self.qp = self.node.create_publisher(QuestInput, self.prefix + '/quest', 10)
+        self.qp = self.node.create_publisher(QuestInput, self.prefix + '/quest', 1)
         self.sp = self.node.create_publisher(ArmState, self.prefix + '/arms/state', 1)
-        self.bp = self.node.create_publisher(String, self.prefix + '/base/status', 10)
-        self.lp = self.node.create_publisher(String, self.prefix + '/lift/status', 10)
+        self.bp = self.node.create_publisher(String, self.prefix + '/base/status', 1)
+        self.lp = self.node.create_publisher(String, self.prefix + '/lift/status', 1)
         self.node.create_subscription(String, self.prefix + '/control_status',
                                       lambda m: self.status.update(json.loads(m.data)), 10)
         self.node.create_subscription(String, self.prefix + '/coordinated_control', self.on_directive, 10)
@@ -134,13 +137,35 @@ class SharedParking(unittest.TestCase):
                   'shared_phase': self.directive.get('phase', ''),
                   'receive_mono_ns': str(now), 'enabled': False}
         base = dict(shared, receive_only=False, feedback_fresh=True,
-                    feedback_mono_ns=str(now), stationary=self.base_stationary)
+                    feedback_mono_ns=str(now-self.base_feedback_age_ns), stationary=self.base_stationary)
         # Nonzero lift height, no home_complete: returning the arms must not
         # depend on lift HOME or on a claim that this height has physical support.
         lift = dict(shared, allow_motion=True, feedback_healthy=self.lift_healthy,
-                    feedback_age_ms=30, feedback_first_mono_ns=str(now),
+                    feedback_age_ms=self.lift_measurement_age_ms, feedback_first_mono_ns=str(now-self.lift_sample_age_ns),
                     stationary=self.lift_stationary, session_present=self.lift_session,
                     home_complete=False, current_um=75321)
+        if getattr(self, 'simulate_active_devices', False):
+            phase = self.directive.get('phase', '')
+            paused = getattr(self, 'position_pause', False)
+            base.update(enabled=phase == 'active', shared_ready=True)
+            lift.update(enabled=phase in ('prepare', 'active') and not paused,
+                        shared_ready=not paused, flags=1, fault=0, speed_rpm=0,
+                        transport='uart')
+            if paused:
+                lift.update(enabled=False, shared_ready=False, stationary=False,
+                            feedback_healthy=False, flags=0,
+                            position_invalid_isolation=True, position_invalid_limit=5,
+                            position_invalid_count=5, position_invalid_pause_count=5,
+                            position_invalid_paused=True, position_invalid_stationary=True)
+            lift.update(getattr(self, 'extra_lift_status', {}))
+            intent_pub = getattr(self, 'active_intent_pub', None)
+            if intent_pub is not None:
+                intent = ArmCommand()
+                intent.position = HOME.copy()
+                intent.position[0] += getattr(self, 'intent_offset', 0.)
+                intent.source_mono_ns = now
+                intent.phase = 'teleop'
+                intent_pub.publish(intent)
         for pub, data in ((self.bp, base), (self.lp, lift)):
             message = String()
             message.data = json.dumps(data)
@@ -260,6 +285,33 @@ class SharedParking(unittest.TestCase):
         self.run_for(.6)
         self.assertTrue(self.enabled)
         self.assertFalse(self.lifecycle)
+
+    def check_old_measurement_aborts(self, field, value):
+        self.request_park()
+        self.wait_for(lambda: self.status.get('system_phase') == 'returning_arms', 2, 'arm return')
+        setattr(self, field, value)
+        self.wait_for(lambda: self.status.get('system_phase') == 'stopped', 1, 'stale measurement aborts')
+        self.assertEqual(self.status['reason'], 'base_or_lift_feedback_lost')
+        snapshot = self.status.get('feedback_fault_snapshot')
+        self.assertIsInstance(snapshot, dict, 'missing exact reports used for the stop decision')
+        decision = int(snapshot['decision_mono_ns'])
+        if field == 'base_feedback_age_ns':
+            self.assertGreaterEqual(decision-int(snapshot['base']['feedback_mono_ns']), value)
+        elif field == 'lift_sample_age_ns':
+            self.assertGreaterEqual(decision-int(snapshot['lift']['feedback_first_mono_ns']), value)
+        else:
+            self.assertEqual(snapshot['lift']['feedback_age_ms'], value)
+        self.assertTrue(self.enabled)
+        self.assertFalse(self.lifecycle)
+
+    def test_fresh_base_status_cannot_refresh_old_motor_feedback(self):
+        self.check_old_measurement_aborts('base_feedback_age_ns', 300000000)
+
+    def test_fresh_lift_status_cannot_refresh_old_sample(self):
+        self.check_old_measurement_aborts('lift_sample_age_ns', 350000000)
+
+    def test_fresh_lift_sample_cannot_refresh_old_measurement(self):
+        self.check_old_measurement_aborts('lift_measurement_age_ms', 600)
 
     def test_lift_feedback_loss_aborts_without_torque_removal(self):
         self.request_park()

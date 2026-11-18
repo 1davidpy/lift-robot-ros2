@@ -104,6 +104,7 @@ class Gate {
   Mapping mapping;
   bool enabled = false, tracking = false, menu = false;
   bool require_left_grip = true;
+  int64_t network_recovery_ns = 500000000;
   bool recover_short_gaps = false, input_recovery = false;
   int64_t neutral_since = 0;
   double grip = 0;
@@ -137,7 +138,7 @@ class Gate {
   }
   void note_input_arrival(int64_t stamp) {
     if (!enabled || !recover_short_gaps) return;
-    if (!fresh(quest_time, stamp, 500000000)) halt("quest_timeout");
+    if (!fresh(quest_time, stamp, network_recovery_ns)) halt("quest_timeout");
     else if (!fresh(quest_time, stamp, 200000000)) {
       input_recovery = true;
       neutral_since = 0;
@@ -147,7 +148,7 @@ class Gate {
     if (!enabled) return {};
     if (!input_valid())
       halt("invalid_input");
-    else if (!fresh(quest_time, now, recover_short_gaps ? 500000000 : 200000000))
+    else if (!fresh(quest_time, now, recover_short_gaps ? network_recovery_ns : 200000000))
       halt("quest_timeout");
     else if (!tracking)
       halt("tracking_invalid");
