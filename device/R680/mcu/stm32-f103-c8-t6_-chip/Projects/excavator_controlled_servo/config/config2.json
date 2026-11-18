@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "active_profile": "Config2",
+  "profiles": [
+    {
+      "id": "Config2",
+      "assembly_version": "V0.2",
+      "machine_number": "No1",
+      "description": "配置2：2026-10-14标定限位；越界只允许低速向范围内回退",
+      "limits": [
+        { "axis": 0, "servo_id": 1, "name": "动臂", "minimum": 1001, "maximum": 2950, "enabled": true, "reference_mode": 1, "encoder_offset": 85 },
+        { "axis": 1, "servo_id": 2, "name": "斗杆", "minimum": 2223, "maximum": 4076, "enabled": true, "reference_mode": 1, "encoder_offset": 85 },
+        { "axis": 2, "servo_id": 3, "name": "夹爪俯仰", "minimum": 1547, "maximum": 3609, "enabled": true, "reference_mode": 1, "encoder_offset": 85 },
+        { "axis": 4, "servo_id": 8, "name": "夹爪开合", "minimum": 172, "maximum": 1292, "enabled": true, "reference_mode": 0, "encoder_offset": 85 }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+#ifndef BSP_ST7789_COLOR_H
+#define BSP_ST7789_COLOR_H
+
+/**
+ * @brief Common RGB565 color constants for ST7789 drawing APIs.
+ */
+
+#define BSP_ST7789_COLOR_WHITE       0xFFFFU
+#define BSP_ST7789_COLOR_BLACK       0x0000U
+#define BSP_ST7789_COLOR_BLUE        0x001FU
+#define BSP_ST7789_COLOR_RED         0xF800U
+#define BSP_ST7789_COLOR_MAGENTA     0xF81FU
+#define BSP_ST7789_COLOR_GREEN       0x07E0U
+#define BSP_ST7789_COLOR_CYAN        0x7FFFU
+#define BSP_ST7789_COLOR_YELLOW      0xFFE0U
+#define BSP_ST7789_COLOR_GRAY        0x8430U
+#define BSP_ST7789_COLOR_ORANGE      0xFD20U
+#define BSP_ST7789_COLOR_PURPLE      0x8010U
+#define BSP_ST7789_COLOR_PINK        0xF81FU
+
+#endif /* BSP_ST7789_COLOR_H */

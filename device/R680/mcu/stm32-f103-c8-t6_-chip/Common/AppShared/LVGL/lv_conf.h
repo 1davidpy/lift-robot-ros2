@@ -1,0 +1,69 @@
+/**
+ * @file lv_conf.h
+ * Project-wide LVGL defaults for STM32F103 common integration.
+ */
+
+#ifndef LV_CONF_H
+#define LV_CONF_H
+
+#include <stdint.h>
+
+#define LV_COLOR_DEPTH 16
+
+#define LV_USE_STDLIB_MALLOC LV_STDLIB_BUILTIN
+#define LV_USE_STDLIB_STRING LV_STDLIB_BUILTIN
+#define LV_USE_STDLIB_SPRINTF LV_STDLIB_BUILTIN
+
+#define LV_MEM_SIZE (8U * 1024U)
+#define LV_MEM_POOL_EXPAND_SIZE 0
+#define LV_MEM_ADR 0
+
+#define LV_DEF_REFR_PERIOD 33
+#define LV_DPI_DEF 100
+
+#define LV_USE_OS LV_OS_NONE
+
+#define LV_DRAW_BUF_STRIDE_ALIGN 1
+#define LV_DRAW_BUF_ALIGN 4
+#define LV_DRAW_LAYER_SIMPLE_BUF_SIZE (4U * 1024U)
+#define LV_DRAW_LAYER_MAX_MEMORY (8U * 1024U)
+#define LV_DRAW_THREAD_STACK_SIZE (2U * 1024U)
+
+#define LV_USE_DRAW_SW 1
+#define LV_DRAW_SW_DRAW_UNIT_CNT 1
+#define LV_DRAW_SW_COMPLEX 0
+
+#define LV_USE_LOG 0
+#define LV_USE_ASSERT_NULL 1
+#define LV_USE_ASSERT_MALLOC 1
+#define LV_USE_ASSERT_STYLE 0
+#define LV_USE_ASSERT_MEM_INTEGRITY 0
+#define LV_USE_ASSERT_OBJ 0
+
+#define LV_FONT_MONTSERRAT_8 1
+#define LV_FONT_MONTSERRAT_10 1
+#define LV_FONT_MONTSERRAT_12 1
+#define LV_FONT_MONTSERRAT_14 1
+#define LV_FONT_DEFAULT &lv_font_montserrat_14
+
+#define LV_USE_FS_STDIO 0
+#define LV_USE_FS_POSIX 0
+#define LV_USE_FS_WIN32 0
+#define LV_USE_FS_FATFS 0
+#define LV_USE_FS_MEMFS 0
+
+#define LV_USE_DRAW_SDL 0
+#define LV_USE_SDL 0
+#define LV_USE_LINUX_FBDEV 0
+#define LV_USE_LINUX_DRM 0
+#define LV_USE_WAYLAND 0
+#define LV_USE_X11 0
+
+#define LV_USE_DEMO_WIDGETS 0
+#define LV_USE_DEMO_KEYPAD_AND_ENCODER 0
+#define LV_USE_DEMO_BENCHMARK 0
+#define LV_USE_DEMO_RENDER 0
+#define LV_USE_DEMO_STRESS 0
+#define LV_USE_DEMO_MUSIC 0
+
+#endif

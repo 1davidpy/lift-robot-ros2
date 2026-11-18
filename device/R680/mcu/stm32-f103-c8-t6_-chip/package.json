@@ -1,0 +1,16 @@
+{
+  "name": "stm32-f103-c8-t6_-chip",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://gitee.com/fxx360724/stm32-f103-c8-t6_-chip.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

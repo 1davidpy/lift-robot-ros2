@@ -1,0 +1,86 @@
+{
+    "active_profile":  "V0.2_No1_reinstall",
+    "profiles":  [
+                     {
+                         "assembly_version":  "V0.2",
+                         "description":  "大小臂保留原限位；夹爪俯仰与开合待标定",
+                         "id":  "V0.2_No1",
+                         "limits":  [
+                                        {
+                                            "axis":  0,
+                                            "enabled":  true,
+                                            "maximum":  3000,
+                                            "minimum":  1000,
+                                            "name":  "动臂",
+                                            "servo_id":  1
+                                        },
+                                        {
+                                            "axis":  1,
+                                            "enabled":  true,
+                                            "maximum":  3200,
+                                            "minimum":  1100,
+                                            "name":  "斗杆",
+                                            "servo_id":  2
+                                        },
+                                        {
+                                            "axis":  2,
+                                            "enabled":  false,
+                                            "maximum":  4095,
+                                            "minimum":  0,
+                                            "name":  "夹爪俯仰",
+                                            "servo_id":  3
+                                        },
+                                        {
+                                            "axis":  4,
+                                            "enabled":  false,
+                                            "maximum":  4095,
+                                            "minimum":  0,
+                                            "name":  "夹爪开合",
+                                            "servo_id":  8
+                                        }
+                                    ],
+                         "machine_number":  "No1"
+                     },
+                     {
+                         "assembly_version":  "V0.2",
+                         "description":  "重装待标定：位置遥控锁定；Qt设置小范围并准备后可手动低速标定",
+                         "id":  "V0.2_No1_reinstall",
+                         "limits":  [
+                                        {
+                                            "axis":  0,
+                                            "enabled":  false,
+                                            "maximum":  4095,
+                                            "minimum":  0,
+                                            "name":  "动臂",
+                                            "servo_id":  1
+                                        },
+                                        {
+                                            "axis":  1,
+                                            "enabled":  false,
+                                            "maximum":  4095,
+                                            "minimum":  0,
+                                            "name":  "斗杆",
+                                            "servo_id":  2
+                                        },
+                                        {
+                                            "axis":  2,
+                                            "enabled":  false,
+                                            "maximum":  4095,
+                                            "minimum":  0,
+                                            "name":  "夹爪俯仰",
+                                            "servo_id":  3
+                                        },
+                                        {
+                                            "axis":  4,
+                                            "enabled":  false,
+                                            "maximum":  4095,
+                                            "minimum":  0,
+                                            "name":  "夹爪开合",
+                                            "servo_id":  8
+                                        }
+                                    ],
+                         "machine_number":  "No1"
+                     }
+                 ],
+    "schema_version":  2
+}

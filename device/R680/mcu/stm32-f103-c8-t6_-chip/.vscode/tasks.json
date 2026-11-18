@@ -1,0 +1,175 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "configure: F103C8T6_Chip (Debug)",
+            "type": "shell",
+            "command": "${env:LOCALAPPDATA}/stm32cube/bundles/cmake/4.3.1+st.1/bin/cmake.exe",
+            "args": [
+                "--preset",
+                "f103c8-chip-debug"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "build: F103C8T6_Chip (Debug)",
+            "type": "shell",
+            "command": "${env:LOCALAPPDATA}/stm32cube/bundles/cmake/4.3.1+st.1/bin/cmake.exe",
+            "args": [
+                "--build",
+                "--preset",
+                "f103c8-chip-debug"
+            ],
+            "dependsOn": "configure: F103C8T6_Chip (Debug)",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": "$gcc"
+        },
+        {
+            "label": "clean: F103C8T6_Chip (Debug)",
+            "type": "shell",
+            "command": "${env:LOCALAPPDATA}/stm32cube/bundles/cmake/4.3.1+st.1/bin/cmake.exe",
+            "args": [
+                "--build",
+                "--preset",
+                "f103c8-chip-debug",
+                "--target",
+                "clean"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "rebuild safely: F103C8T6_Chip (Debug)",
+            "type": "shell",
+            "command": "${env:LOCALAPPDATA}/stm32cube/bundles/cmake/4.3.1+st.1/bin/cmake.exe",
+            "args": [
+                "--build",
+                "--preset",
+                "f103c8-chip-debug"
+            ],
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "configure: F103C8T6_Chip (Debug)",
+                "clean: F103C8T6_Chip (Debug)"
+            ],
+            "problemMatcher": "$gcc"
+        },
+        {
+            "label": "configure: excavator_conctrler (Debug)",
+            "type": "shell",
+            "command": "${env:LOCALAPPDATA}/stm32cube/bundles/cmake/4.3.1+st.1/bin/cmake.exe",
+            "args": [
+                "--preset",
+                "excavator-conctrler-debug"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "build: excavator_conctrler (Debug)",
+            "type": "shell",
+            "command": "${env:LOCALAPPDATA}/stm32cube/bundles/cmake/4.3.1+st.1/bin/cmake.exe",
+            "args": [
+                "--build",
+                "--preset",
+                "excavator-conctrler-debug"
+            ],
+            "dependsOn": "configure: excavator_conctrler (Debug)",
+            "group": "build",
+            "problemMatcher": "$gcc"
+        },
+        {
+            "label": "configure: luxi_atlas_pwm (Debug)",
+            "type": "shell",
+            "command": "${env:LOCALAPPDATA}/stm32cube/bundles/cmake/4.3.1+st.1/bin/cmake.exe",
+            "args": [
+                "--preset",
+                "luxi-atlas-pwm-debug"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "build: luxi_atlas_pwm (Debug)",
+            "type": "shell",
+            "command": "${env:LOCALAPPDATA}/stm32cube/bundles/cmake/4.3.1+st.1/bin/cmake.exe",
+            "args": [
+                "--build",
+                "--preset",
+                "luxi-atlas-pwm-debug"
+            ],
+            "dependsOn": "configure: luxi_atlas_pwm (Debug)",
+            "group": "build",
+            "problemMatcher": "$gcc"
+        },
+        {
+            "label": "STM32: install ST-LINK USB driver (Administrator)",
+            "type": "shell",
+            "command": "cube",
+            "args": [
+                "stlink-usb-driver-adm-install"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "configure: lifting_platform_servo (Debug)",
+            "type": "process",
+            "command": "${env:LOCALAPPDATA}/stm32cube/bundles/cmake/4.3.1+st.1/bin/cmake.exe",
+            "args": [
+                "--preset",
+                "lifting-platform-servo-debug"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "build: lifting_platform_servo (Debug)",
+            "type": "process",
+            "command": "${env:LOCALAPPDATA}/stm32cube/bundles/cmake/4.3.1+st.1/bin/cmake.exe",
+            "args": [
+                "--build",
+                "--preset",
+                "lifting-platform-servo-debug",
+                "--parallel"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOn": "configure: lifting_platform_servo (Debug)",
+            "group": "build",
+            "problemMatcher": "$gcc"
+        },
+        {
+            "label": "configure: lifting_platform_servo (Release)",
+            "type": "process",
+            "command": "${env:LOCALAPPDATA}/stm32cube/bundles/cmake/4.3.1+st.1/bin/cmake.exe",
+            "args": [
+                "--preset",
+                "lifting-platform-servo-release"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "build: lifting_platform_servo (Release)",
+            "type": "process",
+            "command": "${env:LOCALAPPDATA}/stm32cube/bundles/cmake/4.3.1+st.1/bin/cmake.exe",
+            "args": [
+                "--build",
+                "--preset",
+                "lifting-platform-servo-release",
+                "--parallel"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOn": "configure: lifting_platform_servo (Release)",
+            "group": "build",
+            "problemMatcher": "$gcc"
+        }
+    ]
+}

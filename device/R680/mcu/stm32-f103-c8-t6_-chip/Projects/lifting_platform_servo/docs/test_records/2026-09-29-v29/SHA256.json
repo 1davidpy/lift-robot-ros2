@@ -1,0 +1,30 @@
+{
+  "application_final_readback.bin": {
+    "bytes": 21856,
+    "sha256": "978833821e507aea5b29f8dab6c9b65c124c132ce14d524307d59d367aa17eb3"
+  },
+  "lifting_platform_servo_v29.bin": {
+    "bytes": 21856,
+    "sha256": "978833821e507aea5b29f8dab6c9b65c124c132ce14d524307d59d367aa17eb3"
+  },
+  "README.md": {
+    "bytes": 3740,
+    "sha256": "7b1ca801c8588761344c1f42196e98f439173ddea0eb21335f1661addd7f31a1"
+  },
+  "system29-calibration-after.bin": {
+    "bytes": 2048,
+    "sha256": "727d88bcccbdd8ee1c90ae4138741db10756fde88c695d5d9a4ef2f411aa4911"
+  },
+  "system29-calibration-before.bin": {
+    "bytes": 2048,
+    "sha256": "727d88bcccbdd8ee1c90ae4138741db10756fde88c695d5d9a4ef2f411aa4911"
+  },
+  "system29-calibration-final.bin": {
+    "bytes": 2048,
+    "sha256": "727d88bcccbdd8ee1c90ae4138741db10756fde88c695d5d9a4ef2f411aa4911"
+  },
+  "uart_v29_test_logs.zip": {
+    "bytes": 40465,
+    "sha256": "3eba1a091c74591ed984a227c41c0d138fb7484c15bcc2f6138f20cb479f43b2"
+  }
+}

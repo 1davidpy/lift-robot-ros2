@@ -1,0 +1,83 @@
+{
+  "name": "stm32-project-tools",
+  "displayName": "STM32 Project Tools",
+  "description": "Build CMake preset variants and flash STM32 firmware from the Explorer context menu.",
+  "version": "0.1.2",
+  "publisher": "luxi-embedded",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:stm32ProjectTools.buildProject",
+    "onCommand:stm32ProjectTools.flashProject"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "stm32ProjectTools.buildProject",
+        "title": "STM32: 编译 Debug + Release"
+      },
+      {
+        "command": "stm32ProjectTools.flashProject",
+        "title": "STM32: 选择固件并烧录"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "stm32ProjectTools.buildProject",
+          "when": "explorerResourceIsFolder",
+          "group": "2_workspace@20"
+        },
+        {
+          "command": "stm32ProjectTools.flashProject",
+          "when": "explorerResourceIsFolder",
+          "group": "2_workspace@21"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "STM32 Project Tools",
+      "properties": {
+        "stm32ProjectTools.cmakePath": {
+          "type": "string",
+          "default": "",
+          "description": "CMake executable. Empty means auto-detect from STM32Cube bundles or PATH. Environment variables such as ${env:LOCALAPPDATA} are supported."
+        },
+        "stm32ProjectTools.programmerPath": {
+          "type": "string",
+          "default": "",
+          "description": "STM32_Programmer_CLI executable. Empty means auto-detect from STM32Cube bundles or PATH."
+        },
+        "stm32ProjectTools.projectsDirectory": {
+          "type": "string",
+          "default": "Projects",
+          "description": "Project container directory relative to the workspace root."
+        },
+        "stm32ProjectTools.boardCacheVariable": {
+          "type": "string",
+          "default": "PROJECT_BOARD",
+          "description": "CMake preset cache variable whose value matches the project directory name."
+        },
+        "stm32ProjectTools.interface": {
+          "type": "string",
+          "enum": [
+            "SWD",
+            "JTAG"
+          ],
+          "default": "SWD",
+          "description": "Debug probe interface used by STM32CubeProgrammer."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "test": "node test/core.test.js && node test/extension.test.js",
+    "package": "npx --yes @vscode/vsce package --no-dependencies"
+  }
+}

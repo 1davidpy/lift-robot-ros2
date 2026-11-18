@@ -1,0 +1,311 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "default",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "toolchainFile": "${sourceDir}/cmake/gnu-tools-for-stm32.cmake",
+            "cacheVariables": {
+                "CMAKE_MAKE_PROGRAM": "$env{LOCALAPPDATA}/stm32cube/bundles/ninja/1.13.2+st.1/bin/ninja.exe",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMSIS_Dvendor": "STMicroelectronics:13",
+                "CMSIS_Dname": "STM32F103C8T6",
+                "CMSIS_Dcore": "Cortex-M3",
+                "CMSIS_Dtz": "NO_TZ",
+                "CMSIS_Dfpu": "NO_FPU",
+                "CMSIS_Ddsp": "NO_DSP",
+                "CMSIS_Dmve": "NO_MVE",
+                "CMSIS_Dmpu": "MPU",
+                "CMSIS_Dendian": "Little-endian",
+                "CMSIS_Dsecure": "",
+                "CMSIS_Tcompiler": "GCC"
+            }
+        },
+        {
+            "name": "f103c8-chip-debug",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "PROJECT_BOARD": "F103C8T6_Chip"
+            }
+        },
+        {
+            "name": "f103c8-chip-release",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "PROJECT_BOARD": "F103C8T6_Chip"
+            }
+        },
+        {
+            "name": "lifting-platform-servo-debug",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "PROJECT_BOARD": "lifting_platform_servo",
+                "ENABLE_CAN": "OFF",
+                "ENABLE_KEYS": "ON",
+                "ENABLE_ISL60PR": "ON",
+                "ENABLE_POSITION_SENSORS": "ON",
+                "ENABLE_BRAKE_RELAY": "ON",
+                "ENABLE_DEBUG_UART": "ON"
+            }
+        },
+        {
+            "name": "lifting-platform-servo-release",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "PROJECT_BOARD": "lifting_platform_servo",
+                "ENABLE_CAN": "OFF",
+                "ENABLE_KEYS": "ON",
+                "ENABLE_ISL60PR": "ON",
+                "ENABLE_POSITION_SENSORS": "ON",
+                "ENABLE_BRAKE_RELAY": "ON",
+                "ENABLE_DEBUG_UART": "ON"
+            }
+        },
+        {
+            "name": "excavator-conctrler-debug",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "PROJECT_BOARD": "excavator_conctrler",
+                "ENABLE_ST7789_DISPLAY": "ON",
+                "ENABLE_ANALOG_INPUTS": "ON",
+                "ENABLE_NRF24L01": "ON",
+                "ENABLE_KEYS": "ON"
+            }
+        },
+        {
+            "name": "excavator-conctrler-release",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "PROJECT_BOARD": "excavator_conctrler",
+                "ENABLE_ST7789_DISPLAY": "ON",
+                "ENABLE_ANALOG_INPUTS": "ON",
+                "ENABLE_NRF24L01": "ON",
+                "ENABLE_KEYS": "ON"
+            }
+        },
+        {
+            "name": "excavator-conctrler-servo-debug",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "PROJECT_BOARD": "excavator_conctrler_servo",
+                "ENABLE_ST7789_DISPLAY": "ON",
+                "ENABLE_ANALOG_INPUTS": "ON",
+                "ENABLE_NRF24L01": "ON",
+                "ENABLE_KEYS": "ON"
+            }
+        },
+        {
+            "name": "excavator-conctrler-servo-release",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "PROJECT_BOARD": "excavator_conctrler_servo",
+                "ENABLE_ST7789_DISPLAY": "ON",
+                "ENABLE_ANALOG_INPUTS": "ON",
+                "ENABLE_NRF24L01": "ON",
+                "ENABLE_KEYS": "ON"
+            }
+        },
+        {
+            "name": "excavator-controlled-debug",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "PROJECT_BOARD": "excavator_controlled",
+                "ENABLE_FEETECH_STS3215": "ON",
+                "ENABLE_DEBUG_UART": "ON",
+                "ENABLE_CAN": "ON",
+                "ENABLE_PD42S1": "ON",
+                "ENABLE_NRF24L01": "ON"
+            }
+        },
+        {
+            "name": "excavator-controlled-release",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "PROJECT_BOARD": "excavator_controlled",
+                "ENABLE_FEETECH_STS3215": "ON",
+                "ENABLE_DEBUG_UART": "ON",
+                "ENABLE_CAN": "ON",
+                "ENABLE_PD42S1": "ON",
+                "ENABLE_NRF24L01": "ON"
+            }
+        },
+        {
+            "name": "excavator-controlled-servo-debug",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "PROJECT_BOARD": "excavator_controlled_servo",
+                "ENABLE_FEETECH_STS3215": "ON",
+                "ENABLE_DEBUG_UART": "ON",
+                "ENABLE_NRF24L01": "ON"
+            }
+        },
+        {
+            "name": "excavator-controlled-servo-release",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "PROJECT_BOARD": "excavator_controlled_servo",
+                "ENABLE_FEETECH_STS3215": "ON",
+                "ENABLE_DEBUG_UART": "ON",
+                "ENABLE_NRF24L01": "ON"
+            }
+        },
+        {
+            "name": "uart-test-debug",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "PROJECT_BOARD": "uart_test",
+                "ENABLE_DEBUG_UART": "ON"
+            }
+        },
+        {
+            "name": "uart-test-release",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "PROJECT_BOARD": "uart_test",
+                "ENABLE_DEBUG_UART": "ON"
+            }
+        },
+        {
+            "name": "luxi-atlas-pwm-debug",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "PROJECT_BOARD": "luxi_atlas_pwm"
+            }
+        },
+        {
+            "name": "luxi-atlas-pwm-release",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "PROJECT_BOARD": "luxi_atlas_pwm"
+            }
+        },
+        {
+            "name": "lucid-atlas-sync-debug",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "PROJECT_BOARD": "lucid_atlas_sync"
+            }
+        },
+        {
+            "name": "lucid-atlas-sync-release",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "PROJECT_BOARD": "lucid_atlas_sync"
+            }
+        },
+        {
+            "name": "Debug",
+            "hidden": true,
+            "inherits": "f103c8-chip-debug"
+        },
+        {
+            "name": "Release",
+            "hidden": true,
+            "inherits": "f103c8-chip-release"
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "f103c8-chip-debug",
+            "configurePreset": "f103c8-chip-debug"
+        },
+        {
+            "name": "f103c8-chip-release",
+            "configurePreset": "f103c8-chip-release"
+        },
+        {
+            "name": "lifting-platform-servo-debug",
+            "configurePreset": "lifting-platform-servo-debug"
+        },
+        {
+            "name": "lifting-platform-servo-release",
+            "configurePreset": "lifting-platform-servo-release"
+        },
+        {
+            "name": "excavator-conctrler-debug",
+            "configurePreset": "excavator-conctrler-debug"
+        },
+        {
+            "name": "excavator-conctrler-release",
+            "configurePreset": "excavator-conctrler-release"
+        },
+        {
+            "name": "excavator-conctrler-servo-debug",
+            "configurePreset": "excavator-conctrler-servo-debug"
+        },
+        {
+            "name": "excavator-conctrler-servo-release",
+            "configurePreset": "excavator-conctrler-servo-release"
+        },
+        {
+            "name": "excavator-controlled-debug",
+            "configurePreset": "excavator-controlled-debug"
+        },
+        {
+            "name": "excavator-controlled-release",
+            "configurePreset": "excavator-controlled-release"
+        },
+        {
+            "name": "excavator-controlled-servo-debug",
+            "configurePreset": "excavator-controlled-servo-debug"
+        },
+        {
+            "name": "excavator-controlled-servo-release",
+            "configurePreset": "excavator-controlled-servo-release"
+        },
+        {
+            "name": "uart-test-debug",
+            "configurePreset": "uart-test-debug"
+        },
+        {
+            "name": "uart-test-release",
+            "configurePreset": "uart-test-release"
+        },
+        {
+            "name": "luxi-atlas-pwm-debug",
+            "configurePreset": "luxi-atlas-pwm-debug"
+        },
+        {
+            "name": "luxi-atlas-pwm-release",
+            "configurePreset": "luxi-atlas-pwm-release"
+        },
+        {
+            "name": "lucid-atlas-sync-debug",
+            "configurePreset": "lucid-atlas-sync-debug"
+        },
+        {
+            "name": "lucid-atlas-sync-release",
+            "configurePreset": "lucid-atlas-sync-release"
+        },
+        {
+            "name": "Debug",
+            "hidden": true,
+            "configurePreset": "Debug"
+        },
+        {
+            "name": "Release",
+            "hidden": true,
+            "configurePreset": "Release"
+        }
+    ]
+}

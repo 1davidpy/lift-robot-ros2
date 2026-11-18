@@ -1,0 +1,30 @@
+#ifndef BSP_PIN_H
+#define BSP_PIN_H
+
+#include "stm32f10x.h"
+
+#define BSP_PWM_10HZ_TIMER                 TIM2
+#define BSP_PWM_10HZ_GPIO                  GPIOA
+#define BSP_PWM_10HZ_GPIO_MODE_MASK        (GPIO_CRL_MODE1 | GPIO_CRL_CNF1)
+#define BSP_PWM_10HZ_GPIO_AF_CONFIG        (GPIO_CRL_MODE1 | GPIO_CRL_CNF1_1)
+
+#define BSP_PWM_1HZ_TIMER                  TIM3
+#define BSP_PWM_1HZ_GPIO                   GPIOB
+#define BSP_PWM_1HZ_GPIO_MODE_MASK         (GPIO_CRL_MODE5 | GPIO_CRL_CNF5)
+#define BSP_PWM_1HZ_GPIO_AF_CONFIG         (GPIO_CRL_MODE5 | GPIO_CRL_CNF5_1)
+#define BSP_PWM_1HZ_TIMER_REMAP            AFIO_MAPR_TIM3_REMAP_PARTIALREMAP
+
+#define BSP_GPS_USART                      USART1
+#define BSP_GPS_TX_GPIO                    GPIOA
+#define BSP_GPS_TX_GPIO_MODE_MASK          (GPIO_CRH_MODE9 | GPIO_CRH_CNF9)
+#define BSP_GPS_TX_GPIO_AF_CONFIG          (GPIO_CRH_MODE9 | GPIO_CRH_CNF9_1)
+#define BSP_GPS_RX_GPIO                    GPIOA
+#define BSP_GPS_RX_GPIO_MODE_MASK          (GPIO_CRH_MODE10 | GPIO_CRH_CNF10)
+#define BSP_GPS_RX_GPIO_INPUT_CONFIG       GPIO_CRH_CNF10_0
+
+#define BSP_HEARTBEAT_GPIO                 GPIOC
+#define BSP_HEARTBEAT_GPIO_MODE_MASK       (GPIO_CRH_MODE13 | GPIO_CRH_CNF13)
+#define BSP_HEARTBEAT_GPIO_OUTPUT_CONFIG   (GPIO_CRH_MODE13_1 | GPIO_CRH_CNF13_0)
+
+#endif
+

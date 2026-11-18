@@ -1,0 +1,14 @@
+build-*/
+dist/
+/QtCenters.exe
+/*.dll
+/config/
+/generic/
+/iconengines/
+/imageformats/
+/networkinformation/
+/platforms/
+/styles/
+/tls/
+/translations/
+

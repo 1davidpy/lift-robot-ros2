@@ -1,0 +1,22 @@
+{
+  "calibration_after.bin": {
+    "size": 2048,
+    "sha256": "727d88bcccbdd8ee1c90ae4138741db10756fde88c695d5d9a4ef2f411aa4911"
+  },
+  "calibration_before.bin": {
+    "size": 2048,
+    "sha256": "727d88bcccbdd8ee1c90ae4138741db10756fde88c695d5d9a4ef2f411aa4911"
+  },
+  "flash_and_led_test.zip": {
+    "size": 13579,
+    "sha256": "a8e49ea2e4506ada12676e4c2428301f8c975d23171f914ea01bf616035770ee"
+  },
+  "lifting_platform_servo_v31.bin": {
+    "size": 22264,
+    "sha256": "4273f995e2849a4da34846c7d241c0053ba78ba938dacef482bd8ca724697e90"
+  },
+  "README.md": {
+    "size": 1760,
+    "sha256": "47962f1be3a594f8a8a5f643d24613020f9cc2562ef98b285548e4b4b84e5d84"
+  }
+}

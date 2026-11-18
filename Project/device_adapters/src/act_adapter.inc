@@ -17,6 +17,20 @@
     const auto& value = j.at(key);
     return value.is_string() ? std::stoll(value.get<std::string>()) : value.get<int64_t>();
   }
+  luxi::Json act_feedback_diagnostics(int64_t now) const {
+    luxi::Json result{{"checked_mono_ns",std::to_string(now)},
+      {"lift_callback_age_ms",act_lift_received_ ? (now-act_lift_received_)/1e6 : -1.},
+      {"lift_status_callback_age_ms",act_lift_status_received_ ? (now-act_lift_status_received_)/1e6 : -1.},
+      {"environment_rejection",act_environment_rejection(now,false,false,true)}};
+    if(act_lift_.is_object()) {
+      result["lift_sample"]=act_lift_;
+      try {result["lift_source_age_ms"]=(now-act_stamp(act_lift_,"receive_first_mono_ns"))/1e6;
+        result["lift_effective_age_ms"]=act_lift_.at("feedback_age_ms").get<double>()+
+          std::max<int64_t>(0,now-act_stamp(act_lift_,"receive_first_mono_ns"))/1e6;
+      } catch(...) {result["malformed"]=true;}
+    }
+    return result;
+  }
   std::string act_environment_rejection(int64_t now, bool require_height = true,
                                         bool allow_lift_motion = false, bool measurement = false) const {
     try {

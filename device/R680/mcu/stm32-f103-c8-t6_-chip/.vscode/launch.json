@@ -1,0 +1,115 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "STM32: F103C8T6_Chip (ST-LINK)",
+            "type": "stlinkgdbtarget",
+            "request": "launch",
+            "origin": "workspace",
+            "cwd": "${workspaceFolder}",
+            "preBuild": "",
+            "preLaunchTask": "build: F103C8T6_Chip (Debug)",
+            "program": "${workspaceFolder}/build/f103c8-chip-debug/F103C8T6_Chip.elf",
+            "deviceName": "STM32F103C8T6",
+            "deviceCore": "Cortex-M3",
+            "runEntry": "main",
+            "serverInterface": "SWD",
+            "serverInterfaceFrequency": "Auto",
+            "serverVerify": true,
+            "imagesAndSymbols": [
+                {
+                    "imageFileName": "${workspaceFolder}/build/f103c8-chip-debug/F103C8T6_Chip.elf",
+                    "symbolFileName": "${workspaceFolder}/build/f103c8-chip-debug/F103C8T6_Chip.elf"
+                }
+            ],
+            "serverRtos": {
+                "enabled": true,
+                "driver": "freertos",
+                "driverPort": "ARM_CM3",
+                "port": "60000"
+            }
+        },
+        {
+            "name": "STM32: excavator_conctrler (ST-LINK)",
+            "type": "stlinkgdbtarget",
+            "request": "launch",
+            "origin": "workspace",
+            "cwd": "${workspaceFolder}",
+            "preBuild": "",
+            "preLaunchTask": "build: excavator_conctrler (Debug)",
+            "program": "${workspaceFolder}/build/excavator-conctrler-debug/excavator_conctrler.elf",
+            "deviceName": "STM32F103C8T6",
+            "deviceCore": "Cortex-M3",
+            "runEntry": "main",
+            "serverInterface": "SWD",
+            "serverInterfaceFrequency": "Auto",
+            "serverVerify": true,
+            "imagesAndSymbols": [
+                {
+                    "imageFileName": "${workspaceFolder}/build/excavator-conctrler-debug/excavator_conctrler.elf",
+                    "symbolFileName": "${workspaceFolder}/build/excavator-conctrler-debug/excavator_conctrler.elf"
+                }
+            ],
+            "serverRtos": {
+                "enabled": true,
+                "driver": "freertos",
+                "driverPort": "ARM_CM3",
+                "port": "60000"
+            }
+        },
+        {
+            "name": "STM32: luxi_atlas_pwm (ST-LINK)",
+            "type": "stlinkgdbtarget",
+            "request": "launch",
+            "origin": "workspace",
+            "cwd": "${workspaceFolder}",
+            "preBuild": "",
+            "preLaunchTask": "build: luxi_atlas_pwm (Debug)",
+            "program": "${workspaceFolder}/build/luxi-atlas-pwm-debug/luxi_atlas_pwm.elf",
+            "deviceName": "STM32F103C8T6",
+            "deviceCore": "Cortex-M3",
+            "runEntry": "main",
+            "serverInterface": "SWD",
+            "serverInterfaceFrequency": "Auto",
+            "serverVerify": true,
+            "imagesAndSymbols": [
+                {
+                    "imageFileName": "${workspaceFolder}/build/luxi-atlas-pwm-debug/luxi_atlas_pwm.elf",
+                    "symbolFileName": "${workspaceFolder}/build/luxi-atlas-pwm-debug/luxi_atlas_pwm.elf"
+                }
+            ],
+            "serverRtos": {
+                "enabled": false,
+                "port": "60000"
+            }
+        },
+        {
+            "name": "STM32: lifting_platform_servo (ST-LINK)",
+            "type": "stlinkgdbtarget",
+            "request": "launch",
+            "origin": "workspace",
+            "cwd": "${workspaceFolder}",
+            "preBuild": "",
+            "preLaunchTask": "build: lifting_platform_servo (Debug)",
+            "program": "${workspaceFolder}/build/lifting-platform-servo-debug/lifting_platform_servo.elf",
+            "deviceName": "STM32F103C8T6",
+            "deviceCore": "Cortex-M3",
+            "runEntry": "main",
+            "serverInterface": "SWD",
+            "serverInterfaceFrequency": "Auto",
+            "serverVerify": true,
+            "imagesAndSymbols": [
+                {
+                    "imageFileName": "${workspaceFolder}/build/lifting-platform-servo-debug/lifting_platform_servo.elf",
+                    "symbolFileName": "${workspaceFolder}/build/lifting-platform-servo-debug/lifting_platform_servo.elf"
+                }
+            ],
+            "serverRtos": {
+                "enabled": true,
+                "driver": "freertos",
+                "driverPort": "ARM_CM3",
+                "port": "60000"
+            }
+        }
+    ]
+}

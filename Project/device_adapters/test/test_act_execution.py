@@ -90,6 +90,10 @@ def main():
         try:
             h.startup_ready();h.pump(.1)
             assert not h.state.enabled and h.act["stage"]=="idle"
+            diagnostics=h.act["feedback_diagnostics"]
+            assert diagnostics["environment_rejection"]=="",diagnostics
+            assert 0<=diagnostics["lift_source_age_ms"]<300,diagnostics
+            assert 0<=diagnostics["lift_effective_age_ms"]<250,diagnostics
             h.session=uuid.uuid4().hex;h.lift_um=0;h.pump(.1)
             h.lease=True;h.call("act_prepare")
             h.until(lambda:h.act.get("stage")=="ready",15)

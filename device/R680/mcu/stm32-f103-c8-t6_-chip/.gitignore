@@ -1,0 +1,4 @@
+build
+!.settings
+__pycache__/
+*.py[cod]
