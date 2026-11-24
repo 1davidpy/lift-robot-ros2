@@ -104,6 +104,9 @@
 <div class="eyebrow">ROBOT CONTROL</div><h2>遥操作控制</h2>
 <div class="device-actions" data-device="program"><small class="service-state">读取服务状态…</small><div class="button-row"><button data-service-action="toggle" disabled>开启采集</button><button data-service-action="restart" disabled>重启 / 重连</button></div></div>
 <p class="hint">先开启设备采集，再开启控制与录制程序。启动程序不会使能电机。</p>
+<p>将双爪摆平，使开合方向垂直于箱沿，然后锁定。底盘转向或箱沿改变后需重新对准。</p>
+<div class="button-row"><button data-kind="edge_lock" data-command="lock" disabled>锁定双爪朝向</button><button data-kind="edge_lock" data-command="unlock" disabled>恢复手柄转向</button></div>
+<p class="hint" id="edge-lock-status" aria-live="polite">获取朝向状态中</p>
 <p id="shared-control-status" class="hint">等待读取当前控制模式。</p>
 <div class="steps"><span>01 检查连接</span><span>02 使能对齐</span><span>03 开始采集</span></div>
 <div class="button-row"><button data-kind="control" data-command="start" class="primary" disabled>启用全部遥操作</button><button data-kind="control" data-command="stop" disabled>双臂归位并失能 / 底盘升降停车</button></div>

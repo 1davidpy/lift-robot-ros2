@@ -16,6 +16,7 @@
 #include <deque>
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <std_msgs/msg/string.hpp>
+#include <std_msgs/msg/bool.hpp>
 #include <thread>
 #include <set>
 #include <cstdio>
@@ -46,6 +47,9 @@ class Server : public rclcpp::Node {
   std::map<std::string, luxi::Json> camera_status_;
   std::vector<rclcpp::SubscriptionBase::SharedPtr> subs_;
   rclcpp::Client<luxi::Service>::SharedPtr arm_client_, record_client_, base_client_, lift_client_;
+
+  rclcpp::Client<luxi::Service>::SharedPtr edge_client_;
+  bool edge_locked_ = false;
 
   // Called with mutex_ held. Reopening only the idle UART service is independent
   // of an already stopped ACT session retaining OpenArm torque.
@@ -128,6 +132,13 @@ class Server : public rclcpp::Node {
             startup_ = j; startup_time_ = luxi::mono();
           }
         });
+    edge_client_ = create_client<luxi::Service>("/luxi/edge_lock");
+    subs_.push_back(create_subscription<std_msgs::msg::Bool>(
+        "/luxi/edge_lock/status", rclcpp::QoS(1).transient_local(),
+        [this](std_msgs::msg::Bool::ConstSharedPtr msg) {
+          std::lock_guard<std::mutex> lock(mutex_);
+          edge_locked_ = msg->data;
+        }));
     arm_client_ = create_client<luxi::Service>("/luxi/control");
     record_client_ = create_client<luxi::Service>("/luxi/episode");
     base_client_ = create_client<luxi::Service>("/luxi/base/control");
@@ -483,7 +494,7 @@ class Server : public rclcpp::Node {
       std::error_code ec;
       auto disk = luxi::fs::space(root_, ec);
       res.set_content(luxi::Json{
-        {"arm_startup", startup}, {"arms", arms}, {"base", base}, {"base_status", base_status}, {"control", control}, {"recorder", recorder},
+        {"edge_locked", edge_locked_}, {"arm_startup", startup}, {"arms", arms}, {"base", base}, {"base_status", base_status}, {"control", control}, {"recorder", recorder},
         {"lift", lift}, {"lift_status", lift_status},
         {"quest", {{"fresh", luxi::fresh(quest_.receive_mono_ns, now, 200000000)}, {"rate_hz", rate},
           {"receive_mono_ns", std::to_string(quest_.receive_mono_ns)},
@@ -494,7 +505,7 @@ class Server : public rclcpp::Node {
           {"control_authorized", !read_only},
           {"device_management_mode", !read_only ? "full" : allow_device_reconnect ? "reconnect" : "read_only"},
           {"lift_reconnect_during_arm_hold", lift_reconnect_during_arm_hold(now)},
-          {"services", {{"arm_startup", startup_client_->service_is_ready()}, {"control", arm_client_->service_is_ready()}, {"base", base_client_->service_is_ready()}, {"lift", lift_client_->service_is_ready()}, {"episode", record_client_->service_is_ready()}}}}},
+          {"services", {{"edge_lock", edge_client_->service_is_ready()}, {"arm_startup", startup_client_->service_is_ready()}, {"control", arm_client_->service_is_ready()}, {"base", base_client_->service_is_ready()}, {"lift", lift_client_->service_is_ready()}, {"episode", record_client_->service_is_ready()}}}}},
         {"receiver", receiver_->status()}, {"ram_staging", ram_staging},
         {"server_mono_ns", std::to_string(now)}}.dump(), "application/json");
       res.set_header("Cache-Control", "no-store");
@@ -577,7 +588,7 @@ class Server : public rclcpp::Node {
                                  return true;
                                });
     });
-    http_.Post("/api/(control|episode|base|keyboard|lift|arm_startup)", [this](const auto& req, auto& res) {
+    http_.Post("/api/(control|episode|base|keyboard|lift|arm_startup|edge_lock)", [this](const auto& req, auto& res) {
       const bool keyboard = req.matches[1] == "keyboard";
       auto j = luxi::Json::parse(req.body, nullptr, false);
       if (j.is_discarded() || !j.is_object() || !j.contains("command") ||
@@ -599,13 +610,13 @@ class Server : public rclcpp::Node {
             (command == "stop" || command == "disable" || command == "joint_stop" || command == "pose_cancel" || command == "position_stop");
         if (source != "legacy" && !select && !stop && kind != "episode" &&
             (!luxi::fresh(control_time_, luxi::mono(), 500000000) ||
-             (kind == "control" ? source != "teleop" : source != "console"))) {
+             ((kind == "control" || kind == "edge_lock") ? source != "teleop" : source != "console"))) {
           res.status = 409;
           res.set_content(luxi::Json{{"success", false}, {"message", "请先显式切换控制权限"}}.dump(), "application/json");
           return;
         }
       }
-      auto client = req.matches[1] == "arm_startup" ? startup_client_ : req.matches[1] == "lift" ? lift_client_ : req.matches[1] == "control" ? arm_client_ : (req.matches[1] == "base" || keyboard) ? base_client_ : record_client_;
+      auto client = req.matches[1] == "edge_lock" ? edge_client_ : req.matches[1] == "arm_startup" ? startup_client_ : req.matches[1] == "lift" ? lift_client_ : req.matches[1] == "control" ? arm_client_ : (req.matches[1] == "base" || keyboard) ? base_client_ : record_client_;
       if (!client->service_is_ready()) {
         res.status = 503;
         return;

@@ -84,6 +84,8 @@ function liftAllowsTeleop(s) {
 function buttons() {
   controlSourceUI();
   const s = state, services = s?.system?.services || {};
+  text('edge-lock-status', connected && services.edge_lock
+    ? (s.edge_locked ? '朝向已锁定，可平移和开合' : '朝向跟随手柄') : '锁定服务未连接');
   const poseEditing = ['editing','preparing','moving'].includes(s?.arm_startup?.manual_pose?.phase);
   keyboardUI();
   liftPositionUI();
@@ -93,6 +95,12 @@ function buttons() {
     if (s?.system?.control_authorized === false) { b.disabled = true; return; }
     const kind = b.dataset.kind, cmd = b.dataset.command;
     let allow = connected && services[kind] && !busy;
+    if (kind === 'edge_lock') {
+      b.disabled = !(allow && s.control?.fresh && s.control.control_source === 'teleop' &&
+        s.control.phase === 'teleop' && s.arms?.fresh && s.arms.enabled &&
+        (cmd === 'unlock' ? s.edge_locked : !s.edge_locked));
+      return;
+    }
     const sourceReason = consoleSourceReason();
     if (kind === 'arm_startup' && ['start','pose_enter','pose_hold'].includes(cmd) && sourceReason) {
       b.disabled = true; return;
