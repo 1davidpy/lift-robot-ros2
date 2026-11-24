@@ -27,6 +27,7 @@ async function request(path, options = {}) {
 
 let sourceSwitchBusy = false, sourceSwitchError = '';
 function consoleSourceReason() {
+  if (state?.system?.control_authorized === false) return '运动控制请使用板端控制台';
   const c = state?.control;
   if (!c || c.control_source === 'legacy' || !c.control_source) return '';
   return !c.fresh ? '控制权限状态已过期' : c.control_source !== 'console' ? '请先切换为控制台控制' : '';
@@ -44,14 +45,15 @@ function teleopStatusMessage() {
 
 function controlSourceUI() {
   if (!$('source-console')) return;
-  const c = state?.control, ready = connected && state?.system?.services?.control && c?.fresh && ['console','teleop'].includes(c.control_source);
+  const readOnly = state?.system?.control_authorized === false;
+  const c = state?.control, ready = !readOnly && connected && state?.system?.services?.control && c?.fresh && ['console','teleop'].includes(c.control_source);
   const consoleSelected = ready && c.control_source === 'console';
   const teleopSelected = ready && c.control_source === 'teleop';
   $('source-console').disabled = !ready || sourceSwitchBusy || consoleSelected;
   $('source-teleop').disabled = !ready || sourceSwitchBusy || teleopSelected;
   $('source-console').setAttribute('aria-pressed', String(consoleSelected));
   $('source-teleop').setAttribute('aria-pressed', String(teleopSelected));
-  text('control-source-status', sourceSwitchError || (!ready ? '等待权限协调服务；可在设备采集中开启遥操作程序。' :
+  text('control-source-status', sourceSwitchError || (readOnly ? '此网关提供状态查看，运动控制请使用板端控制台。' : !ready ? '等待权限协调服务；可在设备采集中开启遥操作程序。' :
     consoleSelected ? '控制台持有权限：可操作关节、底盘和升降。遥操连接、追踪和普通输入不会接管。' :
     teleopStatusMessage()));
 }
@@ -88,6 +90,7 @@ function buttons() {
   manualPoseUI();
   if (typeof jointControlUI === 'function') jointControlUI();
   document.querySelectorAll('[data-command]').forEach(b => {
+    if (s?.system?.control_authorized === false) { b.disabled = true; return; }
     const kind = b.dataset.kind, cmd = b.dataset.command;
     let allow = connected && services[kind] && !busy;
     const sourceReason = consoleSourceReason();
@@ -203,12 +206,33 @@ function render(s) {
   text('quest-rate',q.fresh ? q.rate_hz + ' Hz' : '— Hz');
   const tracking = v => ({0:'正常',1:'过期',2:'无效'}[v] || '未知');
   text('quest-detail',q.fresh ? '追踪：左 ' + tracking(q.left_tracking) + ' / 右 ' + tracking(q.right_tracking) : '请打开 Quest 应用并向板端发送 UDP');
-  const armValid = a?.fresh && a.valid?.every(Boolean);
-  const armCount = a?.fresh ? a.valid.filter(Boolean).length : 0;
+  const armCount = a?.fresh ? a.valid?.filter(Boolean).length || 0 : 0;
+  const armValid = armCount === 16;
+  const missingJoints = a?.fresh ? Array.from({length:16}, (_, i) =>
+    a.valid?.[i] ? '' : (i < 8 ? '右 ' : '左 ') + (i % 8 === 7 ? '夹爪' : 'J' + (i % 8 + 1))
+  ).filter(Boolean) : [];
   badge('arms-badge',armValid ? (s.system.mock ? '模拟反馈' : '反馈在线') : armCount ? '部分在线 · ' + armCount + '/16' : '未就绪',armValid ? 'good' : armCount ? 'warn' : 'bad');
   const manualArmPhases = {moving:'关节角度动作执行中',editing:'动作设置 · 手动摆姿',preparing:'动作设置 · 准备保持',holding:startup?.manual_pose?.fault_latched ? '动作保持已暂停' : a?.enabled ? '动作设置 · 姿态保持' : '动作保持待确认'};
   text('arm-phase',!a?.fresh ? '采集节点离线' : a.phase === 'fault' ? '驱动通信异常' : startup?.fresh && manualArmPhases[startup.manual_pose?.phase] ? manualArmPhases[startup.manual_pose.phase] : startup?.fresh && startup.owned ? startupNames[startup.phase] || startup.phase : a?.fresh && a.phase === 'monitor_only' ? '状态采集 · 未使能' : s.control?.fresh && s.control.control_source !== 'console' ? (phases[s.control.phase] || s.control.phase) : a?.fresh ? (a.enabled ? '已使能' : '未使能') : '采集节点离线');
-  text('arms-detail',a?.fresh ? '左臂 ' + a.valid.slice(8,16).filter(Boolean).length + '/8 · 右臂 ' + a.valid.slice(0,8).filter(Boolean).length + '/8 有效反馈' : '没有新鲜关节反馈');
+  const armSummary = a?.fresh ? '左臂 ' + (a.valid?.slice(8,16).filter(Boolean).length || 0) + '/8 · 右臂 ' +
+    (a.valid?.slice(0,8).filter(Boolean).length || 0) + '/8 有效反馈' : '没有新鲜关节反馈';
+  const act = startup?.fresh ? startup.act : null;
+  const actLiftStop = act?.lift_stop_diagnostics ||
+    (['stopped','fault'].includes(act?.stage) && act?.reason?.startsWith('act_lift_') ? {reason:act.reason} : null);
+  const actLiftReasons = {
+    act_lift_telemetry_timeout:'升降完整遥测超时',
+    act_lift_publication_stale:'升降完整遥测超时',
+    act_lift_feedback_unhealthy:'升降反馈异常',
+    act_lift_motor_feedback_stale:'升降电机反馈过龄',
+    act_lift_drive_fault:'升降驱动故障',
+    act_lift_motion_inhibited:'升降运动受保护',
+    act_lift_position_invalid:'升降位置无效',
+    act_lift_not_stationary:'升降未静止',
+    act_lift_height_not_ready:'升降未到 ACT 高度'
+  };
+  const actLiftDetail = actLiftStop ? ' · ACT 已停止 · ' + (actLiftReasons[actLiftStop.reason] || actLiftStop.reason) +
+    (Number.isFinite(actLiftStop.lift_effective_age_ms) ? ' · 停止时电机反馈 ' + Math.round(actLiftStop.lift_effective_age_ms) + ' ms' : '') : '';
+  text('arms-detail',armSummary + (armCount && missingJoints.length ? ' · 待恢复 ' + missingJoints.join('、') : '') + actLiftDetail);
   const jointRows = [];
   for (const [side, offset] of [['左臂',8],['右臂',0]]) {
     for (let j = 0; j < 8; j++) {
@@ -225,25 +249,26 @@ function render(s) {
   if (bs?.fresh) $('base-detail').textContent += ' · ' + (bs.interface || 'CH3') + ' · ' + (bs.receive_only ? '只读诊断，禁止运动' : bs.reason) + ' · 有效包 ' + bs.accepted_groups;
   text('quest-base-hint', bs?.shared_enable ? '底盘随 X 统一启用；Y 已预留，不再独立使能。左摇杆平移，右摇杆左右转向；回中停车。B 停止全部，不执行回位。' : '当前独立模式：Y 切换底盘；左摇杆平移，右摇杆左右转向，回中停车。');
   const ls = s.lift_status, lift = s.lift;
-  // Connection tracks complete CAN telemetry, independently of the stricter
-  // measurement-valid flag used by motion planning and dataset consumers.
-  const liftAgeMs = (Number(s.server_mono_ns) - Number(lift?.receive_first_mono_ns)) / 1e6;
-  const liftConnected = !!(ls?.fresh && Number.isFinite(liftAgeMs) && liftAgeMs >= 0 && liftAgeMs <= 300);
+  // Display the most recent position within the drive's feedback watchdog
+  // window. The stricter position sample validity applies to motion planning.
+  const liftAgeMs = liftTelemetryAgeMs(s);
+  const liftConnected = !!(ls?.fresh && !ls.uart_reconnecting && Number.isFinite(liftAgeMs) && liftAgeMs >= 0 && liftAgeMs <= 300);
   const liftTransport = ls?.transport === 'uart' ? 'UART' : 'CAN';
   text('lift-bus', ls?.transport === 'uart' ? 'USB 串口' : 'CH4');
   text('lift-transport', ls?.transport === 'uart' ? 'UART · 115200 bit/s' : '经典 CAN · 500 kbit/s');
   const liftFault = liftConnected && (!!lift.fault || !!(lift.flags & 128) || (liftTransport === 'CAN' && !!(lift.guard & 4)));
-  const liftLabel = !ls?.fresh ? '服务离线' : !liftConnected ? `无 ${liftTransport} 反馈` :
+  const liftHasPosition = liftConnected && !!(lift.flags & 1) && Number.isFinite(lift.current_um);
+  const motorAgeMs = liftConnected ? Number(lift.feedback_age_ms) + liftAgeMs : NaN;
+  const motorFeedbackHealthy = liftConnected && ls.feedback_healthy && motorAgeMs >= 0 && motorAgeMs <= 500;
+  const liftLabel = !ls?.fresh ? '服务离线' : ls.uart_reconnecting ? 'UART 重连中' : !liftConnected ? `无 ${liftTransport} 反馈` :
     liftFault ? '已连接 · 保护/故障' : (ls.position_invalid_isolation && ls.position_invalid_paused) ? '已连接 · 位置异常，仅暂停升降' : !(lift.flags & 1) ? '已连接 · 等待电机/位置参考' :
     ls.health === 'locked_startup_preparation' ? '已连接 · 锁闸启动准备' :
-    !ls.feedback_healthy ? '已连接 · 电机反馈过期' : `已连接 · ${liftTransport}`;
-  badge('lift-badge', liftLabel, liftFault ? 'bad' : liftConnected && ls.feedback_healthy ? 'good' : 'warn');
-  const liftHasPosition = liftConnected && !!(lift.flags & 1) && Number.isFinite(lift.current_um);
+    !motorFeedbackHealthy ? '已连接 · 电机反馈过期' : `已连接 · ${liftTransport}`;
+  badge('lift-badge', liftLabel, liftFault ? 'bad' : motorFeedbackHealthy && liftHasPosition && !ls.position_invalid_paused ? 'good' : 'warn');
   text('lift-height', liftHasPosition ? (lift.current_um / 1000).toFixed(3) + ' mm' : '— mm');
-  const motorAgeMs = liftConnected ? Number(lift.feedback_age_ms) + liftAgeMs : NaN;
-  const liftMeasurement = !liftHasPosition ? '位置无效' : liftFault ? '最近位置读数，保护/故障中' : lift.valid ? '位置样本有效' : '位置样本过期，显示最近读数';
+  const liftMeasurement = liftHasPosition ? '最近位置读数' : '位置无效';
   text('lift-detail', ls?.fresh ? (ls.enabled ? '已启用' : '未使能') + ' · ' + ls.phase + ' · ' + ls.reason +
-    (liftConnected ? ' · ' + liftMeasurement + ' · 电机反馈年龄 ' + Math.round(motorAgeMs) + ' ms · ' + lift.speed_rpm + ' rpm · 抱闸输出' + ((lift.flags & 4) ? '释放' : '锁定') : ` · 等待完整 ${liftTransport} 遥测`) : '检查升降服务、配置接口及设备供电');
+    (liftConnected ? ' · ' + liftMeasurement + ' · 电机反馈年龄 ' + Math.round(motorAgeMs) + ' ms · ' + lift.speed_rpm + ' rpm · 抱闸输出' + ((lift.flags & 4) ? '释放' : '锁定') : ls.uart_reconnecting ? ' · 正在重新打开串口并确认新帧' : ` · 等待完整 ${liftTransport} 遥测`) : '检查升降服务、配置接口及设备供电');
   const count = Object.values(s.cameras).filter(c => c.fresh).length;
   badge('camera-badge',s.system.no_cameras ? '已关闭' : count === 3 ? '全部在线' : count ? '部分在线' : '等待图像',count ? 'good' : 'warn');
   text('camera-count',count + ' / 3 在线');
@@ -455,39 +480,184 @@ $('keyboard-stop').addEventListener('click', async () => {
   catch(e) { keyboardError = '停车请求未确认：' + e.message; buttons(); log(keyboardError); }
 });
 
-// Service state and sensor freshness are deliberately displayed independently.
-let deviceStates = {}, deviceBusy = false;
+// Service state and sensor freshness are displayed independently.
+let deviceStates = {}, deviceCan = {}, deviceStatusRequest = 0;
+const deviceBusy = new Set(), deviceResults = {};
+function deviceManagementMode() {
+  return state?.system?.device_management_mode ??
+    (state?.system?.control_authorized === false ? 'read_only' : 'full');
+}
+function deviceInterlock(id, action) {
+  const startup = state?.arm_startup;
+  if (id === 'arms' && ['homing','ready','running'].includes(startup?.act?.stage)) return '请先结束 ACT 会话';
+  if (id === 'arms' && ['editing','preparing','holding','moving'].includes(startup?.manual_pose?.phase)) return '请先退出双臂动作设置';
+  const independentLiftRestart = id === 'lift' && action === 'restart' &&
+    state?.system?.lift_reconnect_during_arm_hold === true;
+  if ((state?.arms?.enabled && (id === 'arms' || state.arms.fresh) && !independentLiftRestart) ||
+      (state?.base_status?.fresh && state.base_status.enabled) ||
+      (state?.lift_status?.fresh && state.lift_status.enabled)) return '请先撤销电机使能';
+  if (state?.recorder?.fresh && state.recorder.state === 'recording') return '请先结束录制';
+  return '';
+}
+function deviceButtonReason(id, d, action) {
+  if (!connected) return '等待网页连接';
+  const mode = deviceManagementMode();
+  if (mode === 'read_only') return '请在板端控制台管理采集服务';
+  if (mode === 'reconnect' && action === 'toggle') return '此网关仅开放采集重连';
+  if (deviceBusy.has(id)) return '此设备正在处理请求';
+  if (d?.LoadState !== 'loaded') return '采集服务未就绪';
+  if (d.ActiveState === 'deactivating') return '采集服务正在停止';
+  return deviceInterlock(id, action);
+}
+function deviceRunning(d) {
+  return ['active', 'activating', 'reloading'].includes(d?.ActiveState);
+}
 function deviceButtons() {
   document.querySelectorAll('[data-device]').forEach(box => {
-    const id = box.dataset.device, d = deviceStates[id];
-    const running = d && ['active', 'activating', 'reloading'].includes(d.ActiveState);
-    const poseProtected = id === 'arms' && ['editing','preparing','holding','moving'].includes(state?.arm_startup?.manual_pose?.phase);
+    const id = box.dataset.device, d = deviceStates[id], result = deviceResults[id];
+    const reason = deviceInterlock(id, 'restart');
+    const busOff = id === 'arms' && (deviceCan.luxi_left === 'BUS-OFF' ? '左臂 CH1 BUS-OFF' :
+      deviceCan.luxi_right === 'BUS-OFF' ? '右臂 CH2 BUS-OFF' : '');
     const labels = {active:'服务运行中', activating:'正在启动 / 自动重试', deactivating:'正在停止', inactive:'已关闭', failed:'启动失败，可重试'};
-    box.querySelector('.service-state').textContent = (d ? (d.LoadState === 'not-found' ? '服务未安装' : labels[d.ActiveState] || d.ActiveState) : '服务状态不可用') + (poseProtected ? ' · 动作设置中，服务开关与重启已暂停' : '');
+    const serviceLabel = d ? (d.LoadState === 'not-found' ? '服务未安装' : labels[d.ActiveState] || d.ActiveState) : '服务状态不可用';
+    box.querySelector('.service-state').textContent = serviceLabel +
+      (busOff ? ' · ' + busOff : '') + (reason ? ' · ' + reason : '') +
+      (connected && deviceManagementMode() === 'read_only' ? ' · 网关只读' : '') +
+      (result?.until > Date.now() ? ' · ' + result.message : '');
     box.querySelectorAll('button').forEach(b => {
-      b.disabled = deviceBusy || !connected || !d || d.LoadState !== 'loaded' || d.ActiveState === 'deactivating' || poseProtected;
-      b.title = poseProtected ? '重启或关闭服务会影响电机转矩。请先退出动作设置或由正常控制接管。' : '';
-      if (b.dataset.serviceAction === 'toggle') {
-        b.textContent = (running ? '关闭' : '开启') + (id === 'program' ? '控制与录制程序' : '采集');
-        b.setAttribute('role', 'switch'); b.setAttribute('aria-checked', String(!!running));
+      const action = b.dataset.serviceAction;
+      b.title = deviceButtonReason(id, d, action);
+      b.disabled = Boolean(b.title);
+      if (action === 'toggle') {
+        b.hidden = deviceManagementMode() === 'reconnect';
+        b.textContent = (deviceRunning(d) ? '关闭' : '开启') + (id === 'program' ? '控制与录制程序' : '采集');
+        b.setAttribute('role', 'switch'); b.setAttribute('aria-checked', String(deviceRunning(d)));
       }
     });
   });
 }
 async function pollDevices() {
-  try { deviceStates = (await request('/api/devices')).devices || {}; }
-  catch { deviceStates = {}; }
+  const requestId = ++deviceStatusRequest;
+  let status;
+  try { status = await request('/api/devices'); } catch {}
+  const devices = status?.devices || {};
+  if (requestId === deviceStatusRequest) {
+    deviceStates = devices;
+    deviceCan = status?.can || {};
+    deviceButtons();
+  }
+  return devices;
+}
+function liftTelemetryAgeMs(s) {
+  return (Number(s.server_mono_ns) - Number(s.lift?.receive_first_mono_ns)) / 1e6;
+}
+function deviceFeedback(id, s) {
+  const now = Number(s?.server_mono_ns);
+  if (id === 'arms') {
+    const a = s?.arms;
+    const valid = a?.fresh ? a.valid || [] : [];
+    const left = valid.slice(8, 16).filter(Boolean).length;
+    const right = valid.slice(0, 8).filter(Boolean).length;
+    const missing = [left < 8 ? '左臂 CH1' : '', right < 8 ? '右臂 CH2' : ''].filter(Boolean);
+    return {stamp:Number(a?.receive_mono_ns), ready:left + right === 16 && a.phase !== 'fault',
+      detail:missing.length ? `关节反馈 ${left + right}/16 · 请检查 ${missing.join('、')} 的供电、接线和终端` : '双臂驱动通信异常'};
+  }
+  if (id === 'base') return {stamp:Number(s?.base?.receive_mono_ns), ready:!!s?.base?.valid,
+    detail:'未收到完整底盘反馈，请检查底盘供电及 CH3'};
+  if (id === 'quest') return {stamp:Number(s?.quest?.receive_mono_ns ?? now - 2e8), ready:!!s?.quest?.fresh,
+    detail:'未收到有效 Quest 报文，请检查应用、Wi-Fi 和板端 UDP 5006 目标'};
+  if (id === 'lift') {
+    const ls = s?.lift_status, lift = s?.lift;
+    const age = s ? liftTelemetryAgeMs(s) : NaN;
+    const transport = ls?.transport === 'uart' ? 'UART' : ls?.transport === 'can' ? 'CAN' : '';
+    const link = ls?.fresh && !ls.uart_reconnecting && age >= 0 && age <= 300;
+    const fault = link && (lift.fault || (lift.flags & 128) || (transport === 'CAN' && (lift.guard & 4)));
+    const protection = fault ? '升降保护/故障仍在' : link && (ls.position_invalid_paused || !(lift.flags & 1)) ?
+      '升降位置保护仍在，保持暂停' : link && !ls.feedback_healthy ? '升降电机反馈仍异常' :
+      link && !lift.valid ? '升降位置样本过期，等待新读数' : '';
+    return {stamp:Number(lift?.receive_first_mono_ns), ready:!!link && !protection, protection,
+      detail:protection || (ls?.uart_reconnecting ? '正在重开升降串口并确认新帧' :
+        '未收到完整升降' + (transport ? ' ' + transport : '') + ' 遥测，请检查设备与接口')};
+  }
+  if (id === 'program') return {stamp:now - 1e9,
+    ready:!!(s?.control?.fresh && s?.recorder?.fresh && s.system.services?.control && s.system.services?.episode),
+    detail:'控制与录制节点尚未就绪'};
+  const c = s?.cameras?.[id];
+  return {stamp:now - Number(c?.age_ms) * 1e6, ready:!!c?.fresh,
+    detail:c?.driver?.fresh && c.driver.phase === 'error' ? c.driver.reason : '未收到图像，请检查此相机的 USB 连接'};
+}
+function setDeviceResult(id, message, pending = false) {
+  deviceResults[id] = {message, until:pending ? Infinity : Date.now() + 30000};
   deviceButtons();
+  if (!pending) log(message);
+}
+function deviceAction(id, action) {
+  return request('/api/devices/' + id, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action})});
+}
+async function reconnectDevice(id, before, startOnly = false) {
+  const baseline = Number(state?.server_mono_ns);
+  setDeviceResult(id, '正在检查接口并恢复采集…', true);
+  const following = before.ActiveState === 'activating' || (startOnly && deviceRunning(before));
+  const submitted = following ? {} : await deviceAction(id,
+    deviceManagementMode() === 'reconnect' || deviceRunning(before) ||
+      (id === 'lift' && state?.system?.lift_reconnect_during_arm_hold === true) ? 'restart' : 'start');
+  const selectedUnit = submitted.unit || before.Id;
+  const deadline = Date.now() + 42000;
+  const beforeStart = Number(before.ExecMainStartTimestampMonotonic) * 1000 || 0;
+  let confirmed = following || !deviceRunning(before), lastStamp = 0, consecutive = 0;
+  let runningSince = 0, knownState = before, lastProtection = '', lastStart = 0;
+  while (Date.now() < deadline) {
+    const current = (await pollDevices())[id];
+    if (current?.Id && selectedUnit && current.Id !== selectedUnit) throw new Error('采集服务选择已变化，请重新确认');
+    if (current) knownState = current;
+    const startedNs = Number(current?.ExecMainStartTimestampMonotonic) * 1000 || 0;
+    if (startedNs > Math.max(baseline, beforeStart) ||
+        ['deactivating', 'inactive'].includes(current?.ActiveState)) confirmed = true;
+    if (current?.ActiveState === 'failed') throw new Error('采集服务启动失败' + (current.Result ? ' · ' + current.Result : ''));
+    if (current?.ActiveState === 'active') {
+      if (!runningSince || startedNs !== lastStart) runningSince = Date.now();
+      const feedback = deviceFeedback(id, state);
+      if (startedNs !== lastStart || (feedback.protection || '') !== lastProtection) consecutive = 0;
+      lastStart = startedNs; lastProtection = feedback.protection || '';
+      if ((feedback.ready || feedback.protection) && feedback.stamp > Math.max(baseline, startedNs || 0)) {
+        if (feedback.stamp > lastStamp) { lastStamp = feedback.stamp; consecutive++; }
+        if (consecutive >= 2 && confirmed) return feedback.protection ? '遥测已恢复 · ' + feedback.protection : '重连完成 · 已确认实时反馈';
+        if (consecutive >= 2 && !startedNs && Date.now() - runningSince >= 3000)
+          return feedback.protection ? '已收到升降遥测 · ' + feedback.protection : '当前反馈在线 · 旧版管理服务未提供重启确认';
+      } else {
+        consecutive = 0;
+      }
+      if (id === 'quest' && Date.now() - runningSince >= 6000 && !feedback.ready)
+        throw new Error(feedback.detail);
+      setDeviceResult(id, '采集服务已运行，正在确认实时反馈…', true);
+    } else {
+      runningSince = 0; lastStamp = 0; consecutive = 0;
+    }
+    await new Promise(resolve => setTimeout(resolve, 750));
+  }
+  if (knownState?.ActiveState === 'active') {
+    const feedback = deviceFeedback(id, state);
+    throw new Error(feedback.ready ? '当前反馈在线 · 服务重启未得到确认' : feedback.detail);
+  }
+  throw new Error(knownState?.Result && knownState.Result !== 'success' ?
+    '采集服务未就绪 · ' + knownState.Result : '等待采集服务启动超时');
 }
 document.querySelectorAll('[data-device] button').forEach(b => b.addEventListener('click', async () => {
-  if (b.disabled || deviceBusy) return;
   const id = b.closest('[data-device]').dataset.device;
-  const running = ['active', 'activating', 'reloading'].includes(deviceStates[id]?.ActiveState);
-  const action = b.dataset.serviceAction === 'toggle' ? (running ? 'stop' : 'start') : 'restart';
-  deviceBusy = true; deviceButtons();
-  try { const result = await request('/api/devices/' + id, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action})}); log(result.message); }
-  catch(e) { log(e.message); }
-  finally { deviceBusy = false; await pollDevices(); }
+  if (b.disabled || deviceBusy.has(id)) return;
+  const toggle = b.dataset.serviceAction === 'toggle';
+  const stop = toggle && deviceRunning(deviceStates[id]);
+  deviceBusy.add(id); deviceButtons();
+  try {
+    const current = (await pollDevices())[id];
+    if (current?.LoadState !== 'loaded' || current.ActiveState === 'deactivating') throw new Error('采集服务暂不可用');
+    const message = stop ?
+      (deviceRunning(current) ? (await deviceAction(id, 'stop')).message : '采集服务已关闭') :
+      await reconnectDevice(id, current, toggle);
+    setDeviceResult(id, message);
+  }
+  catch(e) { setDeviceResult(id, e.message); }
+  finally { deviceBusy.delete(id); await pollDevices(); }
 }));
 pollDevices(); setInterval(pollDevices, 3000); setInterval(deviceButtons, 500);
 
@@ -498,7 +668,11 @@ function liftPositionUI() {
     !ls.feedback_healthy ? '升降反馈异常' : state?.recorder?.failure_menu ? '请先关闭录制失败菜单' :
     state?.control?.fresh && !['disabled','stopped'].includes(state.control.system_phase) ? '请先停止统一遥操作' : '');
   const ours = !!liftPositionOwner && ls?.dashboard_position && ls.external_owner === liftPositionOwner;
-  if (liftPositionOwner && ls?.fresh && !ours && !liftPositionBusy && Date.now()-liftPositionArmedAt>750) { liftPositionOwner = ''; liftPositionError = '位置控制已停止，需要重新开启'; }
+  const positionTimeout = ls?.fresh && ls.reason === 'fresh_position_feedback_timeout';
+  if (liftPositionOwner && ls?.fresh && !ours && !liftPositionBusy && Date.now()-liftPositionArmedAt>750) {
+    liftPositionOwner = '';
+    liftPositionError = '位置控制已停止，需要重新开启';
+  }
   if (!reason && !liftPositionOwner && ls?.enabled) reason = '已有其他控制会话，请先停止';
   if (!reason && !ls?.stationary && !liftPositionOwner) reason = '平台未停稳';
   if (ours && ls.external_task_id === liftPositionTask && ls.external_result === 'reached') liftPositionMoving = false;
@@ -511,7 +685,9 @@ function liftPositionUI() {
   text('lift-position-current', ls?.fresh && ls.feedback_healthy ? (ls.current_um/1000).toFixed(3) : '—');
   badge('lift-position-badge', ours ? ready ? '位置控制就绪' : '位置控制中' : reason ? '暂不可开启' : '等待开启', ours ? 'good' : 'warn');
   const detail = {configuring:'读取设备配置',waiting_for_settle:'等待停稳',connecting:'准备运动',session_ready:'等待设备就绪',move_ack:'运动准备中',moving:'正在移动',stopping:'正在停车',idle:ls?.external_result === 'reached' ? '已到位并锁定，可选择下一个位置' : '可选择目标位置'};
-  text('lift-position-state', liftPositionError || reason || (ours ? detail[ls.phase] || ls.phase : '开启后可独立控制升降位置，无需 Quest。'));
+  const progress = ls?.waiting_for_fresh_position ? '等待新鲜位置反馈' : detail[ls?.phase] || ls?.phase;
+  text('lift-position-state', positionTimeout ? '等待新鲜位置反馈超时，目标已撤销，需要重新开启' :
+    liftPositionError || reason || (ours ? progress : '开启后可独立控制升降位置，无需 Quest。'));
 }
 function liftPositionPayload(extra = {}) { return JSON.stringify({owner:liftPositionOwner,sequence:++liftPositionSequence,...extra}); }
 async function liftPositionRequest(command, extra = {}) {
@@ -556,7 +732,7 @@ $('lift-position-stop').addEventListener('click',async()=>{
   catch(e){liftPositionError=e.message;}liftPositionUI();
 });
 async function liftPositionHeartbeat(){
-  if(!liftPositionOwner||liftPositionPending)return;
+  if(!liftPositionOwner||liftPositionBusy||liftPositionPending)return;
   liftPositionPending=true;const owner=liftPositionOwner;
   try{await liftPositionRequest('heartbeat');if(owner===liftPositionOwner){liftPositionHeartbeatAckAt=Date.now();if(liftPositionError.startsWith('续租响应延迟')){liftPositionError='';liftPositionUI();}}}
   catch(e){if(owner===liftPositionOwner){

@@ -47,12 +47,49 @@ class Server : public rclcpp::Node {
   std::vector<rclcpp::SubscriptionBase::SharedPtr> subs_;
   rclcpp::Client<luxi::Service>::SharedPtr arm_client_, record_client_, base_client_, lift_client_;
 
+  // Called with mutex_ held. Reopening only the idle UART service is independent
+  // of an already stopped ACT session retaining OpenArm torque.
+  bool lift_reconnect_during_arm_hold(int64_t now) const {
+    constexpr int64_t status_ttl = 500000000;
+    if (!state_.is_object() || !state_.value("enabled", false) ||
+        state_.value("phase", std::string()) != "manual_pose_hold" ||
+        !luxi::fresh(std::stoll(state_.at("receive_mono_ns").get<std::string>()), now, status_ttl) ||
+        !startup_.is_object() || !luxi::fresh(startup_time_, now, status_ttl) ||
+        !control_.is_object() || !luxi::fresh(control_time_, now, status_ttl) ||
+        control_.value("system_phase", std::string()) != "disabled" ||
+        !lift_status_.is_object() || !luxi::fresh(lift_status_time_, now, status_ttl))
+      return false;
+    const auto act = startup_.value("act", luxi::Json::object());
+    const auto stage = act.is_object() ? act.value("stage", std::string()) : std::string();
+    return (stage == "stopped" || stage == "fault") &&
+           lift_status_.value("transport", std::string()) == "uart" &&
+           lift_status_.value("phase", std::string()) == "disabled" &&
+           !lift_status_.value("enabled", true) && !lift_status_.value("session", true) &&
+           !lift_status_.value("session_present", true) &&
+           !lift_status_.value("external_control", true) &&
+           !lift_status_.value("dashboard_position", true) &&
+           !(lift_status_.value("flags", 255) & (4 | 8 | 64));
+  }
+
  public:
   Server() : Node("web_ctrl") {
     root_ = declare_parameter<std::string>("directory", "data");
     luxi::fs::create_directories(root_);
     root_ = luxi::fs::canonical(root_);
     const bool ram_staging = declare_parameter("ram_staging", false);
+    const bool read_only = declare_parameter("read_only", false);
+    const bool allow_device_reconnect = declare_parameter("allow_device_reconnect", false);
+    if (read_only) {
+      http_.set_pre_routing_handler([allow_device_reconnect](const auto& req, auto& res) {
+        if (req.method == "GET" || req.method == "HEAD")
+          return httplib::Server::HandlerResponse::Unhandled;
+        if (allow_device_reconnect && req.method == "POST" && req.path.rfind("/api/devices/", 0) == 0)
+          return httplib::Server::HandlerResponse::Unhandled;
+        res.status = 405;
+        res.set_header("Allow", "GET, HEAD");
+        return httplib::Server::HandlerResponse::Handled;
+      });
+    }
     receiver_ = std::make_unique<luxi::ReceiverQueue>(root_, ram_staging);
     http_.Get("/api/receiver", [this](const auto&, auto& res) {
       res.set_content(receiver_->status().dump(), "application/json");
@@ -312,13 +349,29 @@ class Server : public rclcpp::Node {
       if (!result.is_object()) return luxi::Json{{"success", false}, {"message", "设备管理服务未安装或响应超时"}};
       return result;
     };
-    http_.Get("/api/devices", [management](const auto&, auto& res) {
+    http_.Get("/api/devices", [management, read_only, allow_device_reconnect](const auto&, auto& res) {
       auto result = management("status");
+      result["management_mode"] = !read_only ? "full" : allow_device_reconnect ? "reconnect" : "read_only";
+      FILE* pipe = popen("/usr/sbin/ip -j -details link show type can 2>/dev/null", "r");
+      if (pipe) {
+        std::string output;
+        char buffer[4096];
+        while (fgets(buffer, sizeof(buffer), pipe)) output += buffer;
+        if (!pclose(pipe)) {
+          const auto links = luxi::Json::parse(output, nullptr, false);
+          if (links.is_array()) for (const auto& link : links) {
+            const auto name = link.value("ifname", std::string());
+            if (name != "luxi_left" && name != "luxi_right" && name != "luxi_base") continue;
+            const auto info = link.value("linkinfo", luxi::Json::object()).value("info_data", luxi::Json::object());
+            result["can"][name] = info.value("state", "UNKNOWN");
+          }
+        }
+      }
       res.status = result.value("success", false) ? 200 : 503;
       res.set_header("Cache-Control", "no-store");
       res.set_content(result.dump(), "application/json");
     });
-    http_.Post("/api/devices/([a-z_]+)", [this, management](const auto& req, auto& res) {
+    http_.Post("/api/devices/([a-z_]+)", [this, management, read_only](const auto& req, auto& res) {
       auto fail = [&](int code, const char* message) { res.status = code; res.set_content(luxi::Json{{"success", false}, {"message", message}}.dump(), "application/json"); };
       const std::string id = req.matches[1];
       const std::set<std::string> ids{"arms", "base", "lift", "quest", "program", "head_rgb", "left_wrist_rgb", "right_wrist_rgb"};
@@ -326,12 +379,34 @@ class Server : public rclcpp::Node {
       if (!ids.count(id) || req.get_header_value("Content-Type").find("application/json") != 0 || !body.is_object() || !body.value("action", luxi::Json()).is_string()) { fail(400, "无效设备或操作"); return; }
       auto action = body.at("action").template get<std::string>();
       if (action != "start" && action != "stop" && action != "restart") { fail(400, "无效操作"); return; }
+      if (read_only && action != "restart") { fail(403, "此网关仅开放采集重连"); return; }
       {
         std::lock_guard<std::mutex> lock(mutex_);
-        if ((state_.is_object() && state_.value("enabled", false) && luxi::fresh(std::stoll(state_.at("receive_mono_ns").template get<std::string>()), luxi::mono(), 500000000)) ||
-            (base_status_.is_object() && base_status_.value("enabled", false) && luxi::fresh(base_status_time_, luxi::mono(), 500000000)) ||
-            (lift_status_.is_object() && lift_status_.value("enabled", false) && luxi::fresh(lift_status_time_, luxi::mono(), 500000000)) ||
-            (recorder_.is_object() && recorder_.value("state", std::string()) == "recording" && luxi::fresh(recorder_time_, luxi::mono(), 2000000000))) {
+        const auto now = luxi::mono();
+        if (id == "arms" && state_.is_object() && state_.value("enabled", false)) {
+          fail(409, "双臂仍有使能记录，请确认失能后再重连"); return;
+        }
+        if (id == "arms" && startup_.is_object()) {
+          const auto act = startup_.value("act", luxi::Json::object());
+          const auto stage = act.value("stage", std::string());
+          if (stage == "homing" || stage == "ready" || stage == "running") {
+            fail(409, "请先结束 ACT 会话，再重连双臂"); return;
+          }
+          const auto pose = startup_.value("manual_pose", luxi::Json::object());
+          if (pose.is_object()) {
+            const auto phase = pose.value("phase", std::string());
+            if (phase == "editing" || phase == "preparing" || phase == "holding" || phase == "moving") {
+              fail(409, "请先退出双臂动作设置，再管理采集服务"); return;
+            }
+          }
+        }
+        const bool arm_interlock = state_.is_object() && state_.value("enabled", false) &&
+            luxi::fresh(std::stoll(state_.at("receive_mono_ns").template get<std::string>()), now, 500000000);
+        const bool independent_lift_restart = id == "lift" && action == "restart" && lift_reconnect_during_arm_hold(now);
+        if ((arm_interlock && !independent_lift_restart) ||
+            (base_status_.is_object() && base_status_.value("enabled", false) && luxi::fresh(base_status_time_, now, 500000000)) ||
+            (lift_status_.is_object() && lift_status_.value("enabled", false) && luxi::fresh(lift_status_time_, now, 500000000)) ||
+            (recorder_.is_object() && recorder_.value("state", std::string()) == "recording" && luxi::fresh(recorder_time_, now, 2000000000))) {
           fail(409, "请先撤销电机使能并结束录制，再管理采集服务"); return;
         }
       }
@@ -339,7 +414,7 @@ class Server : public rclcpp::Node {
       res.status = result.value("success", false) ? 202 : 503;
       res.set_content(result.dump(), "application/json");
     });
-    http_.Get("/api/state", [this, ram_staging](const auto&, auto& res) {
+    http_.Get("/api/state", [this, ram_staging, read_only, allow_device_reconnect](const auto&, auto& res) {
       std::lock_guard<std::mutex> lock(mutex_);
       const auto now = luxi::mono();
       auto base = base_, arms = state_, control = control_, recorder = recorder_, base_status = base_status_;
@@ -411,11 +486,14 @@ class Server : public rclcpp::Node {
         {"arm_startup", startup}, {"arms", arms}, {"base", base}, {"base_status", base_status}, {"control", control}, {"recorder", recorder},
         {"lift", lift}, {"lift_status", lift_status},
         {"quest", {{"fresh", luxi::fresh(quest_.receive_mono_ns, now, 200000000)}, {"rate_hz", rate},
+          {"receive_mono_ns", std::to_string(quest_.receive_mono_ns)},
           {"left_tracking", quest_.left_tracking}, {"right_tracking", quest_.right_tracking},
           {"sticks", quest_.sticks}, {"grips", quest_.grips}}}, {"cameras", cameras},
         {"system", {{"mock", mock_}, {"base_enabled", base_enabled_}, {"no_cameras", no_cameras_},
           {"data_directory", root_.string()}, {"free_gib", ec ? -1.0 : disk.available / 1073741824.0},
-          {"control_authorized", true},
+          {"control_authorized", !read_only},
+          {"device_management_mode", !read_only ? "full" : allow_device_reconnect ? "reconnect" : "read_only"},
+          {"lift_reconnect_during_arm_hold", lift_reconnect_during_arm_hold(now)},
           {"services", {{"arm_startup", startup_client_->service_is_ready()}, {"control", arm_client_->service_is_ready()}, {"base", base_client_->service_is_ready()}, {"lift", lift_client_->service_is_ready()}, {"episode", record_client_->service_is_ready()}}}}},
         {"receiver", receiver_->status()}, {"ram_staging", ram_staging},
         {"server_mono_ns", std::to_string(now)}}.dump(), "application/json");
